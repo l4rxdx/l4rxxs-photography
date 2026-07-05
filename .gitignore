@@ -1,2 +1,4 @@
 tmp-*.network-response
 images/originals/
+dist/
+node_modules/
