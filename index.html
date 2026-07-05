@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>l4rxx - Overview</title>
+  <meta name="description" content="Portfolio overview for l4rxx.">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="site home" data-page="home">
+  <header class="site-header">
+    <button class="nav-toggle js-nav-toggle" type="button" aria-label="Open navigation">
+      <span></span>
+      <span></span>
+    </button>
+  </header>
+
+  <div class="language-switch js-language-switch" data-language-switch aria-label="Language switch">
+    <button type="button" data-lang-option="cn" aria-pressed="false">&#20013;&#25991;</button>
+    <span>/</span>
+    <button type="button" data-lang-option="en" aria-pressed="true">&#33521;&#35821;</button>
+  </div>
+
+  <aside class="nav-screen js-nav-screen" aria-hidden="true">
+    <div class="nav-screen__inner">
+      <nav class="nav-screen__nav" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.overview">OVERVIEW</a>
+        <a href="work.html" data-i18n="nav.work">WORK</a>
+      </nav>
+      <div class="nav-screen__about">
+        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
+        <p data-i18n="home.about">l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.</p>
+      </div>
+      <div class="nav-screen__footer">
+        <nav class="nav-screen__social" aria-label="Social links">
+          <a href="mailto:hello@l4rxx.local" data-i18n="contact">CONTACT ME</a>
+          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer" data-i18n="social.douyin">TIKTOK</a>
+          <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer">INS</a>
+        </nav>
+        <span data-i18n="rights">&copy; 2026 - all rights reserved</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="overview" id="phatscroll">
+    <h1 class="brand-title" aria-label="l4rxx"><span>l4rxx</span></h1>
+    <div class="overview-grid c-element-overviewgrid js-infinity-scroll" data-overview-grid></div>
+  </main>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>

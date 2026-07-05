@@ -1,0 +1,224 @@
+{
+  "meta": {
+    "name": "l4rxx Gregor Collienne-inspired portfolio DNA",
+    "description": "Design DNA extracted from gregorcollienne.com and applied to a local l4rxx photography portfolio with original implementation and local image assets.",
+    "source_references": [
+      "https://gregorcollienne.com/",
+      "https://gregorcollienne.com/work/",
+      "https://gregorcollienne.com/focus/?rel=1"
+    ],
+    "created_at": "2026-07-05"
+  },
+  "design_system": {
+    "color": {
+      "palette_type": "near-monochromatic",
+      "primary": { "hex": "#0c0c0c", "role": "text, controls, dividers" },
+      "secondary": { "hex": "#f5f3f0", "role": "page background and overlay base" },
+      "accent": { "hex": "#d8d6d1", "role": "muted separators and soft overlay support" },
+      "neutral": {
+        "scale": ["#0c0c0c", "#3a3936", "#8b8983", "#d8d6d1", "#f5f3f0"],
+        "usage": "high contrast black typography on warm off-white surfaces"
+      },
+      "semantic": {
+        "success": "#2f6b4f",
+        "warning": "#9c7724",
+        "error": "#8e2d24",
+        "info": "#315f7a"
+      },
+      "surface": {
+        "background": "#f5f3f0",
+        "card": "#f5f3f0",
+        "elevated": "rgba(245, 243, 240, 0.92)"
+      },
+      "contrast_strategy": "strong black-on-light contrast with image color carrying the only visual chroma"
+    },
+    "typography": {
+      "type_scale": {
+        "display": { "size": "74px desktop / 48px mobile", "weight": "900", "line_height": "0.85", "tracking": "0" },
+        "heading_1": { "size": "58px desktop / 38px mobile", "weight": "900", "line_height": "0.95", "tracking": "0" },
+        "heading_2": { "size": "44px", "weight": "900", "line_height": "1", "tracking": "0" },
+        "heading_3": { "size": "32px", "weight": "900", "line_height": "1", "tracking": "0" },
+        "body": { "size": "28px", "weight": "900", "line_height": "0.95", "tracking": "0" },
+        "body_small": { "size": "20px", "weight": "900", "line_height": "1", "tracking": "0" },
+        "caption": { "size": "11px", "weight": "400", "line_height": "1.2", "tracking": "0" },
+        "overline": { "size": "12px", "weight": "400", "line_height": "1.2", "tracking": "0" }
+      },
+      "font_families": {
+        "heading": "Arial Narrow, Helvetica Neue Condensed Bold, Impact, sans-serif",
+        "body": "Arial Narrow, Helvetica Neue Condensed Bold, Impact, sans-serif",
+        "mono": "Consolas, monospace"
+      },
+      "font_style_notes": "heavy condensed uppercase sans-serif approximating the source narrow editorial type without bundling proprietary fonts"
+    },
+    "spacing": {
+      "base_unit": "0.4rem",
+      "scale": ["0.4rem", "0.8rem", "1.2rem", "1.6rem", "2.4rem", "3.2rem", "4.8rem", "6.4rem", "8rem", "9.6rem"],
+      "content_density": "spacious",
+      "section_rhythm": "large negative-space fields with small fixed controls and wide image gaps"
+    },
+    "layout": {
+      "grid_system": "source-style five-column offset overview grid, asymmetric twelve-column grid on work, fixed-center viewer on focus",
+      "max_content_width": "118rem for list view, viewport-bound for image pages",
+      "columns": "12 on desktop, single flow on mobile",
+      "gutter": "6.4rem desktop / 1.6rem mobile",
+      "breakpoints": ["768px"],
+      "alignment_tendency": "centered controls with asymmetric photographic placement"
+    },
+    "shape": {
+      "border_radius": { "small": "0", "medium": "0", "large": "0", "pill": "0" },
+      "border_usage": "thin underlines and horizontal list dividers only",
+      "divider_style": "solid 2px black list rules"
+    },
+    "elevation": {
+      "shadow_style": "none",
+      "levels": { "low": "none", "medium": "none", "high": "none" },
+      "depth_cues": "z-index staging, blur transitions, scale, and fixed layers"
+    },
+    "iconography": {
+      "style": "typographic plus/close mark",
+      "stroke_weight": "2.6px",
+      "size_scale": "42px control box",
+      "preferred_set": "none"
+    },
+    "motion": {
+      "easing": "cubic-bezier(.77, 0, .175, 1)",
+      "duration_scale": { "micro": "0.38s", "normal": "0.65s", "macro": "0.79s" },
+      "entrance_pattern": "blurred 3D rotateX and translate reveal",
+      "exit_pattern": "reverse blur with overlay state changes",
+      "philosophy": "cinematic but restrained editorial transitions"
+    },
+    "components": {
+      "button_style": "unstyled text buttons with underline-on-hover or plus icon",
+      "input_style": "not present",
+      "card_style": "none; images are unframed",
+      "navigation_pattern": "centered plus opens full-screen navigation overlay",
+      "modal_style": "full-screen blurred overlay",
+      "list_style": "large uppercase rows with hard dividers and hover image preview",
+      "component_notes": "viewer uses a scroll-driven thumbnail rail, centered fixed main image, vertical caption, and bottom text actions"
+    }
+  },
+  "design_style": {
+    "aesthetic": {
+      "mood": ["spare", "editorial", "quiet", "confident"],
+      "visual_metaphor": "loose contact sheet around a fixed photographer name",
+      "era_influence": "contemporary minimalist portfolio with print editorial restraint",
+      "genre": "photography portfolio",
+      "personality_traits": ["direct", "observant", "disciplined"],
+      "adjectives": ["minimal", "bold", "airy", "photographic", "precise"]
+    },
+    "visual_language": {
+      "complexity": "moderate",
+      "ornamentation": "none beyond motion and image placement",
+      "whitespace_usage": "dominant and structural",
+      "visual_weight_distribution": "heavy black typography balanced against irregular photo blocks",
+      "focal_strategy": "single central name or image with peripheral navigation",
+      "contrast_level": "high",
+      "texture_usage": "photographic texture only"
+    },
+    "composition": {
+      "hierarchy_method": "scale contrast and spatial isolation",
+      "balance_type": "asymmetric with centered anchors",
+      "flow_direction": "vertical scroll on desktop, horizontal thumbnail scanning on mobile focus",
+      "grouping_strategy": "image clusters orbit fixed controls",
+      "negative_space_role": "primary compositional material"
+    },
+    "imagery": {
+      "photo_treatment": "natural color, no frames, no radius, object-fit contain/cover by context",
+      "illustration_style": "none",
+      "graphic_elements": "plus mark, underline rules, vertical caption",
+      "pattern_usage": "none",
+      "image_shape": "native image ratios"
+    },
+    "interaction_feel": {
+      "feedback_style": "subtle underline, hover scale, active thumbnail offset",
+      "hover_behavior": "image scale in grid, preview reveal in list, and center-distance thumbnail push in focus view",
+      "transition_personality": "smooth glide with blur",
+      "loading_style": "brief warm-white cover then staggered reveal",
+      "microinteraction_density": "low"
+    },
+    "brand_voice_in_ui": {
+      "tone": "minimal editorial",
+      "formality": "direct",
+      "cta_style": "plain labels",
+      "empty_state_approach": "not applicable because local assets are present",
+      "error_tone": "silent fallback to first image if rel is missing"
+    }
+  },
+  "visual_effects": {
+    "overview": {
+      "effect_intensity": "moderate",
+      "performance_tier": "lightweight",
+      "fallback_strategy": "respect prefers-reduced-motion by reducing transition duration",
+      "primary_technology": "CSS transitions and vanilla JavaScript"
+    },
+    "background_effects": {
+      "type": "none",
+      "description": "flat warm off-white background",
+      "technology": "CSS",
+      "params": { "color_palette": ["#f5f3f0"], "speed": "0", "density": "0", "opacity": "1", "blend_mode": "normal" }
+    },
+    "particle_systems": {
+      "enabled": false,
+      "type": "none",
+      "description": "no particles present",
+      "technology": "none",
+      "params": { "count": 0, "shape": "none", "size_range": "none", "movement_pattern": "none", "color_behavior": "none", "interaction": "none", "spawn_area": "none" }
+    },
+    "3d_elements": {
+      "enabled": false,
+      "type": "css-3d-text-only",
+      "description": "no WebGL or real 3D scene; 3D feeling comes from rotateX text/image reveal",
+      "technology": "CSS transforms",
+      "params": { "renderer": "browser compositor", "lighting": "none", "camera": "perspective CSS", "materials": "DOM elements", "geometry": "planes", "post_processing": "blur filter", "interaction_model": "class toggles and hover" }
+    },
+    "shader_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "Chrome runtime inspection found no canvas, shaderSource, framebuffer, uniform, or draw calls",
+      "technology": "none",
+      "params": { "uniforms": "none", "vertex_manipulation": "none", "fragment_output": "none", "noise_type": "none", "distortion": "none" }
+    },
+    "scroll_effects": {
+      "parallax": { "enabled": false, "layers": "none", "depth_range": "none", "speed_curve": "none" },
+      "scroll_triggered_animations": { "enabled": true, "trigger_points": "initial load and scroll-position focus", "animation_type": "staggered reveal and active thumbnail offset", "scrub_behavior": "thumbnail center distance drives active image and horizontal push" },
+      "scroll_morphing": { "enabled": false, "description": "no geometry morphing" }
+    },
+    "text_effects": {
+      "type": "3d-flip-reveal",
+      "description": "large uppercase text enters from blur with rotateX and vertical translation",
+      "technology": "CSS transforms",
+      "params": { "split_strategy": "whole label", "animation_per_unit": "translateY and rotateX", "stagger": "0.03s to 0.15s", "effect_style": "phat flip inspired reveal" }
+    },
+    "cursor_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "default cursor",
+      "params": { "shape": "default", "size": "system", "blend_mode": "normal", "trail": "none", "interaction_zone": "links and buttons only" }
+    },
+    "image_effects": {
+      "type": "staggered-reveal-hover-scale",
+      "description": "images reveal from blur/translate and scale subtly on hover",
+      "technology": "CSS transitions",
+      "params": { "filter_pipeline": "blur to none", "hover_transform": "scale(1.035) or active thumbnail offset", "reveal_animation": "opacity/blur/translate", "distortion_type": "none" }
+    },
+    "glassmorphism_neumorphism": {
+      "enabled": true,
+      "style": "blurred overlay",
+      "params": { "blur_radius": "12px", "transparency": "70%-92% warm-white overlay", "border_treatment": "none", "shadow_type": "none", "light_source_angle": "not applicable" }
+    },
+    "canvas_drawings": {
+      "enabled": false,
+      "type": "none",
+      "description": "no canvas found or recreated",
+      "technology": "none",
+      "params": { "draw_method": "none", "animation_loop": "none", "color_scheme": "none", "responsiveness": "none", "interaction": "none" }
+    },
+    "svg_animations": {
+      "enabled": false,
+      "type": "none",
+      "description": "plus icon is CSS, not SVG",
+      "params": { "animation_method": "none", "path_morphing": "none", "stroke_animation": "none", "filter_effects": "none" }
+    },
+    "composite_notes": "The source site is not shader-driven. Its fidelity comes from DOM layer choreography: fixed centered controls, sparse image placement, blur overlays, 3D rotateX text reveal, active thumbnail offsets, and rel-based focus navigation."
+  }
+}
