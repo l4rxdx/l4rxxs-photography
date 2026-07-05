@@ -1,0 +1,16 @@
+{
+  "name": "l4rxx",
+  "short_name": "l4rxx",
+  "description": "Portfolio overview for l4rxx.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f5f3f0",
+  "theme_color": "#f5f3f0",
+  "icons": [
+    {
+      "src": "assets/favicon.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

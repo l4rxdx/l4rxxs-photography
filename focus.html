@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>l4rxx - Focus</title>
+  <meta name="description" content="Focused image view for l4rxx.">
+  <meta property="og:title" content="l4rxx">
+  <meta property="og:description" content="Focused image view for l4rxx.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="images/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#f5f3f0">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="site focus" data-page="focus">
+  <header class="site-header">
+    <button class="nav-toggle js-nav-toggle" type="button" aria-label="Open navigation">
+      <span></span>
+      <span></span>
+    </button>
+  </header>
+
+  <aside class="nav-screen js-nav-screen" aria-hidden="true">
+    <div class="nav-screen__inner">
+      <nav class="nav-screen__nav" aria-label="Primary">
+        <a href="index.html">OVERVIEW</a>
+        <a href="work.html">WORK</a>
+      </nav>
+      <div class="nav-screen__about">
+        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
+        <p>Every frame here is loaded from the local images folder and addressed through the rel query.</p>
+      </div>
+      <div class="nav-screen__footer">
+        <nav class="nav-screen__social" aria-label="Social links">
+          <a href="mailto:hello@l4rxx.local">CONTACT ME</a>
+          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer">DOUYIN</a>
+          <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer">INS</a>
+        </nav>
+        <span>© 2026 - all rights reserved</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="focus-shell" data-focus-shell>
+    <div class="focus-title" data-focus-title></div>
+    <nav class="focus-rail" data-focus-thumbs aria-label="Photo thumbnails"></nav>
+    <figure class="focus-main">
+      <img data-focus-image alt="">
+      <figcaption data-focus-caption></figcaption>
+    </figure>
+    <section class="focus-info" data-focus-info aria-label="Photo information">
+      <div>
+        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="focus-info__avatar">
+        <p>l4rxx keeps the gallery sparse: a centered frame, a small index, and enough empty space for the image to breathe.</p>
+      </div>
+    </section>
+    <footer class="focus-actions">
+      <a href="index.html" class="js-back">BACK</a>
+      <button type="button" data-focus-index>INDEX</button>
+      <button type="button" data-focus-info-toggle>INFO</button>
+    </footer>
+  </main>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
