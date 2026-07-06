@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 function Assert-True {
@@ -44,7 +44,7 @@ Assert-True ($Css -match "\.language-switch") "language switch should have sourc
 Assert-True ($AllText -match "https://www\.douyin\.com/user/self\?from_tab_name=main") "nav screen should link to Douyin"
 Assert-True ($AllText -match "https://www\.instagram\.com/l4rxdx/") "nav screen should link to Instagram"
 Assert-True ($Css -match "\.nav-screen__social") "nav social links should have a menu footer layout"
-Assert-True ($AllText -match "微信图片_20260704181629\.jpg") "avatar should be wired in"
+Assert-True ($AllText -match "寰俊鍥剧墖_20260704181629\.jpg") "avatar should be wired in"
 Assert-True ($AllText -match '<link rel="icon" type="image/png" href="assets/favicon\.png">') "all pages should use the avatar favicon"
 Assert-True ($AllText -match '<link rel="apple-touch-icon" href="assets/favicon\.png">') "all pages should expose the avatar touch icon"
 Assert-True ($AllText -match '<link rel="manifest" href="site\.webmanifest">') "all pages should expose the web manifest"
@@ -56,8 +56,9 @@ Assert-True ($App -match 'fetch\("content/photos\.json"\)') "gallery should load
 Assert-True ($App -notmatch 'const\s+photos\s*=\s*\[') "gallery photos should not be hard-coded in app.js"
 
 $ImageSources = @($Photos | ForEach-Object { $_.full; $_.thumb })
-Assert-True ($Photos.Count -eq 25) "gallery should include 25 local images after removing the selected photo"
+Assert-True ($Photos.Count -eq 43) "gallery should include 43 local images after adding the latest photos"
 Assert-True ($PhotosJson -notmatch "DSC00081|001-dsc00081") "removed selected photo should not appear in gallery data"
+Assert-True ($PhotosJson -match "R0010392|DSC02934-2|DSC01690") "newly added photos should appear in gallery data"
 Assert-True (($Photos.full | Select-Object -Unique).Count -eq $Photos.Count) "gallery full image list should not repeat files"
 Assert-True (($Photos.thumb | Select-Object -Unique).Count -eq $Photos.Count) "gallery thumbnail image list should not repeat files"
 
@@ -155,6 +156,7 @@ Assert-True ($Css -match "returnLand") "home return should include a target land
 Assert-True ($AllText -match "has-finished") "home title reveal should wait for the finished loading state"
 Assert-True ($AllText -match "grid-template-columns:\s*repeat\(5,\s*1fr\)") "home overview should use the source-style five-column grid"
 Assert-True ($AllText -match "body\.has-finished\s+\.c-element-overviewgrid\s+\.overview-item\.is-visible\s+\.fs-media") "home photos should animate from centered opening state to their grid cells"
-Assert-True ($UpdateLog -match "2026-07-06" -and $UpdateLog -match "Gaussian" -and $UpdateLog -match "001-dsc00081") "update log should describe this project update"
+Assert-True ($UpdateLog -match "2026-07-06" -and $UpdateLog -match "Gaussian" -and $UpdateLog -match "001-dsc00081" -and $UpdateLog -match "43 photos") "update log should describe this project update"
 
 Write-Host "site-check passed"
+

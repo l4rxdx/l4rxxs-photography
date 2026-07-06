@@ -1,8 +1,8 @@
-param(
+﻿param(
     [string]$Root = (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)),
-    [int]$WebMax = 2200,
-    [int]$ThumbMax = 520,
-    [int]$JpegQuality = 84,
+    [int]$WebMax = 1920,
+    [int]$ThumbMax = 480,
+    [int]$JpegQuality = 82,
     [switch]$Force
 )
 
@@ -47,7 +47,25 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "R0011216.jpg"; title = "ROLL 23"; category = "ROLL"; caption = "A dense image with a generous margin." },
     @{ original = "R0011206.jpg"; title = "ROLL 24"; category = "ROLL"; caption = "The last stretch of the local sequence." },
     @{ original = "R0011157.jpg"; title = "ROLL 25"; category = "ROLL"; caption = "A final still before closing the set." },
-    @{ original = "R0011079.jpg"; title = "ROLL 26"; category = "ROLL"; caption = "The final unique photo in this build." }
+    @{ original = "R0011079.jpg"; title = "ROLL 26"; category = "ROLL"; caption = "The final unique photo in this build." },
+    @{ original = "DSC02934-2.jpg"; title = "RAIN 27"; category = "WATER"; caption = "A dark figure and umbrella held against open water." },
+    @{ original = "DSC01690.jpg"; title = "RIDE 28"; category = "STREET"; caption = "A lifted bicycle wheel in hard afternoon light." },
+    @{ original = "1.jpg"; title = "BLOOM 29"; category = "PORTRAIT"; caption = "A bright portrait framed by pink flowers." },
+    @{ original = "R0011221.jpg"; title = "PARK 30"; category = "REFLECTION"; caption = "Autumn light doubles across the pond." },
+    @{ original = "R0011494.jpg"; title = "ROOM 31"; category = "FRIENDS"; caption = "A loose flash frame from the sofa." },
+    @{ original = "DSC01040.jpg"; title = "QUEUE 32"; category = "TRANSIT"; caption = "A ferry crowd compressed beneath a curved roof." },
+    @{ original = "R0011433.jpg"; title = "PARK 33"; category = "VENDOR"; caption = "Colorful kites and toys waiting in warm grass." },
+    @{ original = "R0011430.jpg"; title = "TABLE 34"; category = "BOOK"; caption = "A yellow book, a bottle, and a quiet table." },
+    @{ original = "DSC02184.jpg"; title = "SHADE 35"; category = "CHILD"; caption = "A small orange held at the edge of shade." },
+    @{ original = "DSC00505.jpg"; title = "COURT 36"; category = "INTERIOR"; caption = "A basketball court emptied into soft glare." },
+    @{ original = "DSC00618.jpg"; title = "AIRPORT 37"; category = "NIGHT"; caption = "Blue hour planes seen through terminal glass." },
+    @{ original = "DSC00627.jpg"; title = "CABIN 38"; category = "FLIGHT"; caption = "An aisle view before the cabin settles." },
+    @{ original = "DSC01142-2.jpg"; title = "TERMINAL 39"; category = "TRANSIT"; caption = "A black-and-white passage under a clock." },
+    @{ original = "Desktop Screenshot 2025.12.07 - 15.24.09.11.jpg"; title = "CAT 40"; category = "SQUARE"; caption = "A dark cat caught beside a metal fence." },
+    @{ original = "R0010964.jpg"; title = "PATH 41"; category = "MOUNTAIN"; caption = "A rain-covered figure climbing into fog." },
+    @{ original = "DSC02624.jpg"; title = "BLOOM 42"; category = "HAND"; caption = "A small white flower resting in the palm." },
+    @{ original = "R0011060.JPG"; title = "NIGHT 43"; category = "HILL"; caption = "A nearly black horizon with one small light." },
+    @{ original = "R0010392.JPG"; title = "BLUE 44"; category = "WRIST"; caption = "Blue fabric and beads around an open hand." }
 )
 
 function Convert-ToSlug {
@@ -171,7 +189,7 @@ foreach ($File in $OrderedFiles) {
     $ThumbPath = Join-Path $Root $ThumbRelative
 
     Save-ResizedImage -Source $File.FullName -Destination $WebPath -MaxEdge $WebMax -Quality $JpegQuality
-    Save-ResizedImage -Source $File.FullName -Destination $ThumbPath -MaxEdge $ThumbMax -Quality 78
+    Save-ResizedImage -Source $File.FullName -Destination $ThumbPath -MaxEdge $ThumbMax -Quality 74
 
     $Title = if ($Existing -and $Existing.title) { $Existing.title } elseif ($Seed) { $Seed.title } else { "IMAGE {0:D2}" -f $Id }
     $Category = if ($Existing -and $Existing.category) { $Existing.category } elseif ($Seed) { $Seed.category } else { "NEW" }
@@ -216,3 +234,5 @@ $Json = $Output | ConvertTo-Json -Depth 6
 [System.IO.File]::WriteAllText($PhotosPath, $Json + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Generated $($Items.Count) photos in content/photos.json"
+
+
