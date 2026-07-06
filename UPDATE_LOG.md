@@ -3,6 +3,7 @@
 ## 2026-07-07
 
 - Published the 43-photo gallery update to GitHub and Cloudflare Pages after local review.
+- Included UPDATE_LOG.md in the Cloudflare build output so release notes are deployed with the site.
 - Kept generated web images compressed at a 1920px max edge and thumbnails at a 480px max edge for faster page loads.
 
 ## 2026-07-06

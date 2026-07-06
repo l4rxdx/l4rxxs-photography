@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+﻿import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +10,7 @@ const rootFiles = [
   "focus.html",
   "index.html",
   "robots.txt",
+  "UPDATE_LOG.md",
   "site.webmanifest",
   "sitemap.xml",
   "work.html"
@@ -49,3 +50,4 @@ for (const dir of ["thumbs", "web"]) {
 }
 
 console.log("Built static site to dist/");
+
