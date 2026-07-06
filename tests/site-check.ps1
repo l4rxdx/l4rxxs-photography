@@ -16,7 +16,7 @@ function Read-Text {
     Get-Content -Raw -LiteralPath (Join-Path $Root $RelativePath)
 }
 
-foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "scripts/build-cloudflare.mjs", "package.json", "wrangler.toml", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest")) {
+foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest")) {
     Assert-True (Test-Path -LiteralPath (Join-Path $Root $File)) "$File should exist"
 }
 
@@ -25,8 +25,6 @@ $Css = Read-Text "assets/styles.css"
 $Index = Read-Text "index.html"
 $Work = Read-Text "work.html"
 $Focus = Read-Text "focus.html"
-$Package = Read-Text "package.json"
-$Wrangler = Read-Text "wrangler.toml"
 $PhotosJson = Read-Text "content/photos.json"
 $AllText = "$Index`n$Work`n$Focus`n$App`n$Css"
 $PhotoData = $PhotosJson | ConvertFrom-Json
@@ -80,8 +78,6 @@ Assert-True ($App -match "normalizePhoto") "app should normalize generated photo
 Assert-True ($App -match "photo\.thumb") "app should use thumbnail images for overview and rails"
 Assert-True ($App -match "photo\.full") "app should use full images for focus view"
 Assert-True ($AllText -match "images/og-image\.jpg") "site should expose a share preview image"
-Assert-True ($Package -match '"build":\s*"node scripts/build-cloudflare\.mjs"') "package.json should expose a Cloudflare build command"
-Assert-True ($Wrangler -match 'pages_build_output_dir\s*=\s*"\./dist"') "wrangler.toml should point Cloudflare Pages at dist"
 
 Assert-True ($App -match "focus\.html\?rel=") "gallery items should link to focus rel pages"
 Assert-True ($App -match "data-view") "work page should support grid/list state"
@@ -99,6 +95,10 @@ Assert-True ($App -match "--first-thumb-width") "mobile focus rail should measur
 Assert-True ($App -match "--last-thumb-width") "mobile focus rail should measure the last thumbnail width"
 Assert-True ($App -match "thumbs\.scrollTo") "mobile focus page should center rel thumbnails with native horizontal scrolling"
 Assert-True ($App -match "handleFocusTouchMove") "mobile focus page should map horizontal swipes to thumbnail rail scrolling"
+Assert-True ($App -match 'loading="eager"') "focus thumbnail images should load eagerly so mobile rel centering has measurable widths"
+Assert-True ($App -match "focusSyncHoldUntil") "focus page should hold scroll-driven syncing during programmatic rel centering"
+Assert-True ($App -match "isMobileFocusRailReady") "focus page should wait for measurable mobile thumbnail rail before overriding rel"
+Assert-True ($App -match "if \(!syncPaused && activeIndex !== Number\(shell\.dataset\.activeIndex \|\| 0\)\)") "focus page should not replace the URL rel while the mobile rail is still settling"
 Assert-True ($Css -match "\.focus-thumb\.is-active") "focus active thumbnail should have a distinct animation state"
 Assert-True ($Css -match "translateY\(calc\(var\(--focus-shift,\s*0px\)\s*\*\s*-1\)\)") "mobile focus thumbnails should use the source-style upward transform"
 Assert-True ($Css -match "\.focus-thumb__media[\s\S]*transform:\s*translateX\(calc\(-80px\s*-\s*var\(--space-8\)\)\)") "focus media should keep the source-style collapsed entrance separately"

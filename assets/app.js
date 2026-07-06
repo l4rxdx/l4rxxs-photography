@@ -294,6 +294,7 @@ function renderFocus() {
   const infoToggle = document.querySelector("[data-focus-info-toggle]");
   if (!shell || !title || !thumbs || !image || !caption) return;
   let mobileRailMaxOffset = 0;
+  let focusSyncHoldUntil = 0;
   let focusTouchStartX = 0;
   let focusTouchStartY = 0;
   let focusTouchLastX = 0;
@@ -307,7 +308,7 @@ function renderFocus() {
     button.className = "focus-thumb";
     button.dataset.index = String(index + 1);
     button.style.setProperty("--delay", `${Math.min(index, 24) * 0.018}s`);
-    button.innerHTML = `<span class="focus-thumb__media"><img src="${photo.thumb}" alt="${photo.alt}" loading="lazy" decoding="async"></span>`;
+    button.innerHTML = `<span class="focus-thumb__media"><img src="${photo.thumb}" alt="${photo.alt}" loading="eager" decoding="async"></span>`;
     button.addEventListener("click", () => {
       const wasIndexOpen = shell.classList.contains("is-index");
       setFocus(index, true);
@@ -396,6 +397,7 @@ function renderFocus() {
   function scrollToFocusIndex(index, smooth) {
     const thumb = thumbs.querySelector(`.focus-thumb[data-index="${index + 1}"]`);
     if (!thumb) return;
+    focusSyncHoldUntil = Date.now() + (smooth ? 700 : 320);
     if (window.innerWidth <= 768) {
       updateMobileFocusRail();
       const left = thumb.offsetLeft + thumb.offsetWidth / 2 - window.innerWidth / 2;
@@ -425,6 +427,12 @@ function renderFocus() {
     }
     mobileRailMaxOffset = Math.max(0, Math.ceil(thumbs.scrollWidth - thumbs.clientWidth));
     return Math.max(0, Math.min(thumbs.scrollLeft, mobileRailMaxOffset));
+  }
+
+  function isMobileFocusRailReady(allThumbs) {
+    if (window.innerWidth > 768) return true;
+    if (!allThumbs.length || !thumbs.clientWidth || thumbs.scrollWidth <= thumbs.clientWidth) return false;
+    return allThumbs.every((thumb) => thumb.offsetWidth > 0 && thumb.offsetHeight > 0);
   }
 
   function handleFocusTouchStart(event) {
@@ -469,6 +477,7 @@ function renderFocus() {
       const maxShift = isMobile ? 24 : 64;
       let activeIndex = Number(shell.dataset.activeIndex || 0);
       let nearestDistance = Infinity;
+      const syncPaused = Date.now() < focusSyncHoldUntil || (isMobile && !isMobileFocusRailReady(allThumbs));
 
       allThumbs.forEach((thumb, index) => {
         const rect = thumb.getBoundingClientRect();
@@ -486,7 +495,7 @@ function renderFocus() {
         }
       });
 
-      if (activeIndex !== Number(shell.dataset.activeIndex || 0)) {
+      if (!syncPaused && activeIndex !== Number(shell.dataset.activeIndex || 0)) {
         setFocus(activeIndex, true);
       }
     }
