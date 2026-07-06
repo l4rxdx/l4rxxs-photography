@@ -24,23 +24,29 @@
     </button>
   </header>
 
-  <aside class="nav-screen js-nav-screen" aria-hidden="true">
+  
+  <div class="language-switch js-language-switch" data-language-switch aria-label="Language switch">
+    <button type="button" data-lang-option="cn" aria-pressed="false">&#20013;&#25991;</button>
+    <span>/</span>
+    <button type="button" data-lang-option="en" aria-pressed="true">&#33521;&#35821;</button>
+  </div>
+<aside class="nav-screen js-nav-screen" aria-hidden="true">
     <div class="nav-screen__inner">
       <nav class="nav-screen__nav" aria-label="Primary">
-        <a href="index.html">OVERVIEW</a>
-        <a href="work.html">WORK</a>
+        <a href="index.html" data-i18n="nav.overview">OVERVIEW</a>
+        <a href="work.html" data-i18n="nav.work">WORK</a>
       </nav>
       <div class="nav-screen__about">
         <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
-        <p>Every frame here is loaded from the local images folder and addressed through the rel query.</p>
+        <p data-i18n="focus.menuAbout">Every frame here is loaded from the local images folder and addressed through the rel query.</p>
       </div>
       <div class="nav-screen__footer">
         <nav class="nav-screen__social" aria-label="Social links">
-          <a href="mailto:hello@l4rxx.local">CONTACT ME</a>
-          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer">DOUYIN</a>
+          <a href="mailto:hello@l4rxx.local" data-i18n="contact">CONTACT ME</a>
+          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer" data-i18n="social.douyin">TIKTOK</a>
           <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer">INS</a>
         </nav>
-        <span>© 2026 - all rights reserved</span>
+        <span data-i18n="rights">&copy; 2026 - all rights reserved</span>
       </div>
     </div>
   </aside>
@@ -55,13 +61,13 @@
     <section class="focus-info" data-focus-info aria-label="Photo information">
       <div>
         <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="focus-info__avatar">
-        <p>l4rxx keeps the gallery sparse: a centered frame, a small index, and enough empty space for the image to breathe.</p>
+        <p data-i18n="focus.about">l4rxx keeps the gallery sparse: a centered frame, a small index, and enough empty space for the image to breathe.</p>
       </div>
     </section>
     <footer class="focus-actions">
-      <a href="index.html" class="js-back">BACK</a>
-      <button type="button" data-focus-index>INDEX</button>
-      <button type="button" data-focus-info-toggle>INFO</button>
+      <a href="index.html" class="js-back" data-i18n="focus.back">BACK</a>
+      <button type="button" data-focus-index data-i18n="focus.index">INDEX</button>
+      <button type="button" data-focus-info-toggle data-i18n="focus.info">INFO</button>
     </footer>
   </main>
 

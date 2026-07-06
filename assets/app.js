@@ -1,5 +1,6 @@
 let photos = [];
 const overviewSkipCells = new Set([2, 7]);
+const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
 
 const languageCopy = {
   en: {
@@ -8,6 +9,11 @@ const languageCopy = {
     "home.about": "l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.",
     contact: "CONTACT ME",
     "social.douyin": "TIKTOK",
+    "focus.back": "BACK",
+    "focus.index": "INDEX",
+    "focus.info": "INFO",
+    "focus.about": "l4rxx keeps the gallery sparse: a centered frame, a small index, and enough empty space for the image to breathe.",
+    "focus.menuAbout": "Every frame here is loaded from the local images folder and addressed through the rel query.",
     rights: "\u00a9 2026 - all rights reserved"
   },
   cn: {
@@ -16,9 +22,32 @@ const languageCopy = {
     "home.about": "l4rxx \u662f\u4e00\u4f4d\u89c6\u89c9\u521b\u4f5c\u8005\uff0c\u6536\u96c6\u9759\u6b62\u77ac\u95f4\u3001\u98ce\u5316\u8868\u9762\u3001\u8096\u50cf\u3001\u5c4f\u5e55\u4e0e\u5b89\u9759\u788e\u7247\u3002",
     contact: "\u8054\u7cfb\u6211",
     "social.douyin": "\u6296\u97f3",
+    "focus.back": "\u8fd4\u56de",
+    "focus.index": "\u7d22\u5f15",
+    "focus.info": "\u4fe1\u606f",
+    "focus.about": "l4rxx \u4fdd\u6301\u753b\u5eca\u7684\u758f\u6717\uff1a\u5c45\u4e2d\u7684\u753b\u9762\u3001\u8f7b\u7684\u7d22\u5f15\uff0c\u4ee5\u53ca\u8ba9\u56fe\u50cf\u547c\u5438\u7684\u7a7a\u767d\u3002",
+    "focus.menuAbout": "\u6bcf\u4e00\u5e27\u90fd\u6765\u81ea\u672c\u5730\u56fe\u7247\u6587\u4ef6\u5939\uff0c\u5e76\u901a\u8fc7 rel \u67e5\u8be2\u8fdb\u5165\u3002",
     rights: "\u00a9 2026 - \u4fdd\u7559\u6240\u6709\u6743\u5229"
   }
 };
+
+
+prepareOverviewScrollRestoration();
+
+function prepareOverviewScrollRestoration() {
+  if (document.body?.dataset.page !== "home") return;
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  if (isOverviewReturnNavigation()) return;
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  window.addEventListener("pageshow", () => {
+    if (!isOverviewReturnNavigation()) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, { once: true });
+}
+
+function isOverviewReturnNavigation() {
+  if (document.body?.dataset.page !== "home") return false;
+  return new URLSearchParams(window.location.search).get("from") === "rel";
+}
 
 const languageLabels = {
   en: { cn: "\u4e2d\u6587", en: "\u82f1\u8bed" },
@@ -144,35 +173,142 @@ function renderOverview() {
   grid.innerHTML = "";
   grid.style.minHeight = "";
 
+  appendOverviewBatch(grid, createOverviewBatch(true), true);
+  const isReturning = handleOverviewReturn(grid);
+  if (!isReturning) initializeOverviewItems();
+  initializeInfinityScroll(grid);
+
+  grid.addEventListener("click", (event) => {
+    const link = event.target.closest("a[href*='focus.html?rel=']");
+    if (!link || !grid.contains(link)) return;
+    storeOverviewReturn(link);
+  });
+}
+
+function createOverviewBatch(isOriginal = false) {
+  const items = [];
   let photoIndex = 0;
-  const cellCount = photos.length + overviewSkipCells.size;
+  const cellCount = photos.length + (isOriginal ? overviewSkipCells.size : 0);
   for (let cellIndex = 0; cellIndex < cellCount; cellIndex++) {
-    if (overviewSkipCells.has(cellIndex)) {
+    if (isOriginal && overviewSkipCells.has(cellIndex)) {
       const spacer = document.createElement("div");
-      spacer.className = "overview-item infinity-item--skip";
-      grid.appendChild(spacer);
+      spacer.className = "overview-item infinity-item--skip infinity-item--batch";
+      items.push(spacer);
       continue;
     }
 
     const photo = photos[photoIndex];
-    const index = photoIndex;
-    const link = document.createElement("a");
-    link.className = "overview-item infinity-item--original";
-    if (cellIndex <= 14) link.classList.add("is-visible");
-    link.href = `focus.html?rel=${index + 1}`;
-    link.innerHTML = `<span class="fs-media"><img src="${photo.thumb}" alt="${photo.alt}" loading="lazy" decoding="async"></span>`;
-    grid.appendChild(link);
+    items.push(createOverviewLink(photo, photoIndex, isOriginal, cellIndex));
     photoIndex++;
   }
 
-  while (grid.children.length % 5 !== 0) {
-    const spacer = document.createElement("div");
-    spacer.className = "overview-item infinity-item--skip infinity-item--pad";
-    grid.appendChild(spacer);
+  let fillIndex = 0;
+  while (items.length % 5 !== 0) {
+    const photoIndexToFill = fillIndex % photos.length;
+    items.push(createOverviewLink(photos[photoIndexToFill], photoIndexToFill, isOriginal, items.length, "infinity-item--fill"));
+    fillIndex++;
+  }
+  return items;
+}
+
+function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = "") {
+  const link = document.createElement("a");
+  link.className = `overview-item infinity-item--batch infinity-item--original${extraClass ? ` ${extraClass}` : ""}`;
+  if (isOriginal && cellIndex <= 14) link.classList.add("is-visible");
+  link.href = `focus.html?rel=${index + 1}`;
+  link.dataset.rel = String(index + 1);
+  link.innerHTML = `<span class="fs-media"><img src="${photo.thumb}" alt="${photo.alt}" loading="lazy" decoding="async"></span>`;
+  return link;
+}
+function appendOverviewBatch(grid, batch, isInitial = false) {
+  batch.forEach((item) => {
+    const clone = isInitial ? item : item.cloneNode(true);
+    if (!isInitial) {
+      clone.classList.remove("infinity-item--original", "is-visible", "is-return-target");
+      clone.classList.add("infinity-item--clone");
+      clone.removeAttribute("style");
+      clone.querySelectorAll("[style]").forEach((child) => child.removeAttribute("style"));
+    }
+    grid.appendChild(clone);
+  });
+}
+
+function storeOverviewReturn(source) {
+  const link = source?.currentTarget || (source?.target ? source.target.closest("a") : source);
+  if (!link) return;
+  let rel = Number(link.dataset.rel || 0);
+  if (!rel) {
+    try {
+      rel = Number(new URL(link.href, window.location.href).searchParams.get("rel"));
+    } catch (error) {
+      rel = 0;
+    }
+  }
+  const state = {
+    rel: rel || 1,
+    scrollY: window.scrollY || document.documentElement.scrollTop || 0,
+    createdAt: Date.now()
+  };
+  try {
+    sessionStorage.setItem(OVERVIEW_RETURN_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    return;
+  }
+}
+
+function handleOverviewReturn(grid) {
+  const params = new URLSearchParams(window.location.search);
+  let state = null;
+  try {
+    state = JSON.parse(sessionStorage.getItem(OVERVIEW_RETURN_STORAGE_KEY) || "null");
+  } catch (error) {
+    state = null;
   }
 
-  initializeOverviewItems();
-  initializeInfinityScroll(grid);
+  const shouldReturn = params.get("from") === "rel" || !!state;
+  if (!shouldReturn) return false;
+
+  document.body.classList.add("is-returning-from-rel", "has-loaded", "has-finished");
+  document.documentElement.classList.add("has-landed");
+
+  const rel = Number(params.get("rel") || state?.rel || 1);
+  const targetY = Math.max(0, Number(state?.scrollY || 0));
+  while (grid.offsetTop + grid.scrollHeight - (targetY + window.innerHeight) <= 700) {
+    appendOverviewBatch(grid, createOverviewBatch(false), false);
+  }
+
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: targetY, left: 0, behavior: "auto" });
+    const target = findReturnTarget(grid, rel, targetY);
+    if (target) {
+      target.classList.add("is-return-target");
+      setTimeout(() => target.classList.remove("is-return-target"), 900);
+    }
+  });
+
+  if (params.has("from")) {
+    params.delete("from");
+    params.delete("rel");
+    const nextSearch = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`);
+  }
+  try {
+    sessionStorage.removeItem(OVERVIEW_RETURN_STORAGE_KEY);
+  } catch (error) {
+    return true;
+  }
+  return true;
+}
+
+function findReturnTarget(grid, rel, targetY) {
+  const candidates = [...grid.querySelectorAll(`a[data-rel="${rel}"]`)];
+  if (!candidates.length) return null;
+  const viewportCenter = targetY + window.innerHeight / 2;
+  return candidates.reduce((best, candidate) => {
+    const candidateDistance = Math.abs(candidate.offsetTop + candidate.offsetHeight / 2 - viewportCenter);
+    const bestDistance = Math.abs(best.offsetTop + best.offsetHeight / 2 - viewportCenter);
+    return candidateDistance < bestDistance ? candidate : best;
+  }, candidates[0]);
 }
 
 function initializeOverviewItems() {
@@ -211,30 +347,22 @@ function initializeInfinityScroll(grid) {
   }
   if (!grid) return;
 
-  Array.from(grid.children).forEach((item) => {
-    if (!item.classList.contains("infinity-item--skip")) item.classList.add("infinity-item--original");
-  });
+  const batch = createOverviewBatch(false);
 
   overviewScrollHandler = () => {
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     if (grid.offsetTop + grid.scrollHeight - (scrollTop + window.innerHeight) <= 500) {
-      grid.querySelectorAll(".infinity-item--original").forEach((item) => {
-        const clone = item.cloneNode(true);
-        clone.classList.remove("infinity-item--original", "is-visible");
-        clone.classList.add("infinity-item--clone");
-        clone.removeAttribute("data-index");
-        clone.setAttribute("aria-hidden", "true");
-        clone.setAttribute("tabindex", "-1");
-        clone.querySelectorAll("a, button").forEach((child) => child.setAttribute("tabindex", "-1"));
-        clone.removeAttribute("style");
-        grid.appendChild(clone);
-      });
+      appendOverviewBatch(grid, batch, false);
     }
   };
   window.addEventListener("scroll", overviewScrollHandler, { passive: true });
 }
-
 function startLoadingSequence() {
+  if (document.body.classList.contains("is-returning-from-rel")) {
+    document.body.classList.add("has-loaded", "has-finished");
+    document.documentElement.classList.add("has-landed");
+    return;
+  }
   const finish = () => {
     document.body.classList.add("has-loaded");
     setTimeout(() => {
@@ -292,6 +420,7 @@ function renderFocus() {
   const caption = document.querySelector("[data-focus-caption]");
   const indexToggle = document.querySelector("[data-focus-index]");
   const infoToggle = document.querySelector("[data-focus-info-toggle]");
+  const backLink = document.querySelector(".js-back");
   if (!shell || !title || !thumbs || !image || !caption) return;
   let mobileRailMaxOffset = 0;
   let focusSyncHoldUntil = 0;
@@ -336,6 +465,23 @@ function renderFocus() {
     shell.classList.toggle("is-info");
     shell.classList.remove("is-index");
   });
+  backLink?.addEventListener("click", (event) => {
+    event.preventDefault();
+    const activeRel = Number(shell.dataset.activeIndex || 0) + 1;
+    try {
+      const existing = JSON.parse(sessionStorage.getItem(OVERVIEW_RETURN_STORAGE_KEY) || "null") || {};
+      sessionStorage.setItem(OVERVIEW_RETURN_STORAGE_KEY, JSON.stringify({
+        rel: activeRel,
+        scrollY: Number(existing.scrollY || 0),
+        createdAt: Date.now()
+      }));
+    } catch (error) {
+      returnFocusToOverview(activeRel, true);
+      return;
+    }
+    document.body.classList.add("is-focus-leaving");
+    window.setTimeout(() => returnFocusToOverview(activeRel, true), 360);
+  });
   thumbs.addEventListener("touchstart", handleFocusTouchStart, { passive: true });
   thumbs.addEventListener("touchmove", handleFocusTouchMove, { passive: false });
   thumbs.addEventListener("wheel", handleFocusWheel, { passive: false });
@@ -358,18 +504,20 @@ function renderFocus() {
 
   const rel = Number(new URLSearchParams(window.location.search).get("rel"));
   const initial = Number.isFinite(rel) && rel > 0 ? Math.min(rel - 1, photos.length - 1) : 0;
+  focusInitialLockUntil = Date.now() + 1800;
   setFocus(initial, false);
   thumbs.querySelectorAll("img").forEach((thumbImage) => {
     thumbImage.addEventListener("load", () => {
       updateFocusRailMetrics();
       updateMobileFocusRail();
-      scrollToFocusIndex(Number(shell.dataset.activeIndex || initial), false);
+      scrollToFocusIndex(Date.now() < focusInitialLockUntil ? initial : Number(shell.dataset.activeIndex || initial), false);
     }, { once: true });
   });
   requestAnimationFrame(() => {
     updateFocusRailMetrics();
     updateMobileFocusRail();
     scrollToFocusIndex(initial, false);
+    window.setTimeout(() => scrollToFocusIndex(initial, false), 520);
     requestAnimationFrame(syncFocusFromScroll);
   });
   window.addEventListener("resize", () => {
@@ -477,7 +625,7 @@ function renderFocus() {
       const maxShift = isMobile ? 24 : 64;
       let activeIndex = Number(shell.dataset.activeIndex || 0);
       let nearestDistance = Infinity;
-      const syncPaused = Date.now() < focusSyncHoldUntil || (isMobile && !isMobileFocusRailReady(allThumbs));
+      const syncPaused = Date.now() < focusSyncHoldUntil || Date.now() < focusInitialLockUntil || (isMobile && !isMobileFocusRailReady(allThumbs));
 
       allThumbs.forEach((thumb, index) => {
         const rect = thumb.getBoundingClientRect();
@@ -501,4 +649,11 @@ function renderFocus() {
     }
     requestAnimationFrame(syncFocusFromScroll);
   }
+}
+
+function returnFocusToOverview(rel, immediate) {
+  const delay = immediate || window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 360;
+  window.setTimeout(() => {
+    window.location.href = `index.html?from=rel&rel=${rel}`;
+  }, delay);
 }

@@ -16,7 +16,7 @@ function Read-Text {
     Get-Content -Raw -LiteralPath (Join-Path $Root $RelativePath)
 }
 
-foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest")) {
+foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest", "UPDATE_LOG.md")) {
     Assert-True (Test-Path -LiteralPath (Join-Path $Root $File)) "$File should exist"
 }
 
@@ -26,6 +26,7 @@ $Index = Read-Text "index.html"
 $Work = Read-Text "work.html"
 $Focus = Read-Text "focus.html"
 $PhotosJson = Read-Text "content/photos.json"
+$UpdateLog = Read-Text "UPDATE_LOG.md"
 $AllText = "$Index`n$Work`n$Focus`n$App`n$Css"
 $PhotoData = $PhotosJson | ConvertFrom-Json
 $Photos = @($PhotoData.items)
@@ -55,7 +56,8 @@ Assert-True ($App -match 'fetch\("content/photos\.json"\)') "gallery should load
 Assert-True ($App -notmatch 'const\s+photos\s*=\s*\[') "gallery photos should not be hard-coded in app.js"
 
 $ImageSources = @($Photos | ForEach-Object { $_.full; $_.thumb })
-Assert-True ($Photos.Count -ge 20) "gallery should include at least 20 local images"
+Assert-True ($Photos.Count -eq 25) "gallery should include 25 local images after removing the selected photo"
+Assert-True ($PhotosJson -notmatch "DSC00081|001-dsc00081") "removed selected photo should not appear in gallery data"
 Assert-True (($Photos.full | Select-Object -Unique).Count -eq $Photos.Count) "gallery full image list should not repeat files"
 Assert-True (($Photos.thumb | Select-Object -Unique).Count -eq $Photos.Count) "gallery thumbnail image list should not repeat files"
 
@@ -80,6 +82,17 @@ Assert-True ($App -match "photo\.full") "app should use full images for focus vi
 Assert-True ($AllText -match "images/og-image\.jpg") "site should expose a share preview image"
 
 Assert-True ($App -match "focus\.html\?rel=") "gallery items should link to focus rel pages"
+Assert-True ($Focus -match "data-language-switch") "focus page should include the language switch"
+Assert-True ($Focus -match "data-i18n=`"focus\.back`"" -and $Focus -match "data-i18n=`"focus\.index`"" -and $Focus -match "data-i18n=`"focus\.info`"") "focus action buttons should participate in language switching"
+Assert-True ($Focus -match "data-i18n=`"focus\.about`"") "focus info copy should participate in language switching"
+Assert-True ($App -match "storeOverviewReturn") "home clicks should store return position before opening rel pages"
+Assert-True ($App -match "handleOverviewReturn") "home page should restore the saved return position"
+Assert-True ($App -match "prepareOverviewScrollRestoration") "home page should prepare manual scroll restoration before ordinary refreshes"
+Assert-True ($App -match "isOverviewReturnNavigation") "home refresh reset should not interfere with rel BACK return navigation"
+Assert-True ($App -match "history\.scrollRestoration\s*=\s*`"manual`"") "home page should disable browser automatic scroll restoration"
+Assert-True ($App -match "window\.scrollTo\(\{\s*top:\s*0") "ordinary home refresh should force the viewport back to the first page"
+Assert-True ($App -match "is-focus-leaving") "focus back should use a leaving transition before returning home"
+Assert-True ($App -match "sessionStorage") "return state should use session storage"
 Assert-True ($App -match "data-view") "work page should support grid/list state"
 Assert-True ($App -match "syncFocusFromScroll") "focus page should select photos from thumbnail scroll position"
 Assert-True ($App -match "scrollToFocusIndex") "focus page should scroll the thumbnail rail to the rel-selected item"
@@ -125,11 +138,23 @@ Assert-True ($App -match "is-visible") "home overview should mark first-screen i
 Assert-True ($Index -match "js-infinity-scroll") "home page should use the source-style infinite overview container marker"
 Assert-True ($App -match "let\s+overviewScrollHandler") "home infinite scroll should keep a reusable scroll handler like the source"
 Assert-True ($App -match 'removeEventListener\("scroll",\s*overviewScrollHandler') "home infinite scroll should unbind the previous handler before reinitializing"
+Assert-True ($App -match "createOverviewBatch") "home overview should build one complete repeatable layout batch"
+Assert-True ($App -match "appendOverviewBatch") "home infinite scroll should clone the complete layout batch"
+Assert-True ($App -match "infinity-item--batch") "home overview batch items should be marked for complete-cycle cloning"
+Assert-True ($App -match "infinity-item--fill") "home overview should fill the last batch row with clickable photos instead of blank pads"
+Assert-True ($App -match "isOriginal\s*&&\s*overviewSkipCells\.has") "hero skip cells should only be created in the first overview batch"
+Assert-True ($App -match "const\s+batch\s*=\s*createOverviewBatch\(false\)") "home infinite scroll should use a skip-free loop batch instead of cloning first-page hero gaps"
+Assert-True ($App -notmatch "infinity-item--pad") "home overview should not repeat blank pad cells in infinite scroll batches"
 Assert-True ($App -match 'grid\.offsetTop\s*\+\s*grid\.scrollHeight\s*-\s*\(scrollTop\s*\+\s*window\.innerHeight\)\s*<=\s*500') "home infinite scroll should append when the grid is within 500px of the viewport bottom"
 Assert-True ($App -match 'cloneNode\(true\)') "home infinite scroll should clone original items like the source"
 Assert-True ($App -match 'appendChild\(clone\)') "home infinite scroll should append clones to continue the page"
+Assert-True ($Css -match "backdrop-filter:\s*blur") "navigation overlay should use Gaussian backdrop blur"
+Assert-True ($Css -match "-webkit-backdrop-filter:\s*blur") "navigation overlay should include WebKit Gaussian backdrop blur"
+Assert-True ($Css -match "body\.nav-open\s+\.focus-actions[\s\S]*pointer-events:\s*none") "focus actions should be disabled while the menu is open"
+Assert-True ($Css -match "returnLand") "home return should include a target landing animation"
 Assert-True ($AllText -match "has-finished") "home title reveal should wait for the finished loading state"
 Assert-True ($AllText -match "grid-template-columns:\s*repeat\(5,\s*1fr\)") "home overview should use the source-style five-column grid"
 Assert-True ($AllText -match "body\.has-finished\s+\.c-element-overviewgrid\s+\.overview-item\.is-visible\s+\.fs-media") "home photos should animate from centered opening state to their grid cells"
+Assert-True ($UpdateLog -match "2026-07-06" -and $UpdateLog -match "Gaussian" -and $UpdateLog -match "001-dsc00081") "update log should describe this project update"
 
 Write-Host "site-check passed"

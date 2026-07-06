@@ -11,6 +11,7 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
 $ImageExtensions = @(".jpg", ".jpeg", ".png", ".bmp")
+$ExcludedOriginals = @("DSC00081.jpg")
 $OriginalsDir = Join-Path $Root "images\originals"
 $WebDir = Join-Path $Root "images\web"
 $ThumbDir = Join-Path $Root "images\thumbs"
@@ -22,9 +23,7 @@ foreach ($Dir in @($OriginalsDir, $WebDir, $ThumbDir, $ContentDir)) {
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 }
 
-$SeedPhotos = @(
-    @{ original = "DSC00081.jpg"; title = "FIELD 01"; category = "OPEN AIR"; caption = "A quiet frame from the local archive." },
-    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category = "OPEN AIR"; caption = "Distance, weather, and a low horizon." },
+$SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category = "OPEN AIR"; caption = "Distance, weather, and a low horizon." },
     @{ original = "Desktop Screenshot 2026.01.04 - 23.3.23.04-2.jpg"; title = "SCREEN 03"; category = "SCREEN"; caption = "A captured screen becomes part of the image rhythm." },
     @{ original = "DSC03004.jpg"; title = "FIELD 04"; category = "STILL"; caption = "Muted light with a photographic pause." },
     @{ original = "DSC02865.jpg"; title = "FIELD 05"; category = "STILL"; caption = "Large negative space and a held center." },
@@ -119,7 +118,7 @@ function Save-ResizedImage {
 
 function Copy-RootImagesToOriginals {
     $RootImages = Get-ChildItem -LiteralPath (Join-Path $Root "images") -File |
-        Where-Object { $ImageExtensions -contains $_.Extension.ToLowerInvariant() -and $_.Name -ne "og-image.jpg" }
+        Where-Object { $ImageExtensions -contains $_.Extension.ToLowerInvariant() -and $_.Name -ne "og-image.jpg" -and $ExcludedOriginals -notcontains $_.Name }
 
     foreach ($Image in $RootImages) {
         $Target = Join-Path $OriginalsDir $Image.Name
@@ -147,7 +146,7 @@ Copy-RootImagesToOriginals
 
 $ExistingByOriginal = Read-ExistingPhotoMap
 $OriginalFiles = Get-ChildItem -LiteralPath $OriginalsDir -File |
-    Where-Object { $ImageExtensions -contains $_.Extension.ToLowerInvariant() }
+    Where-Object { $ImageExtensions -contains $_.Extension.ToLowerInvariant() -and $ExcludedOriginals -notcontains $_.Name }
 
 $SeedOrder = @{}
 for ($Index = 0; $Index -lt $SeedPhotos.Count; $Index++) {
