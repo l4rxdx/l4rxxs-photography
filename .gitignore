@@ -2,3 +2,4 @@ tmp-*.network-response
 images/originals/
 codex-sandbox-test.tmp
 docs/previews/
+dist/

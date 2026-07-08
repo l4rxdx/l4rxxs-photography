@@ -4,6 +4,7 @@
 - Added the dark/light theme system with the symbol-style theme control and system-theme default detection.
 - Added the rel-page notes surface opened from the main photo, with Chinese / English note copy support.
 - Added the latest compressed photo set, favicon / manifest / robots / sitemap / 404 / README deployment support files.
+- Added a Cloudflare Pages static build entry (`npm run build`) that publishes only the public site files into `dist`.
 
 ### 优化
 - Improved homepage photo order randomization while preserving the BACK return position from rel pages.
@@ -14,6 +15,7 @@
 - Fixed mobile home refresh / return-state confusion, rel BACK return position, rel note language switching, and thumbnail rail glide behavior.
 - Fixed the plus-menu overlay interaction layer so BACK and other rel controls do not remain clickable underneath.
 - Kept the unfinished rel INDEX gallery disabled for this deployment so its current animation bugs cannot affect the live site.
+- Fixed the Cloudflare Pages build path so deployments no longer fail when the dashboard runs `npm run build`.
 
 ### 删除
 - Removed `001-dsc00081` from the public gallery.
