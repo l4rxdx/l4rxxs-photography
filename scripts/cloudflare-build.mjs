@@ -26,11 +26,14 @@ for (const file of [
   "index.html",
   "focus.html",
   "work.html",
+  "logs.html",
   "404.html",
   "robots.txt",
   "sitemap.xml",
   "site.webmanifest",
   "UPDATE_LOG.md",
+  "RELEASE_LOG.md",
+  "WORK_LOG.md",
   "README.md"
 ]) {
   await copyFileIfPresent(file, file);

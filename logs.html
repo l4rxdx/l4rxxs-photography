@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f2ec">
+  <title>Logs / 日志 - l4rxx</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f2ec;
+      --fg: #161616;
+      --muted: rgba(22, 22, 22, 0.55);
+      --line: rgba(22, 22, 22, 0.18);
+      --panel: rgba(245, 242, 236, 0.78);
+      --accent: #161616;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #10100f;
+        --fg: #f1eee7;
+        --muted: rgba(241, 238, 231, 0.58);
+        --line: rgba(241, 238, 231, 0.2);
+        --panel: rgba(16, 16, 15, 0.76);
+        --accent: #f1eee7;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+      letter-spacing: 0;
+      transition: background 0.45s ease, color 0.45s ease;
+    }
+
+    a {
+      color: inherit;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.18em;
+    }
+
+    .log-shell {
+      width: min(1040px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 22px 0 64px;
+    }
+
+    .log-top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      min-height: 74px;
+      padding: 14px 0;
+      background: color-mix(in srgb, var(--bg) 82%, transparent);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .log-title {
+      margin: 0;
+      font-size: clamp(26px, 6vw, 58px);
+      line-height: 0.9;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .log-switch {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .log-tab {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--fg);
+      min-height: 34px;
+      padding: 0 12px;
+      font: inherit;
+      font-size: 12px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    }
+
+    .log-tab.is-active {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    .log-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin: 22px 0 30px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .log-content {
+      min-height: 56vh;
+      padding: clamp(18px, 4vw, 34px);
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .log-content.is-loading { color: var(--muted); }
+
+    .log-content h1,
+    .log-content h2,
+    .log-content h3 {
+      margin: 1.5em 0 0.55em;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .log-content h1:first-child,
+    .log-content h2:first-child,
+    .log-content h3:first-child { margin-top: 0; }
+
+    .log-content h1 { font-size: clamp(28px, 5vw, 46px); }
+
+    .log-content h2 {
+      font-size: clamp(22px, 3vw, 31px);
+      padding-top: 0.35em;
+      border-top: 1px solid var(--line);
+    }
+
+    .log-content h3 { font-size: clamp(17px, 2.1vw, 22px); }
+
+    .log-content p,
+    .log-content li {
+      font-size: clamp(15px, 1.8vw, 18px);
+      line-height: 1.72;
+    }
+
+    .log-content p { margin: 0 0 1em; }
+
+    .log-content ul {
+      margin: 0 0 1.2em;
+      padding-left: 1.2em;
+    }
+
+    .log-content code {
+      padding: 0.08em 0.25em;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 0.92em;
+    }
+
+    .log-content hr {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 2em 0;
+    }
+
+    @media (max-width: 620px) {
+      .log-top {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+
+      .log-switch { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="log-shell">
+    <header class="log-top">
+      <h1 class="log-title">L4RXX Logs</h1>
+      <nav class="log-switch" aria-label="Log type">
+        <button class="log-tab" type="button" data-log-key="index">Index / 入口</button>
+        <button class="log-tab" type="button" data-log-key="release">Release / 正式</button>
+        <button class="log-tab" type="button" data-log-key="work">Work / 工作</button>
+      </nav>
+    </header>
+    <div class="log-meta">
+      <span data-log-name>WORK_LOG.md</span>
+      <span>UTF-8 preview / UTF-8 预览</span>
+    </div>
+    <article class="log-content is-loading" data-log-content>Loading...</article>
+  </main>
+
+  <script>
+    const logs = {
+      index: { file: "UPDATE_LOG.md", label: "UPDATE_LOG.md" },
+      release: { file: "RELEASE_LOG.md", label: "RELEASE_LOG.md" },
+      work: { file: "WORK_LOG.md", label: "WORK_LOG.md" }
+    };
+
+    const content = document.querySelector("[data-log-content]");
+    const label = document.querySelector("[data-log-name]");
+    const tabs = Array.from(document.querySelectorAll("[data-log-key]"));
+
+    const escapeHtml = (value) => value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+    const inlineMarkdown = (value) => escapeHtml(value)
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+    const renderMarkdown = (text) => {
+      const lines = text.replace(/\r\n/g, "\n").split("\n");
+      let html = "";
+      let inList = false;
+
+      const closeList = () => {
+        if (!inList) return;
+        html += "</ul>";
+        inList = false;
+      };
+
+      for (const line of lines) {
+        if (!line.trim()) {
+          closeList();
+          continue;
+        }
+
+        const heading = line.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+          closeList();
+          const level = heading[1].length;
+          html += `<h${level}>${inlineMarkdown(heading[2])}</h${level}>`;
+          continue;
+        }
+
+        if (/^---+$/.test(line.trim())) {
+          closeList();
+          html += "<hr>";
+          continue;
+        }
+
+        const item = line.match(/^-\s+(.+)$/);
+        if (item) {
+          if (!inList) {
+            html += "<ul>";
+            inList = true;
+          }
+          html += `<li>${inlineMarkdown(item[1])}</li>`;
+          continue;
+        }
+
+        closeList();
+        html += `<p>${inlineMarkdown(line)}</p>`;
+      }
+
+      closeList();
+      return html;
+    };
+
+    const selectLog = async (key) => {
+      const selected = logs[key] ? key : "work";
+      const item = logs[selected];
+      label.textContent = item.label;
+      tabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.logKey === selected));
+      content.classList.add("is-loading");
+      content.textContent = "Loading...";
+
+      try {
+        const response = await fetch(item.file, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const buffer = await response.arrayBuffer();
+        const text = new TextDecoder("utf-8").decode(buffer);
+        content.innerHTML = renderMarkdown(text);
+        content.classList.remove("is-loading");
+        if (window.location.hash.slice(1) !== selected) {
+          history.replaceState(null, "", `#${selected}`);
+        }
+      } catch (error) {
+        content.textContent = `Failed to load ${item.label}: ${error.message}`;
+      }
+    };
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => selectLog(tab.dataset.logKey));
+    });
+
+    window.addEventListener("hashchange", () => selectLog(window.location.hash.slice(1)));
+    selectLog(window.location.hash.slice(1) || "work");
+  </script>
+</body>
+</html>
