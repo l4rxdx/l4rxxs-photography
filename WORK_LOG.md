@@ -2,6 +2,34 @@
 
 本文件记录实际工作过程、排查细节、设计取舍、临时方案和未上线内容。它不是正式发布说明；正式版本请看 `RELEASE_LOG.md`。
 
+## 2026-07-09 - v1.1.2 正式日志历史补全
+
+### 目标
+
+- 修正正式日志少记一个历史正式版本的问题。
+- 将“新增照片资源批次”从 `v1.1.0` 中拆出，单独作为 `v1.0.1` 记录。
+- 修复线上 `logs.html` 在 Cloudflare clean URL 跳转后可能打不开的问题。
+
+### 证据与判断
+
+- Git 提交 `c53acb8 Add new photos and optimize gallery images` 对应 2026-07-07 的照片资源更新。
+- `c53acb8` 前 `content/photos.json` 有 25 个公开 rel 条目，`c53acb8` 后有 43 个公开 rel 条目，因此公开图库新增 18 个 rel 条目。
+- 该提交同时重新压缩了已有公开 web 图和缩略图，并新增 `026` 至 `043` 的 web / thumb 图片资源。
+- 用户提到的“新的32张图照片”按正式日志口径记录为“新照片资源批次”，同时在条目中写清可验证的公开图库数量变化，避免以后用不同口径回溯时混乱。
+
+### 实施细节
+
+- 在 `RELEASE_LOG.md` 中新增 `v1.0.1 - Gallery Expansion And Image Optimization / 图库扩展与图片优化版`。
+- 将 `v1.1.0` 的对比基准从 `v1.0.0` 改为 `v1.0.1`，并从 `v1.1.0` 的新增内容里移除照片扩展描述。
+- 新增当前补丁版本 `v1.1.2 - Release Log Correction / 正式日志校正版`，记录这次日志历史补全与线上日志入口修复。
+- 更新 `UPDATE_LOG.md` 当前版本为 `v1.1.2`，缓存标识为 `logs-history-fix1`。
+- 更新 `scripts/cloudflare-build.mjs`，将 `logs.html` 同步输出为 `logs/index.html`，兼容 Cloudflare 将 `/logs.html` clean URL 到 `/logs` 的行为。
+- 更新 `package.json` 为 `1.1.2`，并同步调整 `tests/site-check.ps1` 的日志检查断言。
+
+### 验证细节
+
+- 本地运行 `tests/site-check.ps1`。
+- 使用 Codex 内置 Node 运行 `scripts/cloudflare-build.mjs`，确认 `dist/logs.html` 与 `dist/logs/index.html` 都存在。
 ## 2026-07-09 - v1.1.1 日志预览与上线
 
 ### 目标

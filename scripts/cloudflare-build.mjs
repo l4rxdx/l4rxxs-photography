@@ -39,6 +39,8 @@ for (const file of [
   await copyFileIfPresent(file, file);
 }
 
+await copyFileIfPresent("logs.html", "logs/index.html");
+
 await copyDirIfPresent("assets", "assets");
 await copyDirIfPresent("content", "content");
 await copyDirIfPresent("images/web", "images/web");

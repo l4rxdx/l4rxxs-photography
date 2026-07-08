@@ -10,11 +10,45 @@
 - `PATCH`：线上修复、文案调整、部署配置修正或低风险细节优化。
 - 每个正式上线版本必须记录版本号、上线日期、对应提交、上线分支和缓存标识。
 
+## v1.1.2 - Release Log Correction / 正式日志校正版
+
+- 上线日期：2026-07-09
+- 对比基准：`v1.1.1 - Versioned Log System`
+- Git commit：本次发布提交，推送后以 GitHub `main` 历史和 Cloudflare Pages 部署记录为准。
+- 上线分支：`main`
+- 缓存标识：`logs-history-fix1`
+- 发布策略：只修正日志与日志预览入口，不改首页、rel 页面、照片互动、随记或主题系统。
+
+### 增加
+
+- 补充历史正式版本 `v1.0.1 - Gallery Expansion And Image Optimization / 图库扩展与图片优化版`，记录 2026-07-07 的新照片资源批次。
+- 为线上日志预览增加 `/logs` clean URL 兼容输出，避免 Cloudflare 将 `/logs.html` 跳转到 `/logs` 后找不到页面。
+
+### 优化
+
+- 调整 `v1.1.0` 的对比基准为 `v1.0.1`，让“照片资源批次”和“非 INDEX 稳定体验”分开记录。
+- 将照片批次的数量写成可验证口径：公开图库从 25 张 rel 照片扩展到 43 张，新增 18 个公开 rel 条目，并重新压缩生成 web 图和缩略图。
+
+### 修复
+
+- 修复正式日志遗漏新照片资源正式版本的问题。
+- 修复线上日志预览页在 Cloudflare clean URL 规则下可能无法通过 `/logs` 打开的问题。
+
+### 删除 / 暂缓
+
+- 未删除现有网站功能。
+- rel `INDEX / 索引` 仍保持暂缓状态，本次发布不包含索引图库交互修复。
+
+### 部署验证
+
+- 本地验证：`tests/site-check.ps1` 通过。
+- 本地构建：`scripts/cloudflare-build.mjs` 成功输出 `dist`，并包含 `logs.html` 与 `logs/index.html`。
+
 ## v1.1.1 - Versioned Log System / 版本化日志系统
 
 - 上线日期：2026-07-09
 - 对比基准：`v1.1.0 - Non-INDEX Portfolio Release`
-- Git commit：本次发布提交，推送后以 GitHub `main` 历史和 Cloudflare Pages 部署记录为准。
+- Git commit：`d49ae85`
 - 上线分支：`main`
 - 缓存标识：`logs-html1`
 - 发布策略：只上线日志体系、版本规范与浏览器日志预览页；继续保持 rel `INDEX / 索引` 入口暂缓，不把未稳定的索引动画带回线上。
@@ -45,10 +79,11 @@
 - 本地验证：`tests/site-check.ps1` 通过。
 - 本地构建：`scripts/cloudflare-build.mjs` 成功输出 `dist`，并包含 `logs.html`、`UPDATE_LOG.md`、`RELEASE_LOG.md` 与 `WORK_LOG.md`。
 - 本地预览：`http://127.0.0.1:8765/logs.html#work` 中文正常显示，无乱码。
+
 ## v1.1.0 - Non-INDEX Portfolio Release / 非索引作品集版
 
 - 上线日期：2026-07-09
-- 对比基准：`v1.0.0 - Initial Cloudflare Release`
+- 对比基准：`v1.0.1 - Gallery Expansion And Image Optimization`
 - Git commit：`dce2a7b`
 - 上线分支：`main`
 - 缓存标识：`no-index-release1`
@@ -58,7 +93,6 @@
 
 - 新增白天 / 黑夜主题系统，支持系统主题自动识别，并加入与顶部符号按钮统一的主题切换控件。
 - 新增 rel 页面随记模式：点击大图可展开 / 收回随记，随记内容支持中文与英文切换，并保留未来逐张照片补充文字的结构。
-- 新增 18 张压缩后的公开照片资源，公开图库扩展至 43 张；同步生成 web 图与缩略图以优化加载速度。
 - 新增 favicon、manifest、robots、sitemap、404、README 与 Cloudflare Pages 静态构建入口，补齐正式部署所需基础文件。
 
 ### 优化
@@ -81,7 +115,6 @@
 
 ### 删除 / 暂缓
 
-- 从公开图库删除 `001-dsc00081`。
 - 删除 rel 页面旧的 `INFO` 操作入口。
 - 暂时移除 rel 页面 `INDEX / 索引` 入口；相关动画代码保留在工作分支语境中继续修复，但不进入本次正式上线体验。
 
@@ -90,6 +123,39 @@
 - 本地验证：`tests/site-check.ps1` 通过。
 - 本地构建：`scripts/cloudflare-build.mjs` 成功输出 `dist`。
 - 线上验证：首页与 rel 页面均加载 `no-index-release1`，rel 页面不再包含 `data-focus-index`。
+
+## v1.0.1 - Gallery Expansion And Image Optimization / 图库扩展与图片优化版
+
+- 上线日期：2026-07-07
+- 对比基准：`v1.0.0 - Initial Cloudflare Release`
+- Git commit：`c53acb8`
+- 上线分支：`main`
+- 缓存标识：早期照片资源批次，无独立 query cache key。
+- 发布策略：将新照片批次正式加入公开图库，并统一压缩公开 web 图与缩略图，改善加载速度。
+
+### 增加
+
+- 新增 18 个公开 rel 照片条目，公开图库从 25 张扩展到 43 张。
+- 新增照片包含 `DSC02934-2`、`DSC01690`、`R0010392` 等后续批次文件，并同步写入 `content/photos.json`。
+
+### 优化
+
+- 重新生成全部公开 web 图，最长边控制在 1920px，JPEG 质量使用 82。
+- 重新生成全部缩略图，最长边控制在 480px，JPEG 质量使用 74。
+- 更新 `images/og-image.jpg`，保持分享预览图与当时公开图库一致。
+
+### 修复
+
+- 修复图库数据与新增照片资源之间的同步问题，确保新增照片在首页与 rel 页面都能通过稳定 rel 编号访问。
+
+### 删除 / 暂缓
+
+- 从公开图库删除 `001-dsc00081` / `DSC00081.jpg`，最终公开图库保持 43 张。
+
+### 部署验证
+
+- 本地图库检查确认 `content/photos.json` 包含 43 个条目，且新增照片资源存在于 `images/web` 与 `images/thumbs`。
+- 旧更新日志记录该版本已在本地 review 后推送到 GitHub 和 Cloudflare Pages。
 
 ## v1.0.0 - Initial Cloudflare Release / 初始正式上线版
 

@@ -37,7 +37,7 @@ The script writes optimized images to `images/web/`, thumbnails to `images/thumb
 - Root directory: `/`
 ## Release Logs
 
-- `logs.html`: browser-friendly UTF-8 log preview.
+- `logs.html`: browser-friendly UTF-8 log preview. Cloudflare also serves it from `/logs`.
 - `UPDATE_LOG.md`: log index and current version.
 - `RELEASE_LOG.md`: formal release notes by version.
 - `WORK_LOG.md`: detailed working notes and implementation history.
