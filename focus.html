@@ -5,33 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>l4rxx - Focus</title>
   <meta name="description" content="Focused image view for l4rxx.">
-  <link rel="stylesheet" href="assets/styles.css">
+  <meta property="og:title" content="l4rxx">
+  <meta property="og:description" content="Focused image view for l4rxx.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="images/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#f5f3f0">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/favicon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="stylesheet" href="assets/styles.css?v=no-index-release1">
 </head>
 <body class="site focus" data-page="focus">
   <header class="site-header">
-    <button class="nav-toggle js-nav-toggle" type="button" aria-label="Open navigation">
+    <button class="nav-toggle control-menu js-nav-toggle" type="button" aria-label="Open navigation">
       <span></span>
       <span></span>
     </button>
   </header>
 
-  <aside class="nav-screen js-nav-screen" aria-hidden="true">
+  <button class="language-switch control-language js-language-switch" type="button" data-language-switch data-language-toggle aria-label="Switch language">
+    <img class="language-lines-pop" src="assets/avatar-lines.png" alt="" aria-hidden="true">
+    <span class="symbol language-globe" aria-hidden="true">
+      <i class="globe-ring"></i>
+      <span class="globe-window">
+        <i class="globe-axis"></i>
+        <i class="stroke globe-lat-a"></i>
+        <i class="stroke globe-lat-b"></i>
+      </span>
+    </span>
+  </button>
+
+  <button class="theme-toggle control-theme js-theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme" aria-pressed="false">
+    <span class="symbol theme-symbol" aria-hidden="true">
+      <i class="stroke theme-ray-a"></i>
+      <i class="stroke theme-ray-b"></i>
+      <i class="stroke theme-ray-c"></i>
+      <i class="stroke theme-ray-d"></i>
+      <i class="theme-core">
+        <img class="theme-lines-pop" src="assets/avatar-lines.png" alt="" aria-hidden="true">
+      </i>
+      <i class="theme-eclipse"></i>
+    </span>
+  </button>
+<aside class="nav-screen js-nav-screen" aria-hidden="true">
     <div class="nav-screen__inner">
       <nav class="nav-screen__nav" aria-label="Primary">
-        <a href="index.html">OVERVIEW</a>
-        <a href="work.html">WORK</a>
+        <a href="index.html" data-i18n="nav.overview">OVERVIEW</a>
+        <a href="work.html" data-i18n="nav.work">WORK</a>
       </nav>
       <div class="nav-screen__about">
-        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
-        <p>Every frame here is loaded from the local images folder and addressed through the rel query.</p>
+        <img src="%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
+        <p data-i18n="focus.menuAbout">&#x6211;&#x8bd5;&#x7740;&#x4e0d;&#x518d;&#x7ea0;&#x7ed3;&#x53c2;&#x6570;&#xff0c;&#x56de;&#x5f52;&#x8bb0;&#x5f55;&#x672c;&#x8eab;</p>
       </div>
       <div class="nav-screen__footer">
         <nav class="nav-screen__social" aria-label="Social links">
-          <a href="mailto:hello@l4rxx.local">CONTACT ME</a>
-          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer">DOUYIN</a>
+          <a href="mailto:hello@l4rxx.local" data-i18n="contact">CONTACT ME</a>
+          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer" data-i18n="social.douyin">TIKTOK</a>
           <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer">INS</a>
         </nav>
-        <span>© 2026 - all rights reserved</span>
+        <span data-i18n="rights">&copy; 2026 - all rights reserved</span>
       </div>
     </div>
   </aside>
@@ -39,23 +72,22 @@
   <main class="focus-shell" data-focus-shell>
     <div class="focus-title" data-focus-title></div>
     <nav class="focus-rail" data-focus-thumbs aria-label="Photo thumbnails"></nav>
-    <figure class="focus-main">
-      <img data-focus-image alt="">
+        <figure class="focus-main" data-focus-main>
+      <button class="focus-main__button" type="button" data-focus-image-toggle aria-label="Open notes" aria-expanded="false">
+        <img data-focus-image alt="">
+      </button>
       <figcaption data-focus-caption></figcaption>
     </figure>
-    <section class="focus-info" data-focus-info aria-label="Photo information">
-      <div>
-        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="focus-info__avatar">
-        <p>l4rxx keeps the gallery sparse: a centered frame, a small index, and enough empty space for the image to breathe.</p>
+    <section class="focus-notes" data-focus-notes aria-label="Photo notes">
+      <div class="focus-notes__body" data-focus-notes-body>
+        <p class="focus-notes__text" data-focus-note-text></p>
       </div>
     </section>
     <footer class="focus-actions">
-      <a href="index.html" class="js-back">BACK</a>
-      <button type="button" data-focus-index>INDEX</button>
-      <button type="button" data-focus-info-toggle>INFO</button>
+      <a href="index.html" class="js-back" data-i18n="focus.back">BACK</a>
     </footer>
   </main>
 
-  <script src="assets/app.js"></script>
+  <script src="assets/app.js?v=no-index-release1"></script>
 </body>
 </html>
