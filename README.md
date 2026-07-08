@@ -35,5 +35,3 @@ The script writes optimized images to `images/web/`, thumbnails to `images/thumb
 - Build command: `npm run build`
 - Output directory: `dist`
 - Root directory: `/`
-
-The repository also includes `wrangler.toml` with `pages_build_output_dir = "./dist"` so Cloudflare can read the output directory from the repo.

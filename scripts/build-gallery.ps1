@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$Root = (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)),
     [int]$WebMax = 1920,
     [int]$ThumbMax = 480,
@@ -234,5 +234,3 @@ $Json = $Output | ConvertTo-Json -Depth 6
 [System.IO.File]::WriteAllText($PhotosPath, $Json + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Generated $($Items.Count) photos in content/photos.json"
-
-

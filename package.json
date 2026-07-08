@@ -2,8 +2,8 @@
   "name": "l4rxxs-photography",
   "version": "1.0.0",
   "private": true,
-  "description": "l4rxx's Photography",
+  "type": "module",
   "scripts": {
-    "build": "node scripts/build-cloudflare.mjs"
+    "build": "node scripts/cloudflare-build.mjs"
   }
 }

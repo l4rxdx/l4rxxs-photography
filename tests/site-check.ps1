@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 function Assert-True {
@@ -13,7 +13,7 @@ function Assert-True {
 
 function Read-Text {
     param([string]$RelativePath)
-    Get-Content -Raw -LiteralPath (Join-Path $Root $RelativePath)
+    Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $Root $RelativePath)
 }
 
 foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest", "UPDATE_LOG.md")) {
@@ -33,18 +33,24 @@ $Photos = @($PhotoData.items)
 
 Assert-True ($Index -match "l4rxx") "home page should use the l4rxx name"
 Assert-True ($Index -match "data-language-switch") "home page should include a top-left language switch"
-Assert-True ($Index -match "data-lang-option=`"cn`"") "language switch should include a Chinese option"
-Assert-True ($Index -match "data-lang-option=`"en`"") "language switch should include an English option"
+Assert-True ($Index -match "data-language-toggle") "language switch should use the final icon-only toggle"
+Assert-True ($Index -match "language-globe" -and $Index -match "globe-axis" -and $Index -match "globe-lat") "language switch should use the globe symbol"
+Assert-True ($Index -match "data-theme-toggle") "home page should include a top-right theme toggle"
+Assert-True ($Index -match "theme-symbol" -and $Index -match "theme-eclipse") "theme switch should use the sun/moon symbol"
 Assert-True ($Index -match "data-i18n=`"social\.douyin`"") "Douyin/TikTok label should participate in language switching"
 Assert-True ($App -match "initLanguageSwitch") "language switch should initialize from JavaScript"
+Assert-True ($App -match "initThemeSwitch") "theme switch should initialize from JavaScript"
 Assert-True ($App -match "data-i18n") "language switch should update marked copy"
-Assert-True ($App -match "languageLabels" -and $App -match "CN" -and $App -match "EN") "language switch should support both requested label styles"
+Assert-True ($App -match "l4rxx-theme") "theme switch should persist the selected theme"
+Assert-True ($App -match "prefers-color-scheme: dark") "theme should default to the system light/dark preference"
+Assert-True ($App -match "is-theme-transitioning" -and $App -match "offsetHeight" -and $Css -match "is-theme-transitioning") "theme changes should use a temporary smooth color transition state"
+Assert-True ($Css -match 'body\[data-theme="dark"\]') "site should define a full dark theme state"
 Assert-True ($App -match "social\.douyin`": `"TIKTOK`"" -and $App -match "social\.douyin`": `"\\u6296\\u97f3`"") "Douyin/TikTok label should switch between English and Chinese"
 Assert-True ($Css -match "\.language-switch") "language switch should have source-style fixed positioning"
 Assert-True ($AllText -match "https://www\.douyin\.com/user/self\?from_tab_name=main") "nav screen should link to Douyin"
 Assert-True ($AllText -match "https://www\.instagram\.com/l4rxdx/") "nav screen should link to Instagram"
 Assert-True ($Css -match "\.nav-screen__social") "nav social links should have a menu footer layout"
-Assert-True ($AllText -match "寰俊鍥剧墖_20260704181629\.jpg") "avatar should be wired in"
+Assert-True ($AllText -match "20260704181629\.jpg") "avatar should be wired in"
 Assert-True ($AllText -match '<link rel="icon" type="image/png" href="assets/favicon\.png">') "all pages should use the avatar favicon"
 Assert-True ($AllText -match '<link rel="apple-touch-icon" href="assets/favicon\.png">') "all pages should expose the avatar touch icon"
 Assert-True ($AllText -match '<link rel="manifest" href="site\.webmanifest">') "all pages should expose the web manifest"
@@ -73,6 +79,7 @@ foreach ($Photo in $Photos) {
     Assert-True (-not [string]::IsNullOrWhiteSpace($Photo.category)) "each photo should have a category"
     Assert-True (-not [string]::IsNullOrWhiteSpace($Photo.alt)) "each photo should have alt text"
     Assert-True (-not [string]::IsNullOrWhiteSpace($Photo.original)) "each photo should remember its original file"
+    Assert-True (-not [string]::IsNullOrWhiteSpace($Photo.note)) "each photo should have a note placeholder"
 }
 
 Assert-True (-not [string]::IsNullOrWhiteSpace($PhotoData.generatedAt)) "photos.json should include generation metadata"
@@ -84,9 +91,23 @@ Assert-True ($AllText -match "images/og-image\.jpg") "site should expose a share
 
 Assert-True ($App -match "focus\.html\?rel=") "gallery items should link to focus rel pages"
 Assert-True ($Focus -match "data-language-switch") "focus page should include the language switch"
-Assert-True ($Focus -match "data-i18n=`"focus\.back`"" -and $Focus -match "data-i18n=`"focus\.index`"" -and $Focus -match "data-i18n=`"focus\.info`"") "focus action buttons should participate in language switching"
-Assert-True ($Focus -match "data-i18n=`"focus\.about`"") "focus info copy should participate in language switching"
+Assert-True ($Focus -match "data-i18n=`"focus\.back`"" -and $Focus -notmatch "data-focus-index") "release build should keep BACK translated while temporarily removing the unstable INDEX action"
+Assert-True ($Focus -notmatch "data-focus-info-toggle" -and $Focus -notmatch "focus\.info") "focus page should remove the old INFO action"
+Assert-True ($Focus -match "data-focus-image-toggle" -and $Focus -match "data-focus-notes") "focus page should keep photo notes inside the rel page"
+Assert-True ($Focus -match "data-focus-note-text" -and $App -match "photo\.note" -and $App -match "updateNotesLayout" -and $Css -match "\.focus-notes__text") "focus notes should render adaptive per-photo note text"
+Assert-True ($App -match "setNotesOpen" -and $App -match "focus-notes-open" -and $App -match "stopImmediatePropagation") "focus notes should open from the main image and close through the top X button"
+Assert-True ($Css -match "--ease-notes" -and $Css -match "\.focus-shell\.is-notes[\s\S]*\.focus-main" -and $Css -match "\.focus-notes__body") "focus notes should animate with the main image instead of using a blurred background"
+Assert-True ($Css -match "\.focus-notes__body::before[\s\S]*background: var\(--color-dark\)" -and $Css -match "\.focus-shell\.is-notes[\s\S]*\.focus-notes__text[\s\S]*transform: none" -and $Css -match "transition: opacity \.42s var\(--ease-soft\), transform \.62s var\(--ease-notes\)") "focus note line should animate separately so the copy does not get squeezed"
+Assert-True ($Css -match "\.focus-notes__body[\s\S]*display: flex[\s\S]*align-items: center[\s\S]*justify-content: center" -and $Css -match "@media \(max-width: 768px\)[\s\S]*\.focus-notes__body[\s\S]*display: block" -and $App -match "window\.innerWidth - 32") "focus note copy should use the available mobile width and center inside the desktop panel"
+Assert-True ($App -match "isCompactWide" -and $App -match "railRight" -and $App -match "idealCopyWidth" -and $App -match "ratioBoost" -and $Css -match "width: var\(--notes-copy-width") "desktop focus notes should adapt photo scale and panel width from image ratio, note length, and rail clearance"
+Assert-True ($App -match "preloadFocusImage" -and $App -match "is-switching-image" -and $Css -match "\.focus-shell\.is-switching-image[\s\S]*\.focus-main img") "focus main image switching should soften and scale instead of hard-swapping src"
+Assert-True ($App -match "noteCn" -and $App -match "noteEn" -and $App -match "getPhotoNote" -and $App -match "l4rxx:languagechange") "photo notes should switch between Chinese and English with the language control"
+Assert-True ($App -match "return to the record itself" -and $App -match "\\u6211\\u8bd5\\u7740\\u4e0d\\u518d\\u7ea0\\u7ed3\\u53c2\\u6570") "focus menu copy should be updated in both languages"
+Assert-True ($App -match "const indexEnabled = Boolean\(indexToggle\)" -and $App -match "const indexGallery = indexEnabled \? document\.createElement" -and $App -match "if \(!indexEnabled \|\| !indexGallery\) return") "release build should keep INDEX code dormant when the focus page has no index control"
+Assert-True ($App -match "order: getOverviewOrder" -and $App -match "resolveOverviewPhotosFromOrder") "home overview should preserve its randomized order when returning from rel pages"
 Assert-True ($App -match "storeOverviewReturn") "home clicks should store return position before opening rel pages"
+Assert-True ($App -match "captureOverviewReturn" -and $App -match "pointerdown") "home clicks and mobile taps should save return order before navigation"
+Assert-True ($Css -match "\.c-element-overviewgrid \.overview-item\[href\][\s\S]*pointer-events:\s*auto") "home photo links should remain directly clickable"
 Assert-True ($App -match "handleOverviewReturn") "home page should restore the saved return position"
 Assert-True ($App -match "prepareOverviewScrollRestoration") "home page should prepare manual scroll restoration before ordinary refreshes"
 Assert-True ($App -match "isOverviewReturnNavigation") "home refresh reset should not interfere with rel BACK return navigation"
@@ -107,7 +128,11 @@ Assert-True ($App -match "focus-thumb__media") "focus thumbnails should separate
 Assert-True ($App -match "updateMobileFocusRail") "mobile focus page should size a page-scroll driven thumbnail rail"
 Assert-True ($App -match "--first-thumb-width") "mobile focus rail should measure the first thumbnail width"
 Assert-True ($App -match "--last-thumb-width") "mobile focus rail should measure the last thumbnail width"
-Assert-True ($App -match "thumbs\.scrollTo") "mobile focus page should center rel thumbnails with native horizontal scrolling"
+Assert-True ($App -match "animateFocusRailTo" -and $App -match "focusRailScrollFrame") "mobile focus thumbnail clicks should glide the bottom rail instead of jumping"
+Assert-True ($App -match "glideFocusRailAfterThumbClick" -and $App -match "scrollToFocusIndex\(index,\s*true\)") "direct thumbnail clicks should glide the selected thumbnail into view on mobile and desktop"
+Assert-True ($App -match "focusManualSelectionIndex" -and $App -match "manualSelected" -and $App -match "focusManualSelectionIndex = null") "direct thumbnail taps should not be overwritten by scroll sync until the user scrolls again"
+Assert-True ($App -match "focusManualSelectionTimer" -and $App -match "clearFocusManualSelection") "manual thumbnail selection should release after the glide or when the user scrolls again"
+Assert-True ($App -match "glideTarget" -and $App -match "getBoundingClientRect\(\)") "mobile focus rail glide should use the visual thumbnail position for parallax-aware centering"
 Assert-True ($App -match "handleFocusTouchMove") "mobile focus page should map horizontal swipes to thumbnail rail scrolling"
 Assert-True ($App -match 'loading="eager"') "focus thumbnail images should load eagerly so mobile rel centering has measurable widths"
 Assert-True ($App -match "focusSyncHoldUntil") "focus page should hold scroll-driven syncing during programmatic rel centering"
@@ -122,6 +147,8 @@ Assert-True ($Css -match "--mobile-thumb-height") "mobile focus thumbnails shoul
 Assert-True ($Css -match "--mobile-thumb-lift") "mobile focus rail should reserve space for source-style upward thumbnail movement"
 Assert-True ($Css -match "--mobile-rail-bottom") "mobile focus rail should sit in a stable bottom lane"
 Assert-True ($Css -match "--mobile-focus-bottom-clearance") "mobile focus image should reserve space for the thumbnail rail"
+Assert-True ($Css -match "--mobile-notes-line-top" -and $Css -match "top:\s*var\(--notes-line-top, var\(--mobile-notes-line-top\)\)" -and $Css -notmatch "38svh") "mobile focus notes line should align below the scaled main photo instead of crossing it"
+Assert-True ($App -match "--notes-copy-size" -and $App -match "--notes-photo-scale" -and $App -match "--notes-line-top") "focus note layout should adapt photo scale, line position, and copy size together"
 Assert-True ($Css -match "height:\s*calc\(var\(--mobile-thumb-height\)\s*\+\s*var\(--mobile-thumb-lift\)\)") "mobile focus rail should have an explicit strip height with lift clearance"
 Assert-True ($Css -match "padding-top:\s*var\(--mobile-thumb-lift\)") "mobile focus rail should pad for upward source-style thumbnail motion"
 Assert-True ($Css -match "padding-bottom:\s*0") "mobile focus rail should reset desktop center padding"
@@ -129,9 +156,7 @@ Assert-True ($Css -match "bottom:\s*var\(--mobile-rail-bottom\)") "mobile focus 
 Assert-True ($Css -match "overflow-x:\s*auto") "mobile focus rail should scroll natively instead of covering the page"
 Assert-True ($Css -match "\.focus-actions[\s\S]*z-index:\s*1100") "mobile focus actions should stay above the thumbnail rail"
 Assert-True ($Css -match "max-width:\s*none") "mobile thumbnail images should not be constrained by the button width"
-Assert-True ($App -match "thumbs\.scrollLeft\s*=\s*0") "mobile focus index should reset the bottom rail scroll offset when opening"
-Assert-True ($Css -match "\.focus-shell\.is-index\s+\.focus-rail[\s\S]*height:\s*auto[\s\S]*display:\s*flex[\s\S]*flex-wrap:\s*wrap[\s\S]*overflow-y:\s*auto") "mobile focus index should become a full wrap grid instead of the bottom rail"
-Assert-True ($Css -match "\.focus-shell\.is-index\s+\.focus-thumb[\s\S]*height:\s*var\(--space-20\)") "mobile focus index thumbnails should use source-style taller thumb height"
+Assert-True ($Focus -notmatch "data-focus-index" -and $App -match "const indexEnabled = Boolean\(indexToggle\)") "release build should not expose the unfinished focus INDEX gallery"
 Assert-True ($App -match "initializeOverviewItems") "home page should initialize source-style overview opening animation"
 Assert-True ($App -match "--translate-x") "home opening animation should compute horizontal center offsets"
 Assert-True ($App -match "--translate-y") "home opening animation should compute vertical center offsets"
@@ -157,6 +182,6 @@ Assert-True ($AllText -match "has-finished") "home title reveal should wait for 
 Assert-True ($AllText -match "grid-template-columns:\s*repeat\(5,\s*1fr\)") "home overview should use the source-style five-column grid"
 Assert-True ($AllText -match "body\.has-finished\s+\.c-element-overviewgrid\s+\.overview-item\.is-visible\s+\.fs-media") "home photos should animate from centered opening state to their grid cells"
 Assert-True ($UpdateLog -match "2026-07-06" -and $UpdateLog -match "Gaussian" -and $UpdateLog -match "001-dsc00081" -and $UpdateLog -match "43 photos") "update log should describe this project update"
-
+Assert-True ($AllText -match "no-index-release1" -and $UpdateLog -match "no-index-release1") "non-index release should be versioned and logged"
+Assert-True ($Focus -notmatch "data-focus-index" -and $App -match "const indexEnabled = Boolean\(indexToggle\)") "focus INDEX should be disabled for this deploy while the rest of the focus page remains active"
 Write-Host "site-check passed"
-

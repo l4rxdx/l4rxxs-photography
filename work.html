@@ -14,24 +14,48 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/favicon.png">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/styles.css?v=no-index-release1">
 </head>
 <body class="site work" data-page="work" data-view="grid">
   <header class="site-header">
-    <button class="nav-toggle js-nav-toggle" type="button" aria-label="Open navigation">
+    <button class="nav-toggle control-menu js-nav-toggle" type="button" aria-label="Open navigation">
       <span></span>
       <span></span>
     </button>
   </header>
 
-  <aside class="nav-screen js-nav-screen" aria-hidden="true">
+  <button class="language-switch control-language js-language-switch" type="button" data-language-switch data-language-toggle aria-label="Switch language">
+    <img class="language-lines-pop" src="assets/avatar-lines.png" alt="" aria-hidden="true">
+    <span class="symbol language-globe" aria-hidden="true">
+      <i class="globe-ring"></i>
+      <span class="globe-window">
+        <i class="globe-axis"></i>
+        <i class="stroke globe-lat-a"></i>
+        <i class="stroke globe-lat-b"></i>
+      </span>
+    </span>
+  </button>
+
+  <button class="theme-toggle control-theme js-theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme" aria-pressed="false">
+    <span class="symbol theme-symbol" aria-hidden="true">
+      <i class="stroke theme-ray-a"></i>
+      <i class="stroke theme-ray-b"></i>
+      <i class="stroke theme-ray-c"></i>
+      <i class="stroke theme-ray-d"></i>
+      <i class="theme-core">
+        <img class="theme-lines-pop" src="assets/avatar-lines.png" alt="" aria-hidden="true">
+      </i>
+      <i class="theme-eclipse"></i>
+    </span>
+  </button>
+<aside class="nav-screen js-nav-screen" aria-hidden="true">
     <div class="nav-screen__inner">
       <nav class="nav-screen__nav" aria-label="Primary">
         <a href="index.html">OVERVIEW</a>
         <a href="work.html">WORK</a>
       </nav>
       <div class="nav-screen__about">
-        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
+        <img src="%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
         <p>l4rxx works with available light, found color, and scenes that feel almost still.</p>
       </div>
       <div class="nav-screen__footer">
@@ -40,7 +64,7 @@
           <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer">DOUYIN</a>
           <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer">INS</a>
         </nav>
-        <span>© 2026 - all rights reserved</span>
+        <span>&copy; 2026 - all rights reserved</span>
       </div>
     </div>
   </aside>
@@ -54,6 +78,6 @@
     <button type="button" data-work-view="list">LIST</button>
   </footer>
 
-  <script src="assets/app.js"></script>
+  <script src="assets/app.js?v=no-index-release1"></script>
 </body>
 </html>

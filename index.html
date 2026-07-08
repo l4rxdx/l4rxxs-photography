@@ -14,30 +14,48 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/favicon.png">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/styles.css?v=no-index-release1">
 </head>
 <body class="site home" data-page="home">
   <header class="site-header">
-    <button class="nav-toggle js-nav-toggle" type="button" aria-label="Open navigation">
+    <button class="nav-toggle control-menu js-nav-toggle" type="button" aria-label="Open navigation">
       <span></span>
       <span></span>
     </button>
   </header>
 
-  <div class="language-switch js-language-switch" data-language-switch aria-label="Language switch">
-    <button type="button" data-lang-option="cn" aria-pressed="false">&#20013;&#25991;</button>
-    <span>/</span>
-    <button type="button" data-lang-option="en" aria-pressed="true">&#33521;&#35821;</button>
-  </div>
+  <button class="language-switch control-language js-language-switch" type="button" data-language-switch data-language-toggle aria-label="Switch language">
+    <img class="language-lines-pop" src="assets/avatar-lines.png" alt="" aria-hidden="true">
+    <span class="symbol language-globe" aria-hidden="true">
+      <i class="globe-ring"></i>
+      <span class="globe-window">
+        <i class="globe-axis"></i>
+        <i class="stroke globe-lat-a"></i>
+        <i class="stroke globe-lat-b"></i>
+      </span>
+    </span>
+  </button>
 
-  <aside class="nav-screen js-nav-screen" aria-hidden="true">
+  <button class="theme-toggle control-theme js-theme-toggle" type="button" data-theme-toggle aria-label="Toggle theme" aria-pressed="false">
+    <span class="symbol theme-symbol" aria-hidden="true">
+      <i class="stroke theme-ray-a"></i>
+      <i class="stroke theme-ray-b"></i>
+      <i class="stroke theme-ray-c"></i>
+      <i class="stroke theme-ray-d"></i>
+      <i class="theme-core">
+        <img class="theme-lines-pop" src="assets/avatar-lines.png" alt="" aria-hidden="true">
+      </i>
+      <i class="theme-eclipse"></i>
+    </span>
+  </button>
+<aside class="nav-screen js-nav-screen" aria-hidden="true">
     <div class="nav-screen__inner">
       <nav class="nav-screen__nav" aria-label="Primary">
         <a href="index.html" data-i18n="nav.overview">OVERVIEW</a>
         <a href="work.html" data-i18n="nav.work">WORK</a>
       </nav>
       <div class="nav-screen__about">
-        <img src="微信图片_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
+        <img src="%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
         <p data-i18n="home.about">l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.</p>
       </div>
       <div class="nav-screen__footer">
@@ -52,10 +70,19 @@
   </aside>
 
   <main class="overview" id="phatscroll">
-    <h1 class="brand-title" aria-label="l4rxx"><span>l4rxx</span></h1>
+    <h1 class="brand-title" aria-label="l4rxx">
+      <span class="brand-title__word" aria-hidden="true">
+        <span class="brand-letter">l</span>
+        <span class="brand-letter">4</span>
+        <span class="brand-letter">r</span>
+        <span class="brand-letter">x</span>
+        <span class="brand-letter">x</span>
+      </span>
+    </h1>
+    <img class="brand-fall-figure" src="assets/avatar-lines-cute-hands-v2.png" alt="" aria-hidden="true" decoding="async">
     <div class="overview-grid c-element-overviewgrid js-infinity-scroll" data-overview-grid></div>
   </main>
 
-  <script src="assets/app.js"></script>
+  <script src="assets/app.js?v=no-index-release1"></script>
 </body>
 </html>
