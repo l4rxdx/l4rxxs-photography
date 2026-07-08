@@ -16,7 +16,7 @@ function Read-Text {
     Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $Root $RelativePath)
 }
 
-foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest", "UPDATE_LOG.md")) {
+foreach ($File in @("index.html", "work.html", "focus.html", "assets/app.js", "assets/styles.css", "assets/favicon.png", "content/photos.json", "scripts/build-gallery.ps1", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest", "UPDATE_LOG.md", "RELEASE_LOG.md", "WORK_LOG.md")) {
     Assert-True (Test-Path -LiteralPath (Join-Path $Root $File)) "$File should exist"
 }
 
@@ -27,6 +27,8 @@ $Work = Read-Text "work.html"
 $Focus = Read-Text "focus.html"
 $PhotosJson = Read-Text "content/photos.json"
 $UpdateLog = Read-Text "UPDATE_LOG.md"
+$ReleaseLog = Read-Text "RELEASE_LOG.md"
+$WorkLog = Read-Text "WORK_LOG.md"
 $AllText = "$Index`n$Work`n$Focus`n$App`n$Css"
 $PhotoData = $PhotosJson | ConvertFrom-Json
 $Photos = @($PhotoData.items)
@@ -181,7 +183,9 @@ Assert-True ($Css -match "returnLand") "home return should include a target land
 Assert-True ($AllText -match "has-finished") "home title reveal should wait for the finished loading state"
 Assert-True ($AllText -match "grid-template-columns:\s*repeat\(5,\s*1fr\)") "home overview should use the source-style five-column grid"
 Assert-True ($AllText -match "body\.has-finished\s+\.c-element-overviewgrid\s+\.overview-item\.is-visible\s+\.fs-media") "home photos should animate from centered opening state to their grid cells"
-Assert-True ($UpdateLog -match "2026-07-06" -and $UpdateLog -match "Gaussian" -and $UpdateLog -match "001-dsc00081" -and $UpdateLog -match "43 photos") "update log should describe this project update"
-Assert-True ($AllText -match "no-index-release1" -and $UpdateLog -match "no-index-release1") "non-index release should be versioned and logged"
+Assert-True ($UpdateLog -match "v1\.1\.0" -and $UpdateLog -match "RELEASE_LOG\.md" -and $UpdateLog -match "WORK_LOG\.md") "update log should act as the versioned log index"
+Assert-True ($ReleaseLog -match "v1\.1\.0" -and $ReleaseLog -match "v1\.0\.0" -and $ReleaseLog -match "no-index-release1" -and $ReleaseLog -match "data-focus-index") "formal release log should describe the current version against the previous official release"
+Assert-True ($WorkLog -match "2026-07-09" -and $WorkLog -match "dce2a7b" -and $WorkLog -match "site-check passed" -and $WorkLog -match "focus-index-gallery") "work log should preserve detailed implementation and deployment notes"
+Assert-True ($AllText -match "no-index-release1" -and $UpdateLog -match "no-index-release1" -and $ReleaseLog -match "no-index-release1") "non-index release should be versioned and logged"
 Assert-True ($Focus -notmatch "data-focus-index" -and $App -match "const indexEnabled = Boolean\(indexToggle\)") "focus INDEX should be disabled for this deploy while the rest of the focus page remains active"
 Write-Host "site-check passed"

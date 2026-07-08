@@ -31,6 +31,8 @@ for (const file of [
   "sitemap.xml",
   "site.webmanifest",
   "UPDATE_LOG.md",
+  "RELEASE_LOG.md",
+  "WORK_LOG.md",
   "README.md"
 ]) {
   await copyFileIfPresent(file, file);
