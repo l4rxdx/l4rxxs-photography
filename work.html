@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/favicon.png">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/styles.css?v=no-index-release1">
+  <link rel="stylesheet" href="assets/styles.css?v=stable-swipe-release1">
 </head>
 <body class="site work" data-page="work" data-view="grid">
   <header class="site-header">
@@ -51,21 +51,41 @@
 <aside class="nav-screen js-nav-screen" aria-hidden="true">
     <div class="nav-screen__inner">
       <nav class="nav-screen__nav" aria-label="Primary">
-        <a href="index.html">OVERVIEW</a>
-        <a href="work.html">WORK</a>
+        <a href="index.html" data-i18n="nav.overview">OVERVIEW</a>
+        <a href="work.html" data-i18n="nav.work">WORK</a>
       </nav>
       <div class="nav-screen__about">
         <img src="%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20260704181629.jpg" alt="l4rxx avatar" class="nav-screen__avatar">
-        <p>l4rxx works with available light, found color, and scenes that feel almost still.</p>
+        <p data-i18n="work.menuAbout">l4rxx works with available light, found color, and scenes that feel almost still.</p>
       </div>
       <div class="nav-screen__footer">
         <nav class="nav-screen__social" aria-label="Social links">
-          <a href="mailto:hello@l4rxx.local">CONTACT ME</a>
-          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer">DOUYIN</a>
-          <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer">INS</a>
+          <a href="mailto:hello@l4rxx.local" data-i18n="contact">CONTACT ME</a>
+          <a href="https://www.douyin.com/user/self?from_tab_name=main" target="_blank" rel="noopener noreferrer" data-i18n="social.douyin">TIKTOK</a>
+          <a href="https://www.instagram.com/l4rxdx/" target="_blank" rel="noopener noreferrer" data-i18n="social.instagram">INS</a>
         </nav>
-        <span>&copy; 2026 - all rights reserved</span>
+        <span data-i18n="rights">&copy; 2026 - all rights reserved</span>
       </div>
+      <section class="nav-screen__logs" data-nav-logs aria-label="Release notes">
+        <div class="logs-shell">
+          <header class="logs-hero">
+            <div>
+              <h2 class="logs-title" data-i18n="logs.title">LOGS</h2>
+            </div>
+          </header>
+          <div class="release-log" data-nav-release-entries></div>
+        </div>
+      </section>
+      <button class="nav-screen__log-link js-nav-logs-toggle" type="button" aria-label="Open logs">
+        <span class="nav-screen__log-symbol" aria-hidden="true">
+          <i class="log-symbol__page"></i>
+          <i class="log-symbol__fold"></i>
+          <i class="log-symbol__line log-symbol__line-a"></i>
+          <i class="log-symbol__line log-symbol__line-b"></i>
+          <i class="log-symbol__line log-symbol__line-c"></i>
+        </span>
+        <span class="visually-hidden" data-i18n="nav.logs">LOGS</span>
+      </button>
     </div>
   </aside>
 
@@ -78,6 +98,6 @@
     <button type="button" data-work-view="list">LIST</button>
   </footer>
 
-  <script src="assets/app.js?v=no-index-release1"></script>
+  <script src="assets/app.js?v=stable-swipe-release1"></script>
 </body>
 </html>

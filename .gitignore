@@ -3,3 +3,6 @@ images/originals/
 codex-sandbox-test.tmp
 docs/previews/
 dist/
+.env
+.env.*
+!.env.example

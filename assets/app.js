@@ -11,9 +11,15 @@ const languageCopy = {
   en: {
     "nav.overview": "OVERVIEW",
     "nav.work": "WORK",
+    "nav.logs": "LOGS",
+    "logs.kicker": "Release history",
+    "logs.title": "LOGS",
+    "logs.intro": "User-facing release notes for visible site changes. Each version is grouped by optimizations, fixes, removals, and additions.",
     "home.about": "l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.",
+    "work.menuAbout": "l4rxx works with available light, found color, and scenes that feel almost still.",
     contact: "CONTACT ME",
     "social.douyin": "TIKTOK",
+    "social.instagram": "INS",
     "focus.back": "BACK",
     "focus.index": "INDEX",
     "focus.menuAbout": "I tried to stop obsessing over settings and return to the record itself.",
@@ -22,9 +28,15 @@ const languageCopy = {
   cn: {
     "nav.overview": "\u603b\u89c8",
     "nav.work": "\u4f5c\u54c1",
+    "nav.logs": "\u65e5\u5fd7",
+    "logs.kicker": "\u6b63\u5f0f\u66f4\u65b0\u8bb0\u5f55",
+    "logs.title": "\u65e5\u5fd7",
+    "logs.intro": "\u9762\u5411\u8bbf\u95ee\u8005\u7684\u7f51\u7ad9\u66f4\u65b0\u8bb0\u5f55\u3002\u6bcf\u4e2a\u7248\u672c\u6309\u4f18\u5316\u3001\u4fee\u590d\u3001\u5220\u9664\u3001\u589e\u52a0\u5206\u7c7b\u5448\u73b0\u3002",
     "home.about": "l4rxx \u662f\u4e00\u4f4d\u89c6\u89c9\u521b\u4f5c\u8005\uff0c\u6536\u96c6\u9759\u6b62\u77ac\u95f4\u3001\u98ce\u5316\u8868\u9762\u3001\u8096\u50cf\u3001\u5c4f\u5e55\u4e0e\u5b89\u9759\u788e\u7247\u3002",
+    "work.menuAbout": "l4rxx \u7528\u81ea\u7136\u5149\u3001\u88ab\u770b\u89c1\u7684\u989c\u8272\uff0c\u548c\u90a3\u4e9b\u5dee\u4e00\u70b9\u5c31\u9759\u6b62\u7684\u573a\u666f\u5de5\u4f5c\u3002",
     contact: "\u8054\u7cfb\u6211",
     "social.douyin": "\u6296\u97f3",
+    "social.instagram": "INS",
     "focus.back": "\u8fd4\u56de",
     "focus.index": "\u7d22\u5f15",
     "focus.menuAbout": "\u6211\u8bd5\u7740\u4e0d\u518d\u7ea0\u7ed3\u53c2\u6570\uff0c\u56de\u5f52\u8bb0\u5f55\u672c\u8eab",
@@ -32,6 +44,243 @@ const languageCopy = {
   }
 };
 
+const releaseLogCategories = [
+  { key: "optimizations", cn: "优化", en: "Optimizations" },
+  { key: "fixes", cn: "修复", en: "Fixes" },
+  { key: "removals", cn: "删除", en: "Removals" },
+  { key: "additions", cn: "增加", en: "Additions" }
+];
+
+const releaseLogEntries = [
+  {
+    version: "v1.1.3",
+    date: "2026-07-10",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化 rel 页面大图横向滑动，支持一张一张切换、缩略图同步、快速连续手势与更柔和的释放动画。",
+          "优化随记页语言与主题切换时的文案过渡和布局稳定性，减少图片、随记线和文字跳动。",
+          "优化菜单日志入口，改为更清晰的纸张图标，并让日志内容直接占用菜单页面。",
+          "优化移动端首页 L4RXX 类重力互动，接入设备方向并加入低通滤波。"
+        ],
+        en: [
+          "Refined rel main-photo horizontal swiping with one-photo navigation, thumbnail sync, rapid repeated gestures, and a softer release motion.",
+          "Improved notes language and theme transitions so copy, note line, and image layout stay more stable.",
+          "Improved the menu log entry with a clearer document icon and an in-menu release-log view.",
+          "Improved the mobile home L4RXX gravity interaction with device-orientation input and low-pass filtering."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复 rel 大图滑动后缩略图轨道失效、首尾图片绕回、取消滑动闪烁等问题。",
+          "修复系统主题变化时网站自动主题未跟随的问题。",
+          "修复随记页面多次切换语言后不自适应的问题。",
+          "修复日志页切换主题时文字闪烁，以及桌面端菜单加号头像显示异常的问题。"
+        ],
+        en: [
+          "Fixed rel main-photo swipes breaking thumbnail control, wrapping at the first or last image, and flashing after cancelled gestures.",
+          "Fixed auto theme mode not following system theme changes.",
+          "Fixed notes layout adaptation after repeated language switches.",
+          "Fixed log-page copy flicker during theme changes and the incorrect desktop menu avatar rendering."
+        ]
+      },
+      removals: {
+        cn: ["移除移动端 rel 页面下滑进入沉浸大图模式的手势，保留随记页面下滑退出。"],
+        en: ["Removed the mobile rel downward immersive-photo gesture while keeping swipe-down notes exit."]
+      },
+      additions: {
+        cn: [
+          "新增移动端随记上滑进入、下滑退出手势。",
+          "新增 rel 页面大图横向滑动切换，支持普通 rel 状态，并兼容随记状态。"
+        ],
+        en: [
+          "Added mobile swipe-up notes entry and swipe-down notes exit.",
+          "Added rel main-photo horizontal swiping for the standard rel view, with notes-state compatibility."
+        ]
+      }
+    }
+  },
+  {
+    version: "v1.1.2",
+    date: "2026-07-09",
+    categories: {
+      optimizations: {
+        cn: [
+          "日志入口改为右下角单页纸张图标，保持菜单界面的简洁性。",
+          "正式日志页改为面向访问者的版本记录，按版本、类别、条目分级阅读。"
+        ],
+        en: [
+          "Changed the log entry to a lower-right single-page document icon to keep the menu interface concise.",
+          "Rebuilt the public log page as versioned release notes grouped by version, category, and item."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修正旧日志预览在浏览器中可能出现乱码、内容过细的问题。",
+          "保持日志入口参与语言切换、主题切换与菜单动效。"
+        ],
+        en: [
+          "Resolved the old browser log preview problem where markdown could appear garbled or overly technical.",
+          "Kept the log entry connected to language switching, theme switching, and menu motion."
+        ]
+      },
+      removals: {
+        cn: ["移除面向访问者的 Work / Release / Index Markdown 预览切换界面。"],
+        en: ["Removed the visitor-facing Work / Release / Index markdown preview switcher."]
+      },
+      additions: {
+        cn: ["新增正式用户向日志页面与独立日志图标入口。"],
+        en: ["Added a public release log page and an independent log icon entry."]
+      }
+    }
+  },
+  {
+    version: "v1.1.1",
+    date: "2026-07-09",
+    categories: {
+      optimizations: {
+        cn: [
+          "随记页语言切换时只过渡文字，避免图片与随记线跟随抖动。",
+          "主题切换改为柔和过渡，黑夜主题为关键文字加入克制辉光。"
+        ],
+        en: [
+          "Limited note-language transitions to the copy itself so the image and note line stay stable.",
+          "Softened theme transitions and added a restrained glow to key dark-theme typography."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复随记页面多次切换语言后自适应失效的问题。",
+          "修复系统主题变化后网站未自动跟随的问题。"
+        ],
+        en: [
+          "Fixed note layout adaptation after repeated language switches.",
+          "Fixed system theme changes not being reflected by the site when auto mode is active."
+        ]
+      },
+      removals: {
+        cn: ["本版本无面向访问者的删除项。"],
+        en: ["No visitor-facing removals in this version."]
+      },
+      additions: {
+        cn: ["新增菜单日志入口，为正式版本记录提供稳定访问路径。"],
+        en: ["Added a stable menu path for the official release log."]
+      }
+    }
+  },
+  {
+    version: "v1.1.0",
+    date: "2026-07-09",
+    categories: {
+      optimizations: {
+        cn: [
+          "首页照片普通进入时随机排列，从 rel 页面返回时保持原来的滚动位置与照片顺序。",
+          "优化 L4RXX 类重力互动，降低吸附范围，并让移动端设备动作影响字母运动。",
+          "优化 rel 随记页的大图、随记线和文字比例，使桌面端与移动端更协调。"
+        ],
+        en: [
+          "Randomized the home photo order on normal entry while preserving scroll position and order after returning from rel pages.",
+          "Refined the L4RXX gravity interaction with a smaller attraction range and mobile device-motion influence.",
+          "Balanced the rel notes image, note line, and copy proportions across desktop and mobile."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复首页刷新后页面状态混乱的问题。",
+          "修复从 rel 页面返回首页时回到第一页并重播动画的问题。",
+          "修复移动端点击首页照片可能进入错误 rel 编号的问题。"
+        ],
+        en: [
+          "Fixed unstable home state after refreshing away from the first viewport.",
+          "Fixed rel back navigation returning to the first home screen and replaying the opening animation.",
+          "Fixed mobile home taps sometimes opening the wrong rel id."
+        ]
+      },
+      removals: {
+        cn: [
+          "删除 rel 页面旧 INFO 按钮。",
+          "暂时移除未稳定的 rel INDEX 入口，避免影响正式访问体验。"
+        ],
+        en: [
+          "Removed the old rel INFO button.",
+          "Temporarily removed the unstable rel INDEX entry from the public release."
+        ]
+      },
+      additions: {
+        cn: [
+          "新增 rel 页面内随记模式，点击大图即可展开或收回。",
+          "新增黑夜主题、主题按钮、语言按钮与首页人物彩蛋。"
+        ],
+        en: [
+          "Added inline rel notes that open and close from the main photo.",
+          "Added dark theme support, theme and language controls, and the home-page figure easter egg."
+        ]
+      }
+    }
+  },
+  {
+    version: "v1.0.1",
+    date: "2026-07-07",
+    categories: {
+      optimizations: {
+        cn: [
+          "统一生成 web 图与缩略图，降低公开页面加载压力。",
+          "保持新增照片拥有稳定 rel 编号，方便后续继续补充随记。"
+        ],
+        en: [
+          "Generated optimized web images and thumbnails to reduce public-page loading pressure.",
+          "Kept stable rel ids for the expanded photo set so notes can be completed later."
+        ]
+      },
+      fixes: {
+        cn: ["修复新增照片资源与图库数据之间的同步问题。"],
+        en: ["Fixed synchronization between newly added photo assets and gallery data."]
+      },
+      removals: {
+        cn: ["删除选定的 001-dsc00081 / DSC00081 图片条目。"],
+        en: ["Removed the selected 001-dsc00081 / DSC00081 image entry."]
+      },
+      additions: {
+        cn: [
+          "新增 18 个公开 rel 照片条目，公开图库从 25 张扩展到 43 张。",
+          "新增 DSC02934-2、DSC01690、R0010392 等后续批次照片。"
+        ],
+        en: [
+          "Added 18 public rel photo entries, expanding the gallery from 25 to 43 photos.",
+          "Added later-batch photos including DSC02934-2, DSC01690, and R0010392."
+        ]
+      }
+    }
+  },
+  {
+    version: "v1.0.0",
+    date: "2026-07-07",
+    categories: {
+      optimizations: {
+        cn: ["建立首页、作品页与 rel 页之间的基础浏览节奏。"],
+        en: ["Established the base browsing rhythm across the home, work, and rel pages."]
+      },
+      fixes: {
+        cn: ["本版本为初始正式上线版，无历史修复项。"],
+        en: ["Initial public release, with no prior fixes."]
+      },
+      removals: {
+        cn: ["本版本无面向访问者的删除项。"],
+        en: ["No visitor-facing removals in this version."]
+      },
+      additions: {
+        cn: [
+          "新增静态摄影作品集基础结构。",
+          "新增首批公开照片、rel 查询访问、部署文件与基础检查脚本。"
+        ],
+        en: [
+          "Added the base static photography portfolio structure.",
+          "Added the initial public photo set, rel query navigation, deployment files, and basic site checks."
+        ]
+      }
+    }
+  }
+];
 
 prepareOverviewScrollRestoration();
 
@@ -59,9 +308,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   initChrome();
   initLanguageSwitch();
   initThemeSwitch();
+  initReleaseLogs();
+  initNavLogsMode();
+  const page = document.body.dataset.page;
+  if (page === "logs") {
+    startLoadingSequence();
+    return;
+  }
   try {
     photos = await loadPhotos();
-    const page = document.body.dataset.page;
     if (page === "home") renderOverview();
     if (page === "work") renderWork();
     if (page === "focus") renderFocus();
@@ -131,15 +386,114 @@ function initChrome() {
   const screen = document.querySelector(".js-nav-screen");
   if (!toggle || !screen) return;
   toggle.addEventListener("click", () => {
+    if (document.body.classList.contains("is-nav-logs")) {
+      document.body.classList.remove("nav-open", "is-nav-logs");
+      setNavLogsOpen(false);
+      screen.setAttribute("aria-hidden", "true");
+      toggle.setAttribute("aria-label", "Open navigation");
+      return;
+    }
     const open = document.body.classList.toggle("nav-open");
+    if (!open) setNavLogsOpen(false);
     toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
     screen.setAttribute("aria-hidden", String(!open));
   });
   screen.addEventListener("click", (event) => {
     if (event.target === screen) {
-      document.body.classList.remove("nav-open");
+      document.body.classList.remove("nav-open", "is-nav-logs");
+      setNavLogsOpen(false);
       screen.setAttribute("aria-hidden", "true");
+      toggle.setAttribute("aria-label", "Open navigation");
     }
+  });
+}
+
+function escapeReleaseLogHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderReleaseLogSurface(target, language = getCurrentLanguage()) {
+  if (!target) return;
+  const next = language === "cn" ? "cn" : "en";
+  target.innerHTML = releaseLogEntries.map((entry) => {
+    const categories = releaseLogCategories.map((category) => {
+      const items = entry.categories[category.key][next]
+        .map((item) => `<li>${escapeReleaseLogHtml(item)}</li>`)
+        .join("");
+      return `
+        <section class="release-category">
+          <h3 class="release-category__title">${escapeReleaseLogHtml(category[next])}</h3>
+          <ul class="release-category__items">${items}</ul>
+        </section>
+      `;
+    }).join("");
+    return `
+      <article class="release-entry">
+        <header class="release-entry__heading">
+          <h2 class="release-entry__version">${escapeReleaseLogHtml(entry.version)}</h2>
+          <p class="release-entry__date">${escapeReleaseLogHtml(entry.date)}</p>
+        </header>
+        <div class="release-entry__categories">${categories}</div>
+      </article>
+    `;
+  }).join("");
+}
+
+function renderReleaseLogSurfaces(language = getCurrentLanguage()) {
+  document.querySelectorAll("[data-release-entries], [data-nav-release-entries]").forEach((target) => {
+    renderReleaseLogSurface(target, language);
+  });
+}
+
+function initReleaseLogs() {
+  renderReleaseLogSurfaces();
+  window.addEventListener("l4rxx:languagechange", (event) => {
+    const language = event.detail?.language || getCurrentLanguage();
+    const page = document.querySelector("[data-release-log]");
+    if (page && document.body.classList.contains("has-loaded") && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      window.clearTimeout(initReleaseLogs.transitionTimer);
+      page.classList.add("is-logs-copy-swapping");
+      initReleaseLogs.transitionTimer = window.setTimeout(() => {
+        renderReleaseLogSurfaces(language);
+        requestAnimationFrame(() => page.classList.remove("is-logs-copy-swapping"));
+      }, 160);
+      return;
+    }
+    renderReleaseLogSurfaces(language);
+  });
+}
+
+function setNavLogsOpen(open) {
+  document.body.classList.toggle("is-nav-logs", open);
+  document.querySelectorAll(".js-nav-logs-toggle").forEach((button) => {
+    button.setAttribute("aria-pressed", String(open));
+  });
+  if (open) renderReleaseLogSurfaces();
+}
+
+function initNavLogsMode() {
+  const screen = document.querySelector(".js-nav-screen");
+  const navToggle = document.querySelector(".js-nav-toggle");
+  const buttons = [...document.querySelectorAll(".js-nav-logs-toggle")];
+  if (!screen || !buttons.length) return;
+
+  const setMenuOpen = () => {
+    document.body.classList.add("nav-open");
+    screen.setAttribute("aria-hidden", "false");
+    if (navToggle) navToggle.setAttribute("aria-label", "Close navigation");
+  };
+
+  buttons.forEach((button) => {
+    button.setAttribute("aria-pressed", "false");
+    button.addEventListener("click", () => {
+      const logsOpen = document.body.classList.contains("is-nav-logs");
+      setMenuOpen();
+      setNavLogsOpen(!logsOpen);
+    });
   });
 }
 
@@ -150,17 +504,34 @@ function initLanguageSwitch() {
 
   const buttons = switcher ? [...switcher.querySelectorAll("[data-lang-option]")] : [];
   const toggle = switcher?.matches("[data-language-toggle]") ? switcher : switcher?.querySelector("[data-language-toggle]");
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let currentLanguage = "en";
   let saved = "en";
+  let hasAppliedLanguage = false;
+  let languageApplyTimer = 0;
+  let languageTransitionTimer = 0;
+  let languageTransitionRunId = 0;
   try {
     saved = localStorage.getItem("l4rxx-language") || "en";
   } catch (error) {
     saved = "en";
   }
 
-  const setLanguage = (language) => {
-    const next = language === "cn" ? "cn" : "en";
-    currentLanguage = next;
+  const clearLanguageTransition = () => {
+    document.documentElement.classList.remove("is-language-transitioning");
+    document.body.classList.remove("is-language-transitioning");
+  };
+
+  const startLanguageTransition = () => {
+    if (reduceMotion?.matches || !hasAppliedLanguage || !document.body.classList.contains("has-loaded")) return false;
+    window.clearTimeout(languageTransitionTimer);
+    document.documentElement.classList.add("is-language-transitioning");
+    document.body.classList.add("is-language-transitioning");
+    document.body.offsetHeight;
+    return true;
+  };
+
+  const applyLanguage = (next) => {
     document.documentElement.lang = next === "cn" ? "zh-CN" : "en";
     document.body.dataset.language = next;
     document.body.dataset.lang = next;
@@ -192,6 +563,23 @@ function initLanguageSwitch() {
     }
   };
 
+  const setLanguage = (language) => {
+    const next = language === "cn" ? "cn" : "en";
+    currentLanguage = next;
+    const runId = ++languageTransitionRunId;
+    const shouldAnimate = startLanguageTransition();
+    window.clearTimeout(languageApplyTimer);
+    const finish = () => {
+      if (runId !== languageTransitionRunId) return;
+      applyLanguage(next);
+      hasAppliedLanguage = true;
+      if (shouldAnimate) languageTransitionTimer = window.setTimeout(clearLanguageTransition, 280);
+      else clearLanguageTransition();
+    };
+    if (shouldAnimate) languageApplyTimer = window.setTimeout(finish, 90);
+    else finish();
+  };
+
   buttons.forEach((button) => {
     button.addEventListener("click", () => setLanguage(button.dataset.langOption));
   });
@@ -207,14 +595,19 @@ function initThemeSwitch() {
   const systemTheme = window.matchMedia?.("(prefers-color-scheme: dark)");
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let currentTheme = "light";
-  let saved = null;
+  let savedMode = "auto";
+  let savedTheme = null;
   let themeTransitionTimer = 0;
+  let logsThemeTransitionTimers = [];
+  let logsThemeTransitionCleanups = [];
   try {
-    saved = localStorage.getItem("l4rxx-theme");
+    savedMode = localStorage.getItem("l4rxx-theme-mode") || "auto";
+    savedTheme = localStorage.getItem("l4rxx-theme");
   } catch (error) {
-    saved = null;
+    savedMode = "auto";
+    savedTheme = null;
   }
-  let followsSystem = !saved;
+  if (savedMode !== "light" && savedMode !== "dark" && savedMode !== "auto") savedMode = "auto";
 
   const getSystemTheme = () => systemTheme?.matches ? "dark" : "light";
 
@@ -232,9 +625,57 @@ function initThemeSwitch() {
     themeTransitionTimer = window.setTimeout(clearThemeTransition, 940);
   };
 
+  const clearLogsThemeTransitionTimers = () => {
+    logsThemeTransitionTimers.forEach((timer) => window.clearTimeout(timer));
+    logsThemeTransitionTimers = [];
+    logsThemeTransitionCleanups.forEach((cleanup) => cleanup());
+    logsThemeTransitionCleanups = [];
+  };
+
+  const animateLogsThemeColor = (next, animate) => {
+    clearLogsThemeTransitionTimers();
+    const shells = [...document.querySelectorAll(".logs-shell")];
+    if (!shells.length) return;
+    const targetColor = next === "dark" ? "#ebe7df" : "#0c0c0c";
+    if (reduceMotion?.matches || !animate || !document.body.classList.contains("has-loaded")) {
+      shells.forEach((shell) => {
+        shell.style.transition = "";
+        shell.style.color = "";
+      });
+      return;
+    }
+    shells.forEach((shell) => {
+      const currentColor = getComputedStyle(shell).color;
+      shell.style.transition = "none";
+      shell.style.color = currentColor;
+      shell.offsetHeight;
+      shell.style.transition = "color .72s var(--ease-soft), border-color .72s var(--ease-soft)";
+      requestAnimationFrame(() => {
+        shell.style.color = targetColor;
+      });
+      let didFinish = false;
+      const finish = (event) => {
+        if (event && event.propertyName !== "color") return;
+        if (didFinish) return;
+        didFinish = true;
+        shell.removeEventListener("transitionend", finish);
+        shell.style.transition = "none";
+        shell.style.color = targetColor;
+        shell.offsetHeight;
+        shell.style.transition = "";
+        shell.style.color = "";
+      };
+      shell.addEventListener("transitionend", finish);
+      logsThemeTransitionCleanups.push(() => finish());
+      logsThemeTransitionTimers.push(window.setTimeout(finish, 1800));
+    });
+  };
+
   const applyTheme = (theme, animate = false) => {
     const next = theme === "dark" ? "dark" : "light";
-    if (animate && next !== currentTheme) startThemeTransition();
+    const shouldAnimate = animate && next !== currentTheme;
+    if (shouldAnimate) startThemeTransition();
+    animateLogsThemeColor(next, shouldAnimate);
     currentTheme = next;
     document.documentElement.dataset.theme = next;
     document.body.dataset.theme = next;
@@ -246,15 +687,25 @@ function initThemeSwitch() {
     }
   };
 
-  const setTheme = (theme, persist = true, animate = true) => {
-    applyTheme(theme, animate);
-    if (!persist) return;
-    followsSystem = false;
+  const applySystemTheme = (animate = true) => {
+    applyTheme(getSystemTheme(), animate);
+  };
+
+  const persistThemeMode = (mode) => {
     try {
-      localStorage.setItem("l4rxx-theme", currentTheme);
+      localStorage.setItem("l4rxx-theme-mode", mode);
+      if (mode === "auto") localStorage.removeItem("l4rxx-theme");
+      else localStorage.setItem("l4rxx-theme", mode);
     } catch (error) {
       return;
     }
+  };
+
+  const setTheme = (theme, persist = true, animate = true) => {
+    applyTheme(theme, animate);
+    if (!persist) return;
+    savedMode = currentTheme;
+    persistThemeMode(savedMode);
   };
 
   if (toggle) {
@@ -262,10 +713,15 @@ function initThemeSwitch() {
   }
 
   systemTheme?.addEventListener?.("change", (event) => {
-    if (followsSystem) applyTheme(event.matches ? "dark" : "light", true);
+    if (savedMode === "auto") applySystemTheme(true);
   });
 
-  setTheme(saved || getSystemTheme(), Boolean(saved), false);
+  if (savedMode === "auto") {
+    applySystemTheme(false);
+    persistThemeMode("auto");
+  } else {
+    applyTheme(savedMode || savedTheme || getSystemTheme(), false);
+  }
 }
 
 function getPhotoRel(photo, fallbackIndex = 0) {
@@ -743,9 +1199,15 @@ function initializeOverviewInteraction(grid) {
   let motionInfluence = { x: 0, y: 0, twist: 0 };
   let motionListening = false;
   let motionPermissionRequested = false;
+  let motionGestureListenersActive = false;
+  const ORIENTATION_LOW_PASS_RATE = 0.12;
+  const MOTION_LOW_PASS_RATE = 0.08;
+  const motionGestureOptions = { passive: true };
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const isMobile = () => window.innerWidth <= 768;
+  const idleAttractionRadius = () => window.innerHeight * (isMobile() ? 0.66 : 0.68);
+  const photoAvoidRadius = () => isMobile() ? 10 : 16;
   const scheduleFrame = (callback) => {
     return window.setTimeout(() => callback(Date.now()), 16);
   };
@@ -757,6 +1219,7 @@ function initializeOverviewInteraction(grid) {
     motionInfluence.y += (clamp(nextY, -1, 1) - motionInfluence.y) * rate;
     motionInfluence.twist += (clamp(nextTwist, -1, 1) - motionInfluence.twist) * rate;
   };
+  const getMotionWakeStrength = () => Math.abs(motionInfluence.x) + Math.abs(motionInfluence.twist) * 0.36;
   const getPieceBox = (piece) => {
     if (piece.type === "figure") {
       const hitbox = piece.hitbox || { left: 0.18, right: 0.18, top: 0.075, bottom: 0.025 };
@@ -804,7 +1267,7 @@ function initializeOverviewInteraction(grid) {
     const gamma = Number(event.gamma || 0);
     const beta = Number(event.beta || 0);
     const alpha = Number(event.alpha || 0);
-    blendMotion(gamma / 38, (beta - 25) / 55, Math.sin(alpha * Math.PI / 180), 0.16);
+    blendMotion(gamma / 38, (beta - 25) / 55, Math.sin(alpha * Math.PI / 180), ORIENTATION_LOW_PASS_RATE);
   };
 
   const handleDeviceMotion = (event) => {
@@ -812,34 +1275,63 @@ function initializeOverviewInteraction(grid) {
     if (!acceleration) return;
     const x = Number(acceleration.x || 0) / 14;
     const y = Number(acceleration.y || 0) / -18;
-    blendMotion(x, y, 0, 0.08);
+    blendMotion(x, y, 0, MOTION_LOW_PASS_RATE);
   };
 
   const startMotionListening = () => {
     if (motionListening) return;
     motionListening = true;
+    removeMotionGestureListeners();
     window.addEventListener("deviceorientation", handleDeviceOrientation, true);
     window.addEventListener("devicemotion", handleDeviceMotion, true);
   };
 
-  const requestMotionAccess = async () => {
+  const removeMotionGestureListeners = () => {
+    if (!motionGestureListenersActive) return;
+    motionGestureListenersActive = false;
+    window.removeEventListener("pointerdown", requestMotionAccess);
+    window.removeEventListener("touchstart", requestMotionAccess);
+    window.removeEventListener("touchend", requestMotionAccess);
+    window.removeEventListener("click", requestMotionAccess);
+  };
+
+  const requestMotionAccess = async (event) => {
     if (motionPermissionRequested || motionListening) return;
+    if (event && event.isTrusted === false) return;
     motionPermissionRequested = true;
     const orientationEvent = window.DeviceOrientationEvent;
     const motionEvent = window.DeviceMotionEvent;
     try {
+      const permissionRequests = [];
       if (orientationEvent && typeof orientationEvent.requestPermission === "function") {
-        const state = await orientationEvent.requestPermission();
-        if (state !== "granted") return;
+        permissionRequests.push(orientationEvent.requestPermission());
       }
       if (motionEvent && typeof motionEvent.requestPermission === "function") {
-        const state = await motionEvent.requestPermission();
-        if (state !== "granted") return;
+        permissionRequests.push(motionEvent.requestPermission());
+      }
+      if (!permissionRequests.length) {
+        startMotionListening();
+        return;
+      }
+      const states = await Promise.all(permissionRequests);
+      if (states.some((state) => state !== "granted")) {
+        motionPermissionRequested = false;
+        return;
       }
       startMotionListening();
     } catch (error) {
+      motionPermissionRequested = false;
       return;
     }
+  };
+
+  const addMotionGestureListeners = () => {
+    if (motionGestureListenersActive) return;
+    motionGestureListenersActive = true;
+    window.addEventListener("pointerdown", requestMotionAccess, motionGestureOptions);
+    window.addEventListener("touchstart", requestMotionAccess, motionGestureOptions);
+    window.addEventListener("touchend", requestMotionAccess, motionGestureOptions);
+    window.addEventListener("click", requestMotionAccess, motionGestureOptions);
   };
 
   const setupMotionAccess = () => {
@@ -849,8 +1341,7 @@ function initializeOverviewInteraction(grid) {
       startMotionListening();
       return;
     }
-    window.addEventListener("pointerdown", requestMotionAccess, { once: true, passive: true });
-    window.addEventListener("touchend", requestMotionAccess, { once: true, passive: true });
+    addMotionGestureListeners();
   };
 
   const clearStates = () => {
@@ -1028,7 +1519,7 @@ function initializeOverviewInteraction(grid) {
     currentGroup.x /= Math.max(1, settlingPieces.length);
     currentGroup.y /= Math.max(1, settlingPieces.length);
 
-    const padding = isMobile() ? 26 : 34;
+    const padding = photoAvoidRadius();
     const blockedRects = colliders.map((collider) => ({
       left: collider.rect.left - padding,
       right: collider.rect.right + padding,
@@ -1086,7 +1577,7 @@ function initializeOverviewInteraction(grid) {
 
   const avoidPhotosSoftly = (piece, colliders, dt) => {
     colliders.forEach((collider) => {
-      const padding = isMobile() ? 18 : 24;
+      const padding = photoAvoidRadius();
       const rect = {
         left: collider.rect.left - padding,
         right: collider.rect.right + padding,
@@ -1259,13 +1750,19 @@ function initializeOverviewInteraction(grid) {
     const idleAge = time - lastScrollMoveAt;
     const settlingPieces = pieces.filter((piece) => piece.settles !== false);
     const groupCenterY = settlingPieces.reduce((sum, piece) => sum + piece.y + piece.height / 2, 0) / Math.max(1, settlingPieces.length);
-    const groupHasNaturallyDropped = groupCenterY > window.innerHeight * (isMobile() ? 0.58 : 0.6) || settlingPieces.some((piece) => piece.floorHits > 0);
+    const groupHasNaturallyDropped = groupCenterY > idleAttractionRadius() || settlingPieces.some((piece) => piece.floorHits > 0);
     const shouldSettle = settleAge > 0 && idleAge > (isMobile() ? 520 : 680) && groupHasNaturallyDropped;
     const restTargets = getRestTargets(floor, sidePadding, colliders);
     let touchedItem = null;
+    const motionWakeStrength = isMobile() && motionListening ? getMotionWakeStrength() : 0;
 
     pieces.forEach((piece, index) => {
       piece.onFloor = false;
+      if (piece.sleeping && motionWakeStrength > 0.08 && piece.type === "letter") {
+        piece.sleeping = false;
+        piece.vx += motionInfluence.x * 0.42;
+        piece.va += (motionInfluence.x + motionInfluence.twist * 0.36) * 0.022;
+      }
       if (piece.sleeping && Math.abs(scrollDelta) < 1.5 && !shouldSettle) {
         piece.vx = 0;
         piece.vy = 0;
@@ -1495,7 +1992,9 @@ function initializeOverviewInteraction(grid) {
     window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
     window.removeEventListener("devicemotion", handleDeviceMotion, true);
     window.removeEventListener("pointerdown", requestMotionAccess);
+    window.removeEventListener("touchstart", requestMotionAccess);
     window.removeEventListener("touchend", requestMotionAccess);
+    window.removeEventListener("click", requestMotionAccess);
     applyIdleState();
   };
 }
@@ -1573,15 +2072,48 @@ function renderFocus() {
   let focusTouchStartY = 0;
   let focusTouchLastX = 0;
   let focusTouchMode = "";
+  let focusMainTouchStartX = 0;
+  let focusMainTouchStartY = 0;
+  let focusMainTouchLastX = 0;
+  let focusMainTouchLastY = 0;
+  let focusMainTouchLastMoveAt = 0;
+  let focusMainTouchVelocityX = 0;
+  let focusMainTouchMode = "";
+  let focusMainTouchMoved = false;
+  let focusMainTouchPreventClickUntil = 0;
+  let focusMainTouchBaseOffset = 0;
+  let focusMainPointerActive = false;
+  let focusMainPointerId = 0;
+  let focusMainWheelLockUntil = 0;
+  const focusMainSwipe = {
+    active: false,
+    animating: false,
+    frame: 0,
+    offset: 0,
+    width: 1,
+    direction: 0,
+    fromIndex: 0,
+    targetIndex: 0,
+    startedAt: 0,
+    fromOffset: 0,
+    toOffset: 0,
+    commit: false,
+    edge: false
+  };
+  let focusMainSwipeClearSequence = 0;
   const focusShiftPositions = new Map();
   const focusFollowRate = 0.08;
-  let focusSwitchToken = 0;
+  let focusSwitchSequence = 0;
   let focusSwitchTimer = 0;
   let returnToNotesAfterIndex = false;
   let focusIndexTransitionTimer = 0;
   let focusRailScrollFrame = 0;
   let focusManualSelectionIndex = null;
   let focusManualSelectionTimer = 0;
+  let focusSwipeSyncTimer = 0;
+  let focusMainSwipeLockUntil = 0;
+  let focusNoteCopyTransitionTimer = 0;
+  let focusNotesTransitionTimer = 0;
   let focusIndexAnimations = [];
   let focusIndexHandoffTimer = 0;
   let focusIndexHiddenCardTimer = 0;
@@ -1610,7 +2142,7 @@ function renderFocus() {
     if (thumbImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, thumbImage));
     button.addEventListener("click", () => {
       if (shell.classList.contains("is-index")) return;
-      setFocus(index, true);
+      setFocus(index, true, { source: "thumb" });
       setNotesOpen(false);
       glideFocusRailAfterThumbClick(index);
     });
@@ -1645,6 +2177,7 @@ function renderFocus() {
     openFocusIndex(activeIndex);
   });
   imageToggle.addEventListener("click", () => {
+    if (Date.now() < focusMainTouchPreventClickUntil) return;
     setNotesOpen(!shell.classList.contains("is-notes"));
   });
   navToggle?.addEventListener("click", (event) => {
@@ -1680,6 +2213,17 @@ function renderFocus() {
   window.addEventListener("wheel", clearFocusManualSelection, { passive: true });
   thumbs.addEventListener("touchstart", handleFocusTouchStart, { passive: true });
   thumbs.addEventListener("touchmove", handleFocusTouchMove, { passive: false });
+  imageToggle.addEventListener("touchstart", handleFocusMainTouchStart, { passive: true });
+  imageToggle.addEventListener("touchmove", handleFocusMainTouchMove, { passive: false });
+  imageToggle.addEventListener("touchend", handleFocusMainTouchEnd, { passive: true });
+  imageToggle.addEventListener("touchcancel", handleFocusMainTouchCancel, { passive: true });
+  imageToggle.addEventListener("pointerdown", handleFocusMainPointerDown);
+  imageToggle.addEventListener("pointermove", handleFocusMainPointerMove);
+  imageToggle.addEventListener("pointerup", handleFocusMainPointerUp);
+  imageToggle.addEventListener("pointercancel", handleFocusMainPointerCancel);
+  imageToggle.addEventListener("lostpointercapture", handleFocusMainPointerCancel);
+  imageToggle.addEventListener("wheel", handleFocusMainWheel, { passive: false });
+  ensureFocusMainSwipeLayer();
   thumbs.addEventListener("wheel", handleFocusWheel, { passive: false });
   window.addEventListener("keydown", (event) => {
     const current = Number(shell.dataset.activeIndex || 0);
@@ -1730,14 +2274,15 @@ function renderFocus() {
   window.addEventListener("resize", () => {
     updateFocusRailMetrics();
     updateMobileFocusRail();
-    updateNotesLayout();
+    scheduleNotesLayoutUpdate();
     scrollToFocusIndex(Number(shell.dataset.activeIndex || initial), false);
   });
   window.addEventListener("l4rxx:languagechange", () => {
     const active = Number(shell.dataset.activeIndex || initial);
     const activePhoto = photos[active] || photos[0];
-    if (noteText) noteText.textContent = getPhotoNote(activePhoto);
-    updateNotesLayout();
+    transitionFocusNoteCopy(() => {
+      if (noteText) noteText.textContent = getPhotoNote(activePhoto);
+    });
   });
 
 
@@ -1834,11 +2379,42 @@ function renderFocus() {
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  function getCssLengthValue(node, name, fallback = 0) {
+    if (!node) return fallback;
+    const value = getComputedStyle(node).getPropertyValue(name).trim();
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed) && value.endsWith("px")) return parsed;
+    const probe = document.createElement("span");
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    probe.style.pointerEvents = "none";
+    probe.style.width = `var(${name})`;
+    node.appendChild(probe);
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+    return Number.isFinite(width) && width > 0 ? width : fallback;
+  }
+
   function getCssNumberValue(node, name, fallback = 1) {
     const value = getComputedStyle(node).getPropertyValue(name).trim();
     const parsed = Number.parseFloat(value);
     return Number.isFinite(parsed) ? parsed : fallback;
   }
+
+  function getElementTranslateY(node) {
+    if (!node) return 0;
+    const transform = getComputedStyle(node).transform;
+    if (!transform || transform === "none") return 0;
+    try {
+      return new DOMMatrixReadOnly(transform).m42 || 0;
+    } catch (error) {
+      const matrix = transform.match(/matrix\(([^)]+)\)/);
+      if (!matrix) return 0;
+      const values = matrix[1].split(",").map((item) => Number.parseFloat(item.trim()));
+      return Number.isFinite(values[5]) ? values[5] : 0;
+    }
+  }
+
 
   function scaleRectFromCenter(rect, scale) {
     if (!rect || !Number.isFinite(scale)) return rect;
@@ -1883,7 +2459,6 @@ function renderFocus() {
         width: rect.width,
         height: rect.height
       }, notesScale);
-      rect = scaleRectFromCenter(rect, 0.985);
     }
     return rect;
   }
@@ -2568,8 +3143,282 @@ function renderFocus() {
       shell.classList.remove("is-index-transitioning");
     }, duration);
   }
-  function setNotesOpen(open) {
+
+  function getWrappedFocusIndex(index) {
+    if (!photos.length) return 0;
+    return (index + photos.length) % photos.length;
+  }
+
+  function getBoundedFocusSwipeIndex(index) {
+    if (!photos.length || index < 0 || index >= photos.length) return null;
+    return index;
+  }
+
+  function getFocusMainSwipeWidth() {
+    const rect = getFocusRect(imageToggle) || getFocusRect(focusMain);
+    return Math.max(1, rect?.width || window.innerWidth || 1);
+  }
+
+  function ensureFocusMainSwipeLayer() {
+    let layer = imageToggle.querySelector(".focus-swipe-layer");
+    if (!layer) {
+      layer = document.createElement("span");
+      layer.className = "focus-swipe-layer";
+      layer.setAttribute("aria-hidden", "true");
+      layer.innerHTML = `
+        <img class="focus-swipe-image focus-swipe-image--current" alt="" decoding="async">
+        <img class="focus-swipe-image focus-swipe-image--next" alt="" decoding="async">
+      `;
+      imageToggle.appendChild(layer);
+    }
+    return {
+      layer,
+      current: layer.querySelector(".focus-swipe-image--current"),
+      next: layer.querySelector(".focus-swipe-image--next")
+    };
+  }
+
+  function setFocusMainSwipeFrame(offset, direction = focusMainSwipe.direction) {
+    if (!direction) return;
+    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
+    const gap = Math.min(92, Math.max(28, width * 0.14));
+    const isEdge = Boolean(focusMainSwipe.edge);
+    const travel = isEdge ? Math.min(138, Math.max(54, width * 0.2)) : width + gap;
+    const clamped = Math.max(-travel, Math.min(travel, offset));
+    const nextBase = direction > 0 ? travel : -travel;
+    const progress = Math.min(1, Math.abs(clamped) / Math.max(1, travel));
+    const nextFade = Math.min(1, Math.max(0, (progress - 0.04) / 0.78));
+    const currentOpacity = isEdge ? 1 : Math.max(0, 1 - progress);
+    const nextOpacity = isEdge ? 0 : nextFade;
+    const currentScale = isEdge ? Math.max(0.975, 1 - progress * 0.025) : Math.max(0.9, 1 - progress * 0.1);
+    const nextScale = isEdge ? 1 : Math.min(1, 0.94 + progress * 0.06);
+    focusMainSwipe.offset = clamped;
+    shell.style.setProperty("--focus-swipe-current-x", `${clamped.toFixed(2)}px`);
+    shell.style.setProperty("--focus-swipe-next-x", `${(nextBase + clamped).toFixed(2)}px`);
+    shell.style.setProperty("--focus-swipe-progress", progress.toFixed(3));
+    shell.style.setProperty("--focus-swipe-current-opacity", currentOpacity.toFixed(3));
+    shell.style.setProperty("--focus-swipe-next-opacity", nextOpacity.toFixed(3));
+    shell.style.setProperty("--focus-swipe-current-scale", currentScale.toFixed(3));
+    shell.style.setProperty("--focus-swipe-next-scale", nextScale.toFixed(3));
+  }
+
+  function cancelFocusMainSwipeAnimation() {
+    if (focusMainSwipe.frame) cancelAnimationFrame(focusMainSwipe.frame);
+    focusMainSwipe.frame = 0;
+    focusMainSwipe.animating = false;
+    shell.classList.remove("is-main-swipe-animating");
+  }
+
+  function interruptFocusMainSwipeForNewGesture() {
+    const targetIndex = focusMainSwipe.targetIndex;
+    const shouldSettle = focusMainSwipe.active
+      && focusMainSwipe.commit
+      && Number.isFinite(targetIndex)
+      && targetIndex !== Number(shell.dataset.activeIndex || 0);
+    focusMainSwipeClearSequence += 1;
+    if (shouldSettle) {
+      setFocus(targetIndex, true, { instant: true, source: "swipe" });
+    }
+    clearFocusMainSwipe();
+    window.clearTimeout(focusSwipeSyncTimer);
+    focusSwipeSyncTimer = 0;
+    focusMainSwipeLockUntil = 0;
+    focusSyncHoldUntil = 0;
+  }
+
+  function isFocusMainSwipeBusy() {
+    return focusMainSwipe.active
+      || focusMainSwipe.animating
+      || focusMainPointerActive
+      || focusMainTouchMode === "horizontal"
+      || shell.classList.contains("is-main-swipe-handoff")
+      || shell.classList.contains("is-main-swipe-fading")
+      || shell.classList.contains("is-main-swipe-returning");
+  }
+
+  function clearFocusMainSwipe(options = {}) {
+    cancelFocusMainSwipeAnimation();
+    focusMainSwipe.active = false;
+    focusMainSwipe.offset = 0;
+    focusMainSwipe.direction = 0;
+    focusMainSwipe.fromIndex = Number(shell.dataset.activeIndex || 0);
+    focusMainSwipe.targetIndex = focusMainSwipe.fromIndex;
+    focusMainSwipe.edge = false;
+    shell.classList.remove("is-main-swiping", "is-main-swipe-animating", "is-main-swipe-edge");
+    if (!options.keepHandoff) shell.classList.remove("is-main-swipe-handoff");
+    if (!options.keepFade) shell.classList.remove("is-main-swipe-fading");
+    if (!options.keepReturn) shell.classList.remove("is-main-swipe-returning");
+    if (!options.keepFrame) {
+      shell.style.removeProperty("--focus-swipe-current-x");
+      shell.style.removeProperty("--focus-swipe-next-x");
+      shell.style.removeProperty("--focus-swipe-progress");
+      shell.style.removeProperty("--focus-swipe-current-opacity");
+      shell.style.removeProperty("--focus-swipe-next-opacity");
+      shell.style.removeProperty("--focus-swipe-current-scale");
+      shell.style.removeProperty("--focus-swipe-next-scale");
+      imageToggle.querySelectorAll(".focus-swipe-layer img").forEach((swipeImage) => {
+        swipeImage.removeAttribute("src");
+        swipeImage.alt = "";
+      });
+    }
+  }
+
+  function finishCancelledFocusMainSwipe() {
+    const clearRunId = ++focusMainSwipeClearSequence;
+    if (focusMainSwipe.direction) setFocusMainSwipeFrame(0, focusMainSwipe.direction);
+    shell.classList.add("is-main-swipe-returning");
+    requestAnimationFrame(() => {
+      if (clearRunId !== focusMainSwipeClearSequence) return;
+      clearFocusMainSwipe({ keepFrame: true, keepReturn: true });
+      window.setTimeout(() => {
+        if (clearRunId !== focusMainSwipeClearSequence) return;
+        clearFocusMainSwipe();
+      }, 160);
+    });
+  }
+
+  function configureFocusMainSwipe(direction) {
+    if (!direction || photos.length < 2) return false;
+    focusMainSwipeClearSequence += 1;
+    const fromIndex = Number(shell.dataset.activeIndex || 0);
+    const targetIndex = getBoundedFocusSwipeIndex(fromIndex + direction);
+    const isEdgeSwipe = targetIndex === null;
+    const photo = isEdgeSwipe ? null : photos[targetIndex];
+    if (!isEdgeSwipe && !photo) return false;
+    const { current, next } = ensureFocusMainSwipeLayer();
+    shell.classList.remove("is-main-swipe-handoff", "is-main-swipe-fading", "is-main-swipe-returning", "is-main-swipe-edge");
+    const currentSource = image.currentSrc || image.src || photos[fromIndex]?.full || "";
+    current.src = currentSource;
+    current.alt = image.alt || photos[fromIndex]?.alt || "";
+    if (isEdgeSwipe) {
+      next.removeAttribute("src");
+      next.alt = "";
+    } else {
+      next.src = photo.full;
+      next.alt = photo.alt || "";
+      preloadFocusImage(photo.full);
+    }
+    focusMainSwipe.active = true;
+    focusMainSwipe.width = getFocusMainSwipeWidth();
+    focusMainSwipe.direction = direction;
+    focusMainSwipe.fromIndex = fromIndex;
+    focusMainSwipe.targetIndex = isEdgeSwipe ? fromIndex : targetIndex;
+    focusMainSwipe.edge = isEdgeSwipe;
+    shell.classList.add("is-main-swiping");
+    shell.classList.toggle("is-main-swipe-edge", isEdgeSwipe);
+    return true;
+  }
+
+  function updateFocusMainSwipeDrag(offset) {
+    if (photos.length < 2 || !offset) return;
+    const direction = offset < 0 ? 1 : -1;
+    if (!focusMainSwipe.active || focusMainSwipe.direction !== direction) {
+      if (!configureFocusMainSwipe(direction)) return;
+    }
+    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
+    const gap = Math.min(92, Math.max(28, width * 0.14));
+    const dragLimit = (width + gap) * 0.94;
+    const edgeLimit = Math.min(138, Math.max(54, width * 0.2));
+    const nextOffset = focusMainSwipe.edge
+      ? Math.max(-edgeLimit, Math.min(edgeLimit, offset * 0.36))
+      : Math.max(-dragLimit, Math.min(dragLimit, offset));
+    setFocusMainSwipeFrame(nextOffset, direction);
+  }
+
+  function commitFocusMainSwipe(targetIndex) {
+    const clearRunId = ++focusMainSwipeClearSequence;
+    let didFinishClear = false;
+    let handoffSafetyTimer = 0;
+    const finishClear = () => {
+      if (clearRunId !== focusMainSwipeClearSequence) return;
+      if (didFinishClear) return;
+      didFinishClear = true;
+      window.clearTimeout(handoffSafetyTimer);
+      shell.classList.add("is-main-swipe-handoff");
+      requestAnimationFrame(() => {
+        if (clearRunId !== focusMainSwipeClearSequence) return;
+        clearFocusMainSwipe({ keepHandoff: true, keepFrame: true });
+        requestAnimationFrame(() => {
+          if (clearRunId !== focusMainSwipeClearSequence) return;
+          shell.classList.remove("is-main-swipe-handoff");
+          shell.classList.add("is-main-swipe-fading");
+          handoffSafetyTimer = window.setTimeout(() => {
+            if (clearRunId !== focusMainSwipeClearSequence) return;
+            clearFocusMainSwipe();
+          }, 180);
+        });
+      });
+    };
+    setFocus(targetIndex, true, { instant: true, source: "swipe" });
+    lockFocusRailAfterMainSwipe(targetIndex);
+    waitForImageDecoded(image).then(finishClear);
+    handoffSafetyTimer = window.setTimeout(() => {
+      waitForImageDecoded(image, 1200).then(finishClear);
+    }, 1800);
+  }
+
+  function startFocusMainSwipeAnimation(toOffset, commit = false) {
+    if (!focusMainSwipe.active) return;
+    cancelFocusMainSwipeAnimation();
+    focusMainSwipe.animating = true;
+    focusMainSwipe.startedAt = performance.now();
+    focusMainSwipe.fromOffset = focusMainSwipe.offset || 0;
+    focusMainSwipe.toOffset = toOffset;
+    focusMainSwipe.commit = Boolean(commit);
+    const distance = Math.abs(focusMainSwipe.toOffset - focusMainSwipe.fromOffset);
+    const velocity = Math.abs(focusMainTouchVelocityX || 0);
+    const velocityDuration = velocity > 0.01 ? distance / Math.max(0.56, velocity * 1.02) : Infinity;
+    const duration = commit
+      ? Math.max(430, Math.min(760, Math.min(330 + distance * 0.48, velocityDuration + 240)))
+      : Math.max(190, Math.min(380, Math.min(150 + distance * 0.28, velocityDuration + 105)));
+    shell.classList.add("is-main-swipe-animating");
+    const ease = (t) => 1 - Math.pow(1 - t, 2.45);
+    const step = (now) => {
+      const progress = Math.min(1, (now - focusMainSwipe.startedAt) / duration);
+      const nextOffset = focusMainSwipe.fromOffset + (focusMainSwipe.toOffset - focusMainSwipe.fromOffset) * ease(progress);
+      setFocusMainSwipeFrame(nextOffset);
+      if (progress < 1 && focusMainSwipe.animating) {
+        focusMainSwipe.frame = requestAnimationFrame(step);
+        return;
+      }
+      focusMainSwipe.frame = 0;
+      focusMainSwipe.animating = false;
+      shell.classList.remove("is-main-swipe-animating");
+      if (focusMainSwipe.commit) commitFocusMainSwipe(focusMainSwipe.targetIndex);
+      else finishCancelledFocusMainSwipe();
+    };
+    focusMainSwipe.frame = requestAnimationFrame(step);
+  }
+
+  function finishFocusMainSwipe() {
+    if (!focusMainSwipe.active || !focusMainSwipe.direction) {
+      clearFocusMainSwipe();
+      return;
+    }
+    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
+    const gap = Math.min(92, Math.max(28, width * 0.14));
+    const travel = width + gap;
+    const offset = focusMainSwipe.offset || 0;
+    const expectedSign = focusMainSwipe.direction > 0 ? -1 : 1;
+    const projectedOffset = offset + focusMainTouchVelocityX * 140;
+    const distanceMatches = Math.abs(offset) > width * 0.13 && Math.sign(offset) === expectedSign;
+    const projectedMatches = Math.abs(projectedOffset) > width * 0.2 && Math.sign(projectedOffset) === expectedSign;
+    const velocityMatches = Math.abs(focusMainTouchVelocityX) > 0.32 && Math.sign(focusMainTouchVelocityX) === expectedSign;
+    const shouldCommit = !focusMainSwipe.edge && (distanceMatches || projectedMatches || velocityMatches);
+    const targetOffset = shouldCommit ? (focusMainSwipe.direction > 0 ? -travel : travel) : 0;
+    startFocusMainSwipeAnimation(targetOffset, shouldCommit);
+  }
+
+  function setNotesOpen(open, options = {}) {
     const isOpen = Boolean(open);
+    const wasOpen = shell.classList.contains("is-notes");
+    if (wasOpen === isOpen) {
+      if (isOpen) updateNotesLayout();
+      return;
+    }
+    if (isOpen) updateNotesLayout();
+    window.clearTimeout(focusNotesTransitionTimer);
+    shell.classList.add("is-notes-transitioning");
     shell.classList.toggle("is-notes", isOpen);
     document.body.classList.toggle("focus-notes-open", isOpen);
     imageToggle.setAttribute("aria-expanded", String(isOpen));
@@ -2577,9 +3426,73 @@ function renderFocus() {
     if (navToggle) {
       navToggle.setAttribute("aria-label", isOpen ? "Close notes" : document.body.classList.contains("nav-open") ? "Close navigation" : "Open navigation");
     }
-    if (isOpen) {
-      updateNotesLayout();
+    const transitionCleanupDelay = isOpen ? 1380 : 1120;
+    focusNotesTransitionTimer = window.setTimeout(() => {
+      shell.classList.remove("is-notes-transitioning");
+    }, transitionCleanupDelay);
+  }
+
+  function scheduleNotesLayoutUpdate() {
+    updateNotesLayout();
+    requestAnimationFrame(() => updateNotesLayout());
+    requestAnimationFrame(() => requestAnimationFrame(() => updateNotesLayout()));
+    window.setTimeout(updateNotesLayout, 180);
+  }
+
+  function transitionFocusNoteCopy(update) {
+    const canAnimate = noteText
+      && shell.classList.contains("is-notes")
+      && document.body.classList.contains("has-loaded")
+      && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.clearTimeout(focusNoteCopyTransitionTimer);
+    shell.classList.remove("is-note-copy-updating", "is-note-copy-swapping", "is-note-copy-returning");
+    if (!canAnimate) {
+      update();
+      scheduleNotesLayoutUpdate();
+      return;
     }
+
+    shell.classList.add("is-note-copy-swapping");
+    focusNoteCopyTransitionTimer = window.setTimeout(() => {
+      update();
+      if (shell.classList.contains("is-notes")) {
+        updateNotesCopyMetricsOnly();
+      } else {
+        updateNotesLayout();
+      }
+      requestAnimationFrame(() => {
+        if (shell.classList.contains("is-notes")) {
+          updateNotesCopyMetricsOnly();
+        } else {
+          updateNotesLayout();
+        }
+        shell.classList.remove("is-note-copy-swapping");
+        shell.classList.add("is-note-copy-returning");
+        focusNoteCopyTransitionTimer = window.setTimeout(() => {
+          shell.classList.remove("is-note-copy-returning");
+        }, 240);
+      });
+    }, 110);
+  }
+
+  function updateNotesCopyMetricsOnly() {
+    if (!noteText) return;
+    const note = noteText.textContent || "";
+    const length = [...note].length;
+    const isMobile = window.innerWidth <= 768;
+    const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
+    const notesRect = getFocusRect(document.querySelector("[data-focus-notes]"));
+    const currentCopyWidth = getCssPixelValue(shell, "--notes-copy-width", isMobile ? window.innerWidth - 32 : 320);
+    const currentCopyGap = getCssPixelValue(shell, "--notes-copy-gap", isMobile ? 14 : 24);
+    const baseCopySize = isMobile ? 1.42 : window.innerWidth < 940 ? 1.34 : 1.46;
+    const minCopySize = isMobile ? 1.05 : window.innerWidth < 940 ? 1.06 : 1.12;
+    const charWidth = isMobile ? 9.4 : 8.8;
+    const charsPerLine = Math.max(isMobile ? 8 : 12, Math.floor(currentCopyWidth / (baseCopySize * charWidth)));
+    const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
+    const copyAvailableHeight = Math.max(isMobile ? 66 : 140, (notesRect?.height || 180) - currentCopyGap - 12);
+    const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
+    const copySize = clamp(minCopySize, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
+    shell.style.setProperty("--notes-copy-size", `${copySize.toFixed(2)}rem`);
   }
 
   function updateNotesLayout() {
@@ -2591,33 +3504,44 @@ function renderFocus() {
     const isMobile = window.innerWidth <= 768;
     const mainBox = document.querySelector("[data-focus-main]");
     const railBox = thumbs;
-    const mainRectForNotes = mainBox?.classList.contains("is-main-traveling") || shell.classList.contains("is-index")
-      ? measureFocusMainBaseRect() || getFocusRect(mainBox)
-      : getFocusRect(mainBox);
+    const mainRectForNotes = measureFocusMainBaseRect() || getFocusRect(mainBox);
     const mainWidth = mainRectForNotes?.width || mainBox?.offsetWidth || window.innerWidth * 0.64;
     const mainHeight = mainRectForNotes?.height || mainBox?.offsetHeight || window.innerHeight * 0.62;
     const cachedRatio = getFocusPhotoRatio(active);
     const imageRatio = cachedRatio || (image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : mainWidth / Math.max(1, mainHeight));
     const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
+    const notesImageLineGap = isMobile
+      ? clamp(26, window.innerHeight * 0.04, 42)
+      : clamp(38, window.innerWidth * 0.038, 76);
+    const notesLineCopyGap = isMobile
+      ? clamp(13, window.innerHeight * 0.02, 22)
+      : clamp(18, window.innerWidth * 0.018, 34);
 
     if (isMobile) {
       const focusTop = mainRectForNotes ? mainRectForNotes.top : 104;
-      const railTop = railBox?.getBoundingClientRect().top || window.innerHeight - 200;
-      const scaleFromText = 0.72 - clamp(0, Math.max(0, length - 30) * 0.004, 0.08);
-      const scaleFromRatio = imageRatio < 0.78 ? -0.03 : imageRatio > 1.18 ? 0.02 : 0;
-      const photoScale = clamp(0.6, scaleFromText + scaleFromRatio, 0.73);
-      const shiftY = -clamp(26, mainHeight * 0.08 + Math.max(0, length - 30) * 0.7, 52);
-      const visualBottom = focusTop + shiftY + mainHeight - (mainHeight * (1 - photoScale) / 2);
-      const gap = clamp(30, 40 + Math.max(0, length - 32) * 0.2, 56);
-      const copySize = clamp(1.16, 1.46 - Math.max(0, length - 34) * 0.012, 1.46);
-      const copyWidth = Math.max(240, window.innerWidth - 32);
-      const charsPerLine = Math.max(8, Math.floor(copyWidth / (copySize * 9.4)));
-      const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
-      const requiredNotesHeight = 28 + copyLines * copySize * 10 * 1.35;
+      const railRect = railBox?.getBoundingClientRect();
+      const notesRailShift = getCssLengthValue(shell, "--space-4", 16);
+      const railTop = railRect
+        ? railRect.top - getElementTranslateY(railBox) + notesRailShift
+        : window.innerHeight - 200;
       const lineBottom = Math.max(150, window.innerHeight - railTop + 8);
-      const maxLineTop = window.innerHeight - lineBottom - requiredNotesHeight;
-      const minLineTop = Math.min(window.innerHeight * 0.43, maxLineTop);
-      const lineTop = clamp(minLineTop, visualBottom + gap, maxLineTop);
+      const fixedCopyReserve = clamp(88, window.innerHeight * 0.16, 136);
+      const maxLineTop = window.innerHeight - lineBottom - fixedCopyReserve;
+      const scaleFromRatio = imageRatio < 0.78 ? -0.04 : imageRatio > 1.18 ? 0.015 : 0;
+      const basePhotoScale = clamp(0.58, 0.7 + scaleFromRatio, 0.72);
+      const shiftY = -clamp(28, mainHeight * 0.085, 48);
+      const maxVisualBottom = maxLineTop - notesImageLineGap;
+      const maxScaleFromFixedSpace = 2 * (maxVisualBottom - focusTop - shiftY - mainHeight / 2) / Math.max(1, mainHeight);
+      const photoScale = clamp(0.54, Math.min(basePhotoScale, maxScaleFromFixedSpace), basePhotoScale);
+      const visualBottom = focusTop + shiftY + mainHeight - (mainHeight * (1 - photoScale) / 2);
+      const lineTop = visualBottom + notesImageLineGap;
+      const copyWidth = Math.max(240, window.innerWidth - 32);
+      const copyAvailableHeight = Math.max(66, window.innerHeight - lineBottom - lineTop - notesLineCopyGap);
+      const baseCopySize = 1.42;
+      const charsPerLine = Math.max(8, Math.floor(copyWidth / (baseCopySize * 9.4)));
+      const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
+      const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
+      const copySize = clamp(1.05, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
 
       shell.style.setProperty("--notes-photo-scale", photoScale.toFixed(3));
       shell.style.setProperty("--notes-photo-shift-y", `${shiftY.toFixed(1)}px`);
@@ -2625,25 +3549,25 @@ function renderFocus() {
       shell.style.setProperty("--notes-line-bottom", `${lineBottom.toFixed(1)}px`);
       shell.style.setProperty("--notes-copy-size", `${copySize.toFixed(2)}rem`);
       shell.style.setProperty("--notes-copy-width", `${copyWidth.toFixed(1)}px`);
+      shell.style.setProperty("--notes-copy-gap", `${notesLineCopyGap.toFixed(1)}px`);
       shell.style.setProperty("--notes-panel-width", "auto");
       shell.style.setProperty("--notes-photo-shift-x", "0px");
       return;
     }
 
     const isCompactWide = window.innerWidth < 940;
-    const copySize = clamp(1.12, 1.5 - Math.max(0, length - 44) * 0.006, 1.5);
     const rightInset = clamp(isCompactWide ? 24 : 40, window.innerWidth * 0.035, isCompactWide ? 44 : 80);
     const railRect = railBox?.getBoundingClientRect();
     const railRight = railRect && railRect.width > 0 ? railRect.right : 136;
     const railGap = clamp(isCompactWide ? 22 : 56, window.innerWidth * 0.042, isCompactWide ? 40 : 108);
-    const noteGap = clamp(isCompactWide ? 24 : 64, window.innerWidth * 0.04, isCompactWide ? 42 : 110);
     const minPanel = isCompactWide ? 252 : 340;
     const maxPanel = Math.max(minPanel, Math.min(isCompactWide ? 292 : 520, window.innerWidth * (isCompactWide ? 0.36 : 0.34)));
-    const idealCopyWidth = clamp(isCompactWide ? 218 : 300, length * copySize * 8.2, isCompactWide ? 244 : 450);
-    const panelWidth = clamp(minPanel, idealCopyWidth + (isCompactWide ? 38 : 64), maxPanel);
+    const notesStablePanelWidth = clamp(minPanel, window.innerWidth * (isCompactWide ? 0.32 : 0.3), maxPanel);
+    const panelWidth = notesStablePanelWidth;
+    const idealCopyWidth = notesStablePanelWidth - notesLineCopyGap - (isCompactWide ? 20 : 32);
     const noteLeft = window.innerWidth - rightInset - panelWidth;
     const leftLimit = railRight + railGap;
-    const rightLimit = noteLeft - noteGap;
+    const rightLimit = noteLeft - notesImageLineGap;
     const availablePhotoWidth = Math.max(160, rightLimit - leftLimit);
     const ratioBoost = imageRatio < 0.82 ? 0.08 : imageRatio > 1.35 ? -0.02 : 0;
     const baseMax = clamp(isCompactWide ? 0.54 : 0.74, (isCompactWide ? 0.62 : 0.84) + ratioBoost, isCompactWide ? 0.68 : 0.92);
@@ -2656,7 +3580,13 @@ function renderFocus() {
     const balancedCenter = leftLimit + availablePhotoWidth * (isCompactWide ? 0.52 : 0.66);
     const desiredCenter = clamp(minCenter, Math.min(rightAlignedCenter, balancedCenter), maxCenter);
     const shiftX = desiredCenter - window.innerWidth / 2;
-    const copyWidth = clamp(isCompactWide ? 218 : 280, panelWidth - (isCompactWide ? 38 : 64), isCompactWide ? 248 : 460);
+    const copyWidth = clamp(isCompactWide ? 218 : 280, idealCopyWidth, isCompactWide ? 248 : 460);
+    const baseCopySize = isCompactWide ? 1.34 : 1.46;
+    const charsPerLine = Math.max(12, Math.floor(copyWidth / (baseCopySize * 8.8)));
+    const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
+    const copyAvailableHeight = Math.max(140, mainHeight - 56);
+    const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
+    const copySize = clamp(isCompactWide ? 1.06 : 1.12, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
 
     shell.style.setProperty("--notes-photo-scale", photoScale.toFixed(3));
     shell.style.setProperty("--notes-photo-shift-x", `${shiftX.toFixed(1)}px`);
@@ -2664,6 +3594,7 @@ function renderFocus() {
     shell.style.setProperty("--notes-panel-width", `${panelWidth.toFixed(1)}px`);
     shell.style.setProperty("--notes-copy-size", `${copySize.toFixed(2)}rem`);
     shell.style.setProperty("--notes-copy-width", `${copyWidth.toFixed(1)}px`);
+    shell.style.setProperty("--notes-copy-gap", `${notesLineCopyGap.toFixed(1)}px`);
     shell.style.removeProperty("--notes-line-top");
     shell.style.removeProperty("--notes-line-bottom");
   }
@@ -2694,6 +3625,26 @@ function renderFocus() {
     });
   }
 
+  function waitForImageDecoded(img, timeout = 2400) {
+    if (!img) return Promise.resolve();
+    const decoded = new Promise((resolve) => {
+      const decode = () => {
+        if (img.complete && img.naturalWidth > 0) {
+          if (img.decode) img.decode().then(resolve).catch(resolve);
+          else resolve();
+          return;
+        }
+        img.addEventListener("load", decode, { once: true });
+        img.addEventListener("error", resolve, { once: true });
+      };
+      decode();
+    });
+    const safety = new Promise((resolve) => {
+      window.setTimeout(resolve, timeout);
+    });
+    return Promise.race([decoded, safety]);
+  }
+
   function preloadFocusImage(src) {
     return new Promise((resolve) => {
       const next = new Image();
@@ -2721,19 +3672,20 @@ function renderFocus() {
     caption.textContent = "";
     if (noteText) noteText.textContent = getPhotoNote(photo);
     title.textContent = photo.title;
-    updateNotesLayout();
+    scheduleNotesLayoutUpdate();
   }
 
   function setFocus(index, replaceUrl, options = {}) {
     const photo = photos[index];
     if (!photo) return;
+    if (options.source !== "swipe") clearFocusMainSwipe();
     const previousIndex = Number(shell.dataset.activeIndex || 0);
     const canAnimate = document.body.classList.contains("has-loaded")
       && !options.instant
       && image.getAttribute("src")
       && index !== previousIndex
       && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const token = ++focusSwitchToken;
+    const switchRunId = ++focusSwitchSequence;
     window.clearTimeout(focusSwitchTimer);
 
     updateFocusChrome(index, replaceUrl);
@@ -2746,16 +3698,17 @@ function renderFocus() {
 
     shell.classList.add("is-switching-image");
     focusSwitchTimer = window.setTimeout(() => {
-      if (token === focusSwitchToken) shell.classList.remove("is-switching-image");
+      if (switchRunId === focusSwitchSequence) shell.classList.remove("is-switching-image");
     }, 760);
     const startedAt = performance.now();
+    const switchOutDelay = options.source === "swipe" ? 160 : 260;
     preloadFocusImage(photo.full).then(() => {
-      const remaining = Math.max(0, 135 - (performance.now() - startedAt));
+      const remaining = Math.max(0, switchOutDelay - (performance.now() - startedAt));
       window.setTimeout(() => {
-        if (token !== focusSwitchToken) return;
+        if (switchRunId !== focusSwitchSequence) return;
         commitFocusPhoto(photo);
         requestAnimationFrame(() => {
-          if (token === focusSwitchToken) {
+          if (switchRunId === focusSwitchSequence) {
             window.clearTimeout(focusSwitchTimer);
             shell.classList.remove("is-switching-image");
           }
@@ -2821,6 +3774,37 @@ function renderFocus() {
     focusSyncHoldUntil = Date.now() + 1400;
   }
 
+  function lockFocusRailAfterMainSwipe(targetIndex) {
+    window.clearTimeout(focusSwipeSyncTimer);
+    glideFocusRailAfterThumbClick(targetIndex);
+    setFocusManualSelection(targetIndex, 1300);
+    focusMainSwipeLockUntil = Date.now() + 1300;
+    focusSyncHoldUntil = Date.now() + 1300;
+    focusSwipeSyncTimer = window.setTimeout(() => {
+      if (Number(shell.dataset.activeIndex || 0) !== targetIndex || shell.classList.contains("is-index")) return;
+      scrollToFocusIndex(targetIndex, false);
+      focusMainSwipeLockUntil = Date.now() + 420;
+      focusSyncHoldUntil = Date.now() + 420;
+    }, 520);
+  }
+
+  function releaseFocusRailUserControl() {
+    window.clearTimeout(focusSwipeSyncTimer);
+    focusSwipeSyncTimer = 0;
+    focusMainSwipeLockUntil = 0;
+    focusSyncHoldUntil = 0;
+  }
+
+  function holdFocusRailForMainSwipeGesture(duration = 720) {
+    cancelFocusRailScroll();
+    window.clearTimeout(focusSwipeSyncTimer);
+    focusSwipeSyncTimer = 0;
+    const currentIndex = Number(shell.dataset.activeIndex || 0);
+    setFocusManualSelection(currentIndex, duration);
+    focusMainSwipeLockUntil = Date.now() + duration;
+    focusSyncHoldUntil = Date.now() + duration;
+  }
+
   function scrollToFocusIndex(index, smooth) {
     const thumb = thumbs.querySelector(`.focus-thumb[data-index="${index + 1}"]`);
     if (!thumb) return;
@@ -2863,9 +3847,221 @@ function renderFocus() {
     return allThumbs.every((thumb) => thumb.offsetWidth > 0 && thumb.offsetHeight > 0);
   }
 
+  function resetFocusMainTouch() {
+    focusMainTouchStartX = 0;
+    focusMainTouchStartY = 0;
+    focusMainTouchLastX = 0;
+    focusMainTouchLastY = 0;
+    focusMainTouchLastMoveAt = 0;
+    focusMainTouchVelocityX = 0;
+    focusMainTouchMode = "";
+    focusMainTouchMoved = false;
+    focusMainTouchBaseOffset = 0;
+  }
+
+  function updateFocusMainTouchVelocity(clientX, eventTime) {
+    const now = Number.isFinite(eventTime) ? eventTime : performance.now();
+    if (!focusMainTouchLastMoveAt) {
+      focusMainTouchLastX = clientX;
+      focusMainTouchLastMoveAt = now;
+      focusMainTouchVelocityX = 0;
+      return;
+    }
+    const dt = Math.max(8, now - focusMainTouchLastMoveAt);
+    const instantVelocity = (clientX - focusMainTouchLastX) / dt;
+    focusMainTouchVelocityX = focusMainTouchVelocityX * 0.28 + instantVelocity * 0.72;
+    focusMainTouchLastX = clientX;
+    focusMainTouchLastMoveAt = now;
+  }
+
+  function handleFocusMainTouchStart(event) {
+    if (window.innerWidth > 768 || shell.classList.contains("is-index") || !event.touches.length) {
+      clearFocusMainSwipe();
+      resetFocusMainTouch();
+      return;
+    }
+    if (isFocusMainSwipeBusy()) {
+      interruptFocusMainSwipeForNewGesture();
+    }
+    holdFocusRailForMainSwipeGesture();
+    const touch = event.touches[0];
+    focusMainTouchStartX = touch.clientX;
+    focusMainTouchStartY = touch.clientY;
+    focusMainTouchLastX = touch.clientX;
+    focusMainTouchLastY = touch.clientY;
+    focusMainTouchLastMoveAt = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+    focusMainTouchVelocityX = 0;
+    focusMainTouchBaseOffset = 0;
+    focusMainTouchMode = "";
+    focusMainTouchMoved = false;
+  }
+
+  function handleFocusMainTouchMove(event) {
+    if (window.innerWidth > 768 || shell.classList.contains("is-index") || !event.touches.length) return;
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - focusMainTouchStartX;
+    const deltaY = touch.clientY - focusMainTouchStartY;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    focusMainTouchLastY = touch.clientY;
+    updateFocusMainTouchVelocity(touch.clientX, event.timeStamp);
+
+    if (!focusMainTouchMode) {
+      if (absX > 3 && absX > absY * 0.72) focusMainTouchMode = "horizontal";
+      else if (absY > 10 && absY > absX * 1.18) focusMainTouchMode = "vertical";
+    }
+    if (focusMainTouchMode === "horizontal") {
+      focusMainTouchMoved = true;
+      event.preventDefault();
+      updateFocusMainSwipeDrag(focusMainTouchBaseOffset + deltaX);
+      return;
+    }
+    if (focusMainTouchMode === "vertical") {
+      focusMainTouchMoved = true;
+      event.preventDefault();
+
+      if (shell.classList.contains("is-notes")) return;
+    }
+  }
+
+  function handleFocusMainTouchEnd(event) {
+    if (window.innerWidth > 768 || shell.classList.contains("is-index")) {
+      resetFocusMainTouch();
+      return;
+    }
+    const touch = event.changedTouches?.[0];
+    const endY = touch ? touch.clientY : focusMainTouchLastY;
+    const endX = touch ? touch.clientX : focusMainTouchStartX;
+    const deltaX = endX - focusMainTouchStartX;
+    const deltaY = endY - focusMainTouchStartY;
+    const absY = Math.abs(deltaY);
+    const absX = Math.abs(deltaX);
+    const wasVertical = focusMainTouchMode === "vertical" && (focusMainTouchMoved || absY > 24);
+    const wasHorizontal = focusMainTouchMode === "horizontal" && (focusMainTouchMoved || absX > 6);
+
+    if (wasHorizontal) {
+      focusMainTouchPreventClickUntil = Date.now() + 520;
+      finishFocusMainSwipe();
+    } else if (wasVertical) {
+      focusMainTouchPreventClickUntil = Date.now() + 520;
+      if (shell.classList.contains("is-notes") && deltaY > 44) {
+        setNotesOpen(false, { source: "swipe" });
+      } else if (!shell.classList.contains("is-notes") && deltaY < -46) {
+        setNotesOpen(true, { source: "swipe" });
+      }
+    } else {
+      if (focusMainSwipe.active && !focusMainSwipe.animating) startFocusMainSwipeAnimation(0, false);
+    }
+    resetFocusMainTouch();
+  }
+
+  function handleFocusMainTouchCancel() {
+    if (focusMainSwipe.active) startFocusMainSwipeAnimation(0, false);
+    resetFocusMainTouch();
+  }
+
+  function isFocusMainPointerDrag(event) {
+    return event.pointerType === "mouse" || event.pointerType === "pen";
+  }
+
+  function handleFocusMainPointerDown(event) {
+    if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
+    if (event.button !== 0 || shell.classList.contains("is-index")) return;
+    if (isFocusMainSwipeBusy()) {
+      interruptFocusMainSwipeForNewGesture();
+    }
+    holdFocusRailForMainSwipeGesture();
+    focusMainPointerActive = true;
+    focusMainPointerId = event.pointerId;
+    focusMainTouchStartX = event.clientX;
+    focusMainTouchStartY = event.clientY;
+    focusMainTouchLastX = event.clientX;
+    focusMainTouchLastY = event.clientY;
+    focusMainTouchLastMoveAt = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+    focusMainTouchVelocityX = 0;
+    focusMainTouchBaseOffset = 0;
+    focusMainTouchMode = "";
+    focusMainTouchMoved = false;
+    imageToggle.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleFocusMainPointerMove(event) {
+    if (!focusMainPointerActive || event.pointerId !== focusMainPointerId || !isFocusMainPointerDrag(event)) return;
+    const deltaX = event.clientX - focusMainTouchStartX;
+    const deltaY = event.clientY - focusMainTouchStartY;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    focusMainTouchLastY = event.clientY;
+    updateFocusMainTouchVelocity(event.clientX, event.timeStamp);
+    if (!focusMainTouchMode) {
+      if (absX > 2 && absX > absY * 0.62) focusMainTouchMode = "horizontal";
+      else if (absY > 14 && absY > absX) focusMainTouchMode = "vertical";
+    }
+    if (focusMainTouchMode !== "horizontal") return;
+    focusMainTouchMoved = true;
+    event.preventDefault();
+    updateFocusMainSwipeDrag(focusMainTouchBaseOffset + deltaX);
+  }
+
+  function handleFocusMainPointerUp(event) {
+    if (!focusMainPointerActive || event.pointerId !== focusMainPointerId || !isFocusMainPointerDrag(event)) return;
+    const deltaX = event.clientX - focusMainTouchStartX;
+    const wasHorizontal = focusMainTouchMode === "horizontal" && (focusMainTouchMoved || Math.abs(deltaX) > 6);
+    imageToggle.releasePointerCapture?.(event.pointerId);
+    focusMainPointerActive = false;
+    focusMainPointerId = 0;
+    if (wasHorizontal) {
+      focusMainTouchPreventClickUntil = Date.now() + 520;
+      event.preventDefault();
+      finishFocusMainSwipe();
+    } else if (focusMainSwipe.active && !focusMainSwipe.animating) {
+      startFocusMainSwipeAnimation(0, false);
+    }
+    resetFocusMainTouch();
+  }
+
+  function handleFocusMainPointerCancel(event) {
+    if (event?.pointerId && event.pointerId !== focusMainPointerId) return;
+    if (focusMainPointerActive && event?.pointerId) {
+      imageToggle.releasePointerCapture?.(event.pointerId);
+    }
+    focusMainPointerActive = false;
+    focusMainPointerId = 0;
+    if (focusMainSwipe.active && !focusMainSwipe.animating) startFocusMainSwipeAnimation(0, false);
+    resetFocusMainTouch();
+  }
+
+  function handleFocusMainWheel(event) {
+    if (shell.classList.contains("is-index")) return;
+    const absX = Math.abs(event.deltaX);
+    const absY = Math.abs(event.deltaY);
+    if (absX < 16 || absX <= absY * 1.12) return;
+    event.preventDefault();
+    if (Date.now() < focusMainWheelLockUntil) return;
+    if (isFocusMainSwipeBusy()) {
+      interruptFocusMainSwipeForNewGesture();
+    }
+    holdFocusRailForMainSwipeGesture(560);
+    const direction = event.deltaX > 0 ? 1 : -1;
+    if (!configureFocusMainSwipe(direction)) return;
+    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
+    const gap = Math.min(92, Math.max(28, width * 0.14));
+    const travel = width + gap;
+    const edgeTravel = Math.min(108, Math.max(48, width * 0.16));
+    const isEdgeSwipe = Boolean(focusMainSwipe.edge);
+    const targetOffset = isEdgeSwipe
+      ? (direction > 0 ? -edgeTravel : edgeTravel)
+      : (direction > 0 ? -travel : travel);
+    focusMainTouchVelocityX = (direction > 0 ? -1 : 1) * Math.max(0.55, Math.min(1.25, absX / 34));
+    setFocusMainSwipeFrame(0, direction);
+    focusMainWheelLockUntil = Date.now() + 180;
+    startFocusMainSwipeAnimation(targetOffset, !isEdgeSwipe);
+  }
+
   function handleFocusTouchStart(event) {
     cancelFocusRailScroll();
     clearFocusManualSelection();
+    releaseFocusRailUserControl();
     if (window.innerWidth > 768 || !event.touches.length) return;
     const touch = event.touches[0];
     focusTouchStartX = touch.clientX;
@@ -2892,6 +4088,7 @@ function renderFocus() {
 
   function handleFocusWheel(event) {
     clearFocusManualSelection();
+    releaseFocusRailUserControl();
     if (window.innerWidth > 768 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
     cancelFocusRailScroll();
     event.preventDefault();
@@ -2910,7 +4107,7 @@ function renderFocus() {
       let activeIndex = Number(shell.dataset.activeIndex || 0);
       let nearestDistance = Infinity;
       const manualSelected = focusManualSelectionIndex !== null && Number(shell.dataset.activeIndex || 0) === focusManualSelectionIndex;
-      const syncPaused = manualSelected || Date.now() < focusSyncHoldUntil || Date.now() < focusInitialLockUntil || (isMobile && !isMobileFocusRailReady(allThumbs));
+      const syncPaused = isFocusMainSwipeBusy() || manualSelected || Date.now() < focusSyncHoldUntil || Date.now() < focusMainSwipeLockUntil || Date.now() < focusInitialLockUntil || (isMobile && !isMobileFocusRailReady(allThumbs));
 
       allThumbs.forEach((thumb, index) => {
         const rect = thumb.getBoundingClientRect();
