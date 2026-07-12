@@ -53,6 +53,42 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    version: "v1.2.1",
+    date: "2026-07-12",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化 rel 返回首页的高 Z 轴照片落位，使飞行层从 rel 源图的真实位置和比例连续缩放至首页目标。"
+        ],
+        en: [
+          "Refined the high-Z rel-to-home photo return so the flight layer scales continuously from the exact rel source geometry into its home target."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复透视重复放大导致返回动画首帧尺寸和位置漂移的问题。",
+          "修复图片解码较慢、动画中滚动或最终图层交接时可能出现的跳位、提前结束和短暂闪动。"
+        ],
+        en: [
+          "Fixed the return flight's first-frame size and position drift caused by uncompensated perspective scaling.",
+          "Fixed jumps, premature completion, and brief flashes during slower image decoding, mid-flight scrolling, and final layer handoff."
+        ]
+      },
+      removals: {
+        cn: ["本版本未删除面向访问者的功能。"],
+        en: ["No visitor-facing features were removed in this release."]
+      },
+      additions: {
+        cn: [
+          "增加返回动画图片就绪保护、独立安全计时和短时滚动位置锁定。"
+        ],
+        en: [
+          "Added image-readiness protection, an independent animation safety timer, and short-lived scroll-position locking for the return flight."
+        ]
+      }
+    }
+  },
+  {
     version: "v1.2.0",
     date: "2026-07-12",
     categories: {
@@ -2223,16 +2259,20 @@ function isValidOverviewFlightRect(rect) {
     && rect.height > 8;
 }
 
-function finishOverviewReturnTarget(target, overlay = null) {
+function finishOverviewReturnTarget(target, overlay = null, onComplete = null) {
   if (!overlay) {
     target.classList.remove("is-return-flight-target", "is-return-target");
+    onComplete?.();
     return;
   }
   target.classList.add("is-return-flight-handoff");
   target.classList.remove("is-return-flight-target", "is-return-target");
-  overlay.remove();
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => target.classList.remove("is-return-flight-handoff"));
+    overlay.remove();
+    requestAnimationFrame(() => {
+      target.classList.remove("is-return-flight-handoff");
+      onComplete?.();
+    });
   });
 }
 
@@ -2256,47 +2296,97 @@ function runOverviewReturnFlight(target, state) {
   document.body.appendChild(overlay);
 
   let finished = false;
+  let started = false;
+  let safetyTimer = 0;
+  let loadTimer = 0;
+  let scrollLocked = false;
+  const lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  const preventScrollInput = (event) => event.preventDefault();
+  const keepReturnScrollPosition = () => {
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    if (Math.abs(currentScrollY - lockedScrollY) > 0.5) {
+      window.scrollTo({ top: lockedScrollY, left: 0, behavior: "auto" });
+    }
+  };
+  const lockReturnScroll = () => {
+    if (scrollLocked) return;
+    scrollLocked = true;
+    document.body.classList.add("is-return-flight-active");
+    window.addEventListener("wheel", preventScrollInput, { passive: false, capture: true });
+    window.addEventListener("touchmove", preventScrollInput, { passive: false, capture: true });
+    window.addEventListener("scroll", keepReturnScrollPosition, { passive: true });
+  };
+  const unlockReturnScroll = () => {
+    if (!scrollLocked) return;
+    scrollLocked = false;
+    document.body.classList.remove("is-return-flight-active");
+    window.removeEventListener("wheel", preventScrollInput, true);
+    window.removeEventListener("touchmove", preventScrollInput, true);
+    window.removeEventListener("scroll", keepReturnScrollPosition);
+  };
   const finish = () => {
     if (finished) return;
     finished = true;
     window.clearTimeout(safetyTimer);
-    finishOverviewReturnTarget(target, overlay);
+    window.clearTimeout(loadTimer);
+    finishOverviewReturnTarget(target, overlay, unlockReturnScroll);
   };
-  const safetyTimer = window.setTimeout(finish, 1500);
   const start = () => {
+    if (started || finished) return;
+    started = true;
+    window.clearTimeout(loadTimer);
     const destination = targetImage.getBoundingClientRect();
     if (!isValidOverviewFlightRect(destination)) {
       finish();
       return;
     }
-    const axis = flight.axis === "x" ? "x" : "y";
-    const direction = Number(flight.direction) < 0 ? -1 : 1;
-    const axisDrift = 18 * direction;
-    const dx = sourceRect.left - destination.left + (axis === "x" ? axisDrift : 0);
-    const dy = sourceRect.top - destination.top + (axis === "y" ? axisDrift : 0);
-    const scaleX = sourceRect.width / destination.width;
-    const scaleY = sourceRect.height / destination.height;
+    const perspective = 1200;
+    const depth = 540;
+    const perspectiveCompensation = (perspective - depth) / perspective;
+    const dx = (sourceRect.left - destination.left) * perspectiveCompensation;
+    const dy = (sourceRect.top - destination.top) * perspectiveCompensation;
+    const scaleX = sourceRect.width / destination.width * perspectiveCompensation;
+    const scaleY = sourceRect.height / destination.height * perspectiveCompensation;
     overlay.style.left = `${destination.left}px`;
     overlay.style.top = `${destination.top}px`;
     overlay.style.width = `${destination.width}px`;
     overlay.style.height = `${destination.height}px`;
+    overlay.style.setProperty("--return-flight-perspective", `${perspective}px`);
+    overlay.style.setProperty("--return-flight-depth", `${depth}px`);
     overlay.style.setProperty("--return-flight-x", `${dx}px`);
     overlay.style.setProperty("--return-flight-y", `${dy}px`);
     overlay.style.setProperty("--return-flight-scale-x", scaleX.toFixed(5));
     overlay.style.setProperty("--return-flight-scale-y", scaleY.toFixed(5));
+    lockReturnScroll();
     target.classList.add("is-return-flight-target");
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => overlay.classList.add("is-active"));
+      requestAnimationFrame(() => {
+        if (finished) return;
+        overlay.classList.add("is-active");
+        safetyTimer = window.setTimeout(finish, 1700);
+      });
     });
   };
   overlay.addEventListener("animationend", finish, { once: true });
-  if (overlay.complete && overlay.naturalWidth > 0) {
-    if (typeof overlay.decode === "function") overlay.decode().then(start).catch(start);
-    else start();
-  } else {
-    overlay.addEventListener("load", start, { once: true });
-    overlay.addEventListener("error", finish, { once: true });
-  }
+  overlay.addEventListener("animationcancel", finish, { once: true });
+  const waitForImage = (image) => new Promise((resolve, reject) => {
+    if (image.complete) {
+      if (image.naturalWidth <= 0) {
+        reject(new Error("image unavailable"));
+        return;
+      }
+      if (typeof image.decode === "function") image.decode().then(resolve).catch(resolve);
+      else resolve();
+      return;
+    }
+    image.addEventListener("load", resolve, { once: true });
+    image.addEventListener("error", reject, { once: true });
+  });
+  targetImage.loading = "eager";
+  targetImage.fetchPriority = "high";
+  target.classList.remove("is-return-target");
+  Promise.all([waitForImage(overlay), waitForImage(targetImage)]).then(start).catch(finish);
+  loadTimer = window.setTimeout(finish, 2400);
 }
 function startLoadingSequence() {
   if (document.body.classList.contains("is-returning-from-rel")) {
