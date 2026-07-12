@@ -53,6 +53,62 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    version: "v1.2.0",
+    date: "2026-07-12",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化首页 L4RXX 重力系统：增强移动端横纵倾斜响应，让文字在照片空白区域自然靠拢，并降低静止阶段的抖动与误碰。",
+          "优化 rel 大图切换：移动端横向、桌面端纵向滑动，并依据相邻照片的真实可见尺寸计算间距、缩放、淡入淡出与纵深变化。",
+          "优化快速连续滑动：新手势可从当前画面位置继续，主图与缩略图轨道分离推进，连续手势不再等待轨道动画结束。",
+          "统一全站明暗主题的颜色过渡，并以共享渐隐雾化边缘和轻微轮廓阴影提升顶部导航图标的可读性。",
+          "优化从 rel 返回首页的照片落位，使当前原图沿单段高 Z 轴轨迹回到原位置，并稳定交接给首页照片。"
+        ],
+        en: [
+          "Refined the home L4RXX gravity system with stronger two-axis mobile tilt response, calmer settling, and whitespace-aware grouping around photos.",
+          "Refined rel photo switching to use horizontal motion on mobile and vertical motion on desktop, with spacing, scale, fade, and depth derived from each photo's visible size.",
+          "Improved rapid consecutive swipes so a new gesture continues from the current frame while the main photo and thumbnail rail advance independently.",
+          "Unified light and dark theme color transitions across the site, with a shared fading edge haze and restrained contour shadows for clearer top controls.",
+          "Improved the rel-to-home return so the active full photo follows one high-Z descent and hands off cleanly to its home position."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复快速连续滑动被缩略图轨道动画阻塞、手势被吞掉，以及反向打断后仍继续播放旧队列的问题。",
+          "修复 rel 大图取消滑动、首尾边界回弹和图层交接时可能出现的闪亮、残留帧或错误绕回。",
+          "修复首页开场个别照片乱跳，以及从 rel 返回首页时照片二段跳和落位交接不连续的问题。",
+          "修复菜单切换主题时文字、地球图标细线与头像变色时点不一致的问题。"
+        ],
+        en: [
+          "Fixed rapid swipes being blocked by thumbnail motion, dropped gestures, and stale queued steps continuing after a reverse interruption.",
+          "Fixed flashes, retained frames, and unintended wrapping during cancelled rel swipes, edge rebound, and visual-layer handoff.",
+          "Fixed occasional home intro photo jumps and the two-stage rel-to-home landing handoff.",
+          "Fixed menu theme timing differences between text, the globe's inner lines, and the avatar."
+        ]
+      },
+      removals: {
+        cn: [
+          "删除顶部三个导航图标各自独立的模糊底板，改用一条共享且渐隐的背景雾化区域。"
+        ],
+        en: [
+          "Removed the three separate blurred plates behind the top controls and replaced them with one shared fading haze."
+        ]
+      },
+      additions: {
+        cn: [
+          "新增首页照片层随手机倾斜产生的轻微透视位移，以及 L4RXX 再次合体后的呼吸释放彩蛋。",
+          "新增桌面端 rel 大图纵向鼠标拖动、触控笔和滚轮切换，并保留移动端横向手势。",
+          "新增 rel 大图连续滑动队列，支持最多三步有边界的快速输入，并兼容普通 rel 与随记状态。"
+        ],
+        en: [
+          "Added subtle device-tilt perspective to the home photo field and a breathing release moment when L4RXX reunites.",
+          "Added vertical mouse, pen, and wheel switching for desktop rel photos while retaining horizontal mobile gestures.",
+          "Added a bounded three-step rel swipe queue for rapid input in both the standard rel and notes states."
+        ]
+      }
+    }
+  },
+  {
     version: "v1.1.3",
     date: "2026-07-10",
     categories: {
@@ -598,6 +654,7 @@ function initThemeSwitch() {
   let savedMode = "auto";
   let savedTheme = null;
   let themeTransitionTimer = 0;
+  let navThemeColorAnimation = null;
   let logsThemeTransitionTimers = [];
   let logsThemeTransitionCleanups = [];
   try {
@@ -630,6 +687,26 @@ function initThemeSwitch() {
     logsThemeTransitionTimers = [];
     logsThemeTransitionCleanups.forEach((cleanup) => cleanup());
     logsThemeTransitionCleanups = [];
+  };
+
+  const animateNavThemeColor = (next, animate) => {
+    const navScreen = document.querySelector(".nav-screen");
+    if (!navScreen) return;
+    const currentColor = getComputedStyle(navScreen).color;
+    navThemeColorAnimation?.cancel();
+    navThemeColorAnimation = null;
+    if (reduceMotion?.matches || !animate || !document.body.classList.contains("has-loaded")) return;
+    const targetColor = next === "dark" ? "#ebe7df" : "#0c0c0c";
+    const animation = navScreen.animate(
+      [{ color: currentColor }, { color: targetColor }],
+      { duration: 720, easing: "cubic-bezier(.5, 0, .5, 1)", fill: "both" }
+    );
+    navThemeColorAnimation = animation;
+    animation.finished.then(() => {
+      if (navThemeColorAnimation !== animation) return;
+      navThemeColorAnimation = null;
+      animation.cancel();
+    }).catch(() => {});
   };
 
   const animateLogsThemeColor = (next, animate) => {
@@ -675,6 +752,7 @@ function initThemeSwitch() {
     const next = theme === "dark" ? "dark" : "light";
     const shouldAnimate = animate && next !== currentTheme;
     if (shouldAnimate) startThemeTransition();
+    animateNavThemeColor(next, shouldAnimate);
     animateLogsThemeColor(next, shouldAnimate);
     currentTheme = next;
     document.documentElement.dataset.theme = next;
@@ -893,7 +971,7 @@ function handleOverviewReturn(grid, returnState = null) {
     const target = findReturnTarget(grid, rel, targetY);
     if (target) {
       target.classList.add("is-return-target");
-      setTimeout(() => target.classList.remove("is-return-target"), 900);
+      runOverviewReturnFlight(target, state);
     }
   });
 
@@ -1200,6 +1278,16 @@ function initializeOverviewInteraction(grid) {
   let motionListening = false;
   let motionPermissionRequested = false;
   let motionGestureListenersActive = false;
+  let photoEffectsReady = false;
+  let lastOrientationAt = 0;
+  let motionNeutral = { x: 0, y: 0, angle: null, samples: 0 };
+  let reunionStableSince = 0;
+  let reunionEndsAt = 0;
+  let reunionCooldownUntil = 0;
+  let reunionPhoto = null;
+  let reunionArmed = true;
+  let restTargetKey = "";
+  let cachedRestTargets = new Map();
   const ORIENTATION_LOW_PASS_RATE = 0.12;
   const MOTION_LOW_PASS_RATE = 0.08;
   const motionGestureOptions = { passive: true };
@@ -1208,6 +1296,7 @@ function initializeOverviewInteraction(grid) {
   const isMobile = () => window.innerWidth <= 768;
   const idleAttractionRadius = () => window.innerHeight * (isMobile() ? 0.66 : 0.68);
   const photoAvoidRadius = () => isMobile() ? 10 : 16;
+  const getSoftCollisionThreshold = () => isMobile() ? 0.82 : 0.98;
   const scheduleFrame = (callback) => {
     return window.setTimeout(() => callback(Date.now()), 16);
   };
@@ -1219,7 +1308,7 @@ function initializeOverviewInteraction(grid) {
     motionInfluence.y += (clamp(nextY, -1, 1) - motionInfluence.y) * rate;
     motionInfluence.twist += (clamp(nextTwist, -1, 1) - motionInfluence.twist) * rate;
   };
-  const getMotionWakeStrength = () => Math.abs(motionInfluence.x) + Math.abs(motionInfluence.twist) * 0.36;
+  const getMotionWakeStrength = () => Math.abs(motionInfluence.x) + Math.abs(motionInfluence.y) + Math.abs(motionInfluence.twist) * 0.28;
   const getPieceBox = (piece) => {
     if (piece.type === "figure") {
       const hitbox = piece.hitbox || { left: 0.18, right: 0.18, top: 0.075, bottom: 0.025 };
@@ -1263,14 +1352,45 @@ function initializeOverviewInteraction(grid) {
     piece.el.style.setProperty("--letter-rotate", `${piece.angle.toFixed(2)}deg`);
   };
 
+  const getScreenAngle = () => {
+    const raw = Number(window.screen?.orientation?.angle ?? window.orientation ?? 0);
+    return ((raw % 360) + 360) % 360;
+  };
+
+  const mapDeviceTiltToScreen = (beta, gamma, angle) => {
+    if (angle === 90) return { x: beta, y: -gamma };
+    if (angle === 270) return { x: -beta, y: gamma };
+    if (angle === 180) return { x: -gamma, y: -beta };
+    return { x: gamma, y: beta };
+  };
+
   const handleDeviceOrientation = (event) => {
     const gamma = Number(event.gamma || 0);
     const beta = Number(event.beta || 0);
     const alpha = Number(event.alpha || 0);
-    blendMotion(gamma / 38, (beta - 25) / 55, Math.sin(alpha * Math.PI / 180), ORIENTATION_LOW_PASS_RATE);
+    const angle = getScreenAngle();
+    const mapped = mapDeviceTiltToScreen(beta, gamma, angle);
+    lastOrientationAt = performance.now();
+    if (motionNeutral.angle !== angle) {
+      motionNeutral = { x: mapped.x, y: mapped.y, angle, samples: 1 };
+      blendMotion(0, 0, 0, 1);
+      return;
+    }
+    if (motionNeutral.samples < 8) {
+      const samples = motionNeutral.samples + 1;
+      motionNeutral.x += (mapped.x - motionNeutral.x) / samples;
+      motionNeutral.y += (mapped.y - motionNeutral.y) / samples;
+      motionNeutral.samples = samples;
+      blendMotion(0, 0, 0, ORIENTATION_LOW_PASS_RATE);
+      return;
+    }
+    const screenX = (mapped.x - motionNeutral.x) / 30;
+    const screenY = (mapped.y - motionNeutral.y) / 32;
+    blendMotion(screenX, screenY, Math.sin(alpha * Math.PI / 180) * 0.34, ORIENTATION_LOW_PASS_RATE);
   };
 
   const handleDeviceMotion = (event) => {
+    if (performance.now() - lastOrientationAt < 520) return;
     const acceleration = event.accelerationIncludingGravity || event.acceleration;
     if (!acceleration) return;
     const x = Number(acceleration.x || 0) / 14;
@@ -1356,6 +1476,12 @@ function initializeOverviewInteraction(grid) {
     photoHitTimers.clear();
     activeItem = null;
     nearItems = [];
+  };
+
+  const clearReunionState = () => {
+    document.body.classList.remove("is-letter-reunion");
+    reunionPhoto?.classList.remove("is-home-reunion");
+    reunionPhoto = null;
   };
 
   const applyIdleState = () => {
@@ -1504,14 +1630,44 @@ function initializeOverviewInteraction(grid) {
     });
   };
 
+  const getWhitespaceRestCandidate = (floor, sidePadding, colliders, totalWidth, maxHeight, currentGroup) => {
+    const lowerTop = window.innerHeight * (isMobile() ? 0.56 : 0.58);
+    const lowerBottom = Math.max(lowerTop, floor - maxHeight - (isMobile() ? 4 : 8));
+    const preferredY = clamp(window.innerHeight * (isMobile() ? 0.76 : 0.74), lowerTop, lowerBottom);
+    const photoClearance = photoAvoidRadius() + (isMobile() ? 5 : 8);
+    const blockedRects = colliders.map((collider) => ({
+      left: collider.rect.left - photoClearance,
+      right: collider.rect.right + photoClearance,
+      top: collider.rect.top - photoClearance,
+      bottom: collider.rect.bottom + photoClearance
+    }));
+    const overlapsPhoto = (rect) => blockedRects.some((blocked) => {
+      return rect.right > blocked.left && rect.left < blocked.right && rect.bottom > blocked.top && rect.top < blocked.bottom;
+    });
+    const maxX = Math.max(sidePadding, window.innerWidth - sidePadding - totalWidth);
+    const emptyBandStep = Math.max(isMobile() ? 20 : 28, totalWidth * 0.14);
+    const emptyBandYStep = Math.max(isMobile() ? 24 : 32, maxHeight * 0.28);
+    let best = null;
+    for (let y = lowerTop; y <= lowerBottom + 0.5; y += emptyBandYStep) {
+      for (let x = sidePadding; x <= maxX + 0.5; x += emptyBandStep) {
+        const rect = { left: x, right: x + totalWidth, top: y, bottom: y + maxHeight };
+        if (overlapsPhoto(rect)) continue;
+        const centerX = x + totalWidth / 2;
+        const centerY = y + maxHeight / 2;
+        const score = Math.hypot(centerX - currentGroup.x, centerY - currentGroup.y) * 0.48
+          + Math.abs(y - preferredY) * 0.34
+          + Math.abs(centerX - window.innerWidth / 2) * 0.12;
+        if (!best || score < best.score) best = { x, y, score };
+      }
+    }
+    return best;
+  };
+
   const getRestTargets = (floor, sidePadding, colliders) => {
     const settlingPieces = pieces.filter((piece) => piece.settles !== false);
     const gap = isMobile() ? 9 : 12;
     const totalWidth = settlingPieces.reduce((sum, piece) => sum + piece.width, 0) + gap * Math.max(0, settlingPieces.length - 1);
     const maxHeight = settlingPieces.reduce((height, piece) => Math.max(height, piece.height), 0);
-    const lowerTop = window.innerHeight * (isMobile() ? 0.56 : 0.58);
-    const lowerBottom = Math.max(lowerTop, floor - maxHeight - (isMobile() ? 4 : 8));
-    const preferredY = clamp(window.innerHeight * (isMobile() ? 0.76 : 0.74), lowerTop, lowerBottom);
     const currentGroup = settlingPieces.reduce((sum, piece) => ({
       x: sum.x + piece.x + piece.width / 2,
       y: sum.y + piece.y + piece.height / 2
@@ -1519,49 +1675,14 @@ function initializeOverviewInteraction(grid) {
     currentGroup.x /= Math.max(1, settlingPieces.length);
     currentGroup.y /= Math.max(1, settlingPieces.length);
 
-    const padding = photoAvoidRadius();
-    const blockedRects = colliders.map((collider) => ({
-      left: collider.rect.left - padding,
-      right: collider.rect.right + padding,
-      top: collider.rect.top - padding,
-      bottom: collider.rect.bottom + padding
-    }));
-    const overlapsPhoto = (rect) => blockedRects.some((blocked) => {
-      return rect.right > blocked.left && rect.left < blocked.right && rect.bottom > blocked.top && rect.top < blocked.bottom;
-    });
-    const candidateXs = [
-      currentGroup.x - totalWidth / 2,
-      (window.innerWidth - totalWidth) / 2,
-      window.innerWidth * 0.18,
-      window.innerWidth * 0.32,
-      window.innerWidth * 0.5 - totalWidth / 2,
-      window.innerWidth * 0.68 - totalWidth,
-      window.innerWidth * 0.82 - totalWidth
-    ];
-    const candidateYs = [
-      preferredY,
-      window.innerHeight * 0.64,
-      window.innerHeight * 0.7,
-      window.innerHeight * 0.8,
-      lowerBottom
-    ];
-
-    let best = null;
-    candidateYs.forEach((rawY) => {
-      candidateXs.forEach((rawX) => {
-        const x = clamp(rawX, sidePadding, Math.max(sidePadding, window.innerWidth - sidePadding - totalWidth));
-        const y = clamp(rawY, lowerTop, lowerBottom);
-        const rect = { left: x, right: x + totalWidth, top: y, bottom: y + maxHeight };
-        if (overlapsPhoto(rect)) return;
-        const centerX = x + totalWidth / 2;
-        const centerY = y + maxHeight / 2;
-        const score = Math.hypot(centerX - currentGroup.x, centerY - currentGroup.y) * 0.58 + Math.abs(y - preferredY) * 0.42;
-        if (!best || score < best.score) best = { x, y, score };
-      });
-    });
-
-    if (!best) return new Map();
-    const targetGroup = best;
+    const viewportKey = `${Math.round(window.innerWidth)}:${Math.round(window.innerHeight)}:${Math.round(window.scrollY / 80)}`;
+    if (viewportKey !== restTargetKey) {
+      restTargetKey = viewportKey;
+      cachedRestTargets = new Map();
+    }
+    if (cachedRestTargets.size) return cachedRestTargets;
+    const targetGroup = getWhitespaceRestCandidate(floor, sidePadding, colliders, totalWidth, maxHeight, currentGroup);
+    if (!targetGroup) return new Map();
     let cursor = targetGroup.x;
     const targets = new Map();
     settlingPieces.forEach((piece, index) => {
@@ -1572,7 +1693,8 @@ function initializeOverviewInteraction(grid) {
       });
       cursor += piece.width + gap;
     });
-    return targets;
+    if (!cachedRestTargets.size) cachedRestTargets = targets;
+    return cachedRestTargets;
   };
 
   const avoidPhotosSoftly = (piece, colliders, dt) => {
@@ -1604,6 +1726,7 @@ function initializeOverviewInteraction(grid) {
   };
 
   const markPhotoHit = (collider, pieceCenterX, pieceCenterY) => {
+    if (!photoEffectsReady) return;
     const rect = collider.rect;
     const photoCenterX = rect.left + rect.width / 2;
     const photoCenterY = rect.top + rect.height / 2;
@@ -1661,7 +1784,7 @@ function initializeOverviewInteraction(grid) {
     return true;
   };
 
-  const collideLetters = (dt) => {
+  const collideLetters = (dt, restTargets = null) => {
     for (let pass = 0; pass < 2; pass++) {
       for (let i = 0; i < pieces.length; i++) {
         for (let j = i + 1; j < pieces.length; j++) {
@@ -1683,39 +1806,68 @@ function initializeOverviewInteraction(grid) {
           const firstShare = secondMass / massTotal;
           const secondShare = firstMass / massTotal;
           const slop = isMobile() ? 2.2 : 1.8;
+          const firstTarget = restTargets?.get(first);
+          const secondTarget = restTargets?.get(second);
+          const settleDirectionX = firstTarget && secondTarget && firstTarget.x !== secondTarget.x
+            ? (firstTarget.x < secondTarget.x ? -1 : 1)
+            : 0;
 
           if (overlapX < overlapY) {
             const effectiveOverlap = overlapX - slop;
             if (effectiveOverlap <= 0) continue;
-            const direction = firstCenterX < secondCenterX ? -1 : 1;
-            const push = (effectiveOverlap * 0.62 + 0.62) * dt;
+            const direction = settleDirectionX || (firstCenterX < secondCenterX ? -1 : 1);
             const relativeSpeed = Math.abs(first.vx - second.vx);
+            const isSoftContact = relativeSpeed < getSoftCollisionThreshold();
+            const push = (effectiveOverlap * 0.62 + 0.62) * dt;
             const reboundScale = ((first.rebound || 1) + (second.rebound || 1)) * 0.5;
-            const rebound = clamp(0.18 + relativeSpeed * 0.2 + effectiveOverlap * 0.016, 0.14, isMobile() ? 0.72 : 0.92) * reboundScale * dt;
             first.x += direction * push * firstShare;
             second.x -= direction * push * secondShare;
-            first.vx += direction * rebound * firstShare;
-            second.vx -= direction * rebound * secondShare;
-            first.vx *= 0.86;
-            second.vx *= 0.86;
-            first.va += direction * rebound * 0.018;
-            second.va -= direction * rebound * 0.018;
+            if (isSoftContact) {
+              const slideDamping = isMobile() ? 0.7 : 0.74;
+              const angleDamping = isMobile() ? 0.62 : 0.68;
+              first.vx *= slideDamping;
+              second.vx *= slideDamping;
+              first.va *= angleDamping;
+              second.va *= angleDamping;
+              first.angle += (first.restAngle - first.angle) * 0.026 * dt;
+              second.angle += (second.restAngle - second.angle) * 0.026 * dt;
+            } else {
+              const rebound = clamp(0.18 + relativeSpeed * 0.2 + effectiveOverlap * 0.016, 0.14, isMobile() ? 0.72 : 0.92) * reboundScale * dt;
+              first.vx += direction * rebound * firstShare;
+              second.vx -= direction * rebound * secondShare;
+              first.vx *= 0.86;
+              second.vx *= 0.86;
+              first.va += direction * rebound * 0.018;
+              second.va -= direction * rebound * 0.018;
+            }
           } else {
             const effectiveOverlap = overlapY - slop;
             if (effectiveOverlap <= 0) continue;
             const direction = firstCenterY < secondCenterY ? -1 : 1;
-            const push = (effectiveOverlap * 0.6 + 0.58) * dt;
             const relativeSpeed = Math.abs(first.vy - second.vy);
+            const isSoftContact = relativeSpeed < getSoftCollisionThreshold();
+            const push = (effectiveOverlap * 0.6 + 0.58) * dt;
             const reboundScale = ((first.rebound || 1) + (second.rebound || 1)) * 0.5;
-            const rebound = clamp(0.16 + relativeSpeed * 0.17 + effectiveOverlap * 0.014, 0.12, isMobile() ? 0.64 : 0.82) * reboundScale * dt;
             first.y += direction * push * firstShare;
             second.y -= direction * push * secondShare;
-            first.vy += direction * rebound * firstShare;
-            second.vy -= direction * rebound * secondShare;
-            first.vy *= 0.82;
-            second.vy *= 0.82;
-            first.va += (firstCenterX < secondCenterX ? -1 : 1) * rebound * 0.014;
-            second.va -= (firstCenterX < secondCenterX ? -1 : 1) * rebound * 0.014;
+            if (isSoftContact) {
+              const slideDamping = isMobile() ? 0.68 : 0.72;
+              const angleDamping = isMobile() ? 0.6 : 0.66;
+              first.vy *= slideDamping;
+              second.vy *= slideDamping;
+              first.va *= angleDamping;
+              second.va *= angleDamping;
+              first.angle += (first.restAngle - first.angle) * 0.024 * dt;
+              second.angle += (second.restAngle - second.angle) * 0.024 * dt;
+            } else {
+              const rebound = clamp(0.16 + relativeSpeed * 0.17 + effectiveOverlap * 0.014, 0.12, isMobile() ? 0.64 : 0.82) * reboundScale * dt;
+              first.vy += direction * rebound * firstShare;
+              second.vy -= direction * rebound * secondShare;
+              first.vy *= 0.82;
+              second.vy *= 0.82;
+              first.va += (firstCenterX < secondCenterX ? -1 : 1) * rebound * 0.014;
+              second.va -= (firstCenterX < secondCenterX ? -1 : 1) * rebound * 0.014;
+            }
           }
           first.va *= 0.9;
           second.va *= 0.9;
@@ -1751,8 +1903,15 @@ function initializeOverviewInteraction(grid) {
     const settlingPieces = pieces.filter((piece) => piece.settles !== false);
     const groupCenterY = settlingPieces.reduce((sum, piece) => sum + piece.y + piece.height / 2, 0) / Math.max(1, settlingPieces.length);
     const groupHasNaturallyDropped = groupCenterY > idleAttractionRadius() || settlingPieces.some((piece) => piece.floorHits > 0);
-    const shouldSettle = settleAge > 0 && idleAge > (isMobile() ? 520 : 680) && groupHasNaturallyDropped;
-    const restTargets = getRestTargets(floor, sidePadding, colliders);
+    const shouldSettle = settleAge > 0
+      && idleAge > (isMobile() ? 520 : 680)
+      && groupHasNaturallyDropped
+      && time >= reunionCooldownUntil;
+    if (!shouldSettle) {
+      restTargetKey = "";
+      cachedRestTargets = new Map();
+    }
+    const restTargets = shouldSettle ? getRestTargets(floor, sidePadding, colliders) : new Map();
     let touchedItem = null;
     const motionWakeStrength = isMobile() && motionListening ? getMotionWakeStrength() : 0;
 
@@ -1760,7 +1919,8 @@ function initializeOverviewInteraction(grid) {
       piece.onFloor = false;
       if (piece.sleeping && motionWakeStrength > 0.08 && piece.type === "letter") {
         piece.sleeping = false;
-        piece.vx += motionInfluence.x * 0.42;
+        piece.vx += motionInfluence.x * 0.48;
+        piece.vy += motionInfluence.y * 0.42;
         piece.va += (motionInfluence.x + motionInfluence.twist * 0.36) * 0.022;
       }
       if (piece.sleeping && Math.abs(scrollDelta) < 1.5 && !shouldSettle) {
@@ -1773,9 +1933,10 @@ function initializeOverviewInteraction(grid) {
       }
 
       if (Math.abs(scrollDelta) >= 1.5) piece.sleeping = false;
-      piece.vy += (gravity + scrollForce) * dt;
-      piece.vx += motionInfluence.x * (isMobile() ? 0.052 : 0.034) * dt;
-      piece.vy += motionInfluence.y * (isMobile() ? 0.034 : 0.022) * dt;
+      const passiveGravity = isMobile() && motionListening ? gravity * 0.72 : gravity;
+      piece.vy += (passiveGravity + scrollForce) * dt;
+      piece.vx += motionInfluence.x * (isMobile() ? 0.068 : 0.034) * dt;
+      piece.vy += motionInfluence.y * (isMobile() ? 0.11 : 0.022) * dt;
       piece.va += (motionInfluence.x + motionInfluence.twist * 0.4) * 0.006 * dt;
       if (scrollDelta < -1) {
         piece.y += scrollDelta * 0.045;
@@ -1867,7 +2028,7 @@ function initializeOverviewInteraction(grid) {
       setPieceTransform(piece);
     });
 
-    collideLetters(dt);
+    collideLetters(dt, restTargets);
     pieces.forEach((piece) => {
       const minY = piece.type === "figure" ? -piece.height * 1.35 : 0;
       piece.x = clamp(piece.x, sidePadding, Math.max(sidePadding, window.innerWidth - sidePadding - piece.width));
@@ -1875,7 +2036,57 @@ function initializeOverviewInteraction(grid) {
       setPieceTransform(piece);
     });
 
-    setActiveItem(touchedItem || getNearestCollider(colliders), colliders);
+    const returningFromRel = document.body.classList.contains("is-returning-from-rel");
+    const photoEffectDelay = returningFromRel ? 1180 : 520;
+    const sceneDelay = returningFromRel ? 1280 : 680;
+    photoEffectsReady = time - physicsStartedAt >= photoEffectDelay;
+    const sceneRamp = clamp((time - physicsStartedAt - sceneDelay) / 720, 0, 1);
+    const perspectiveX = isMobile() && motionListening ? motionInfluence.x * sceneRamp : 0;
+    const perspectiveY = isMobile() && motionListening ? motionInfluence.y * sceneRamp : 0;
+    grid.style.setProperty("--home-scene-x", `${(perspectiveX * 4.5).toFixed(2)}px`);
+    grid.style.setProperty("--home-scene-y", `${(perspectiveY * 4).toFixed(2)}px`);
+    grid.style.setProperty("--home-scene-rotate-x", `${(-perspectiveY * 1.25).toFixed(3)}deg`);
+    grid.style.setProperty("--home-scene-rotate-y", `${(perspectiveX * 1.4).toFixed(3)}deg`);
+
+    const letterPieces = pieces.filter((piece) => piece.type === "letter");
+    const reunionDistance = isMobile() ? 11 : 14;
+    const reunionSpeed = isMobile() ? 0.48 : 0.56;
+    const reunionReady = shouldSettle
+      && restTargets.size === letterPieces.length
+      && letterPieces.every((piece) => {
+        const target = restTargets.get(piece);
+        return target
+          && Math.hypot(target.x - piece.x, target.y - piece.y) < reunionDistance
+          && Math.abs(piece.vx) + Math.abs(piece.vy) < reunionSpeed;
+      });
+    if (!reunionReady) {
+      reunionStableSince = 0;
+      if (time >= reunionCooldownUntil && !reunionEndsAt) reunionArmed = true;
+    } else if (!reunionStableSince) {
+      reunionStableSince = time;
+    } else if (reunionArmed && !reunionEndsAt && time - reunionStableSince > 420) {
+      reunionArmed = false;
+      reunionEndsAt = time + 920;
+      document.body.classList.add("is-letter-reunion");
+      reunionPhoto = getNearestCollider(colliders) || null;
+      reunionPhoto?.classList.add("is-home-reunion");
+    }
+    if (reunionEndsAt && time >= reunionEndsAt) {
+      clearReunionState();
+      reunionEndsAt = 0;
+      reunionStableSince = 0;
+      reunionCooldownUntil = time + 1800;
+      const midpoint = (letterPieces.length - 1) / 2;
+      letterPieces.forEach((piece, index) => {
+        piece.sleeping = false;
+        piece.vx += (index - midpoint) * (isMobile() ? 0.16 : 0.2) + motionInfluence.x * 0.22;
+        piece.vy -= isMobile() ? 0.42 : 0.5;
+        piece.va += (index - midpoint) * 0.012;
+      });
+    }
+
+    if (photoEffectsReady) setActiveItem(touchedItem || getNearestCollider(colliders), colliders);
+    else clearStates();
     frame = scheduleFrame(tick);
   };
 
@@ -1953,6 +2164,7 @@ function initializeOverviewInteraction(grid) {
     syncPieceMetrics();
     lastTime = 0;
     physicsStartedAt = 0;
+    photoEffectsReady = false;
     lastScrollMoveAt = 0;
     scrollLift = 0;
     lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -1995,8 +2207,96 @@ function initializeOverviewInteraction(grid) {
     window.removeEventListener("touchstart", requestMotionAccess);
     window.removeEventListener("touchend", requestMotionAccess);
     window.removeEventListener("click", requestMotionAccess);
+    grid.style.removeProperty("--home-scene-x");
+    grid.style.removeProperty("--home-scene-y");
+    grid.style.removeProperty("--home-scene-rotate-x");
+    grid.style.removeProperty("--home-scene-rotate-y");
+    clearReunionState();
     applyIdleState();
   };
+}
+
+function isValidOverviewFlightRect(rect) {
+  return rect
+    && [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)
+    && rect.width > 8
+    && rect.height > 8;
+}
+
+function finishOverviewReturnTarget(target, overlay = null) {
+  if (!overlay) {
+    target.classList.remove("is-return-flight-target", "is-return-target");
+    return;
+  }
+  target.classList.add("is-return-flight-handoff");
+  target.classList.remove("is-return-flight-target", "is-return-target");
+  overlay.remove();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => target.classList.remove("is-return-flight-handoff"));
+  });
+}
+
+function runOverviewReturnFlight(target, state) {
+  const flight = state?.flight;
+  const targetImage = target.querySelector("img");
+  const sourceRect = flight?.sourceRect;
+  const photoSrc = typeof flight?.photoSrc === "string" ? flight.photoSrc : "";
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!targetImage || !photoSrc || !isValidOverviewFlightRect(sourceRect) || reducedMotion) {
+    window.setTimeout(() => finishOverviewReturnTarget(target), reducedMotion ? 40 : 900);
+    return;
+  }
+
+  const overlay = document.createElement("img");
+  overlay.className = "overview-return-flight";
+  overlay.alt = "";
+  overlay.decoding = "async";
+  overlay.src = photoSrc;
+  overlay.setAttribute("aria-hidden", "true");
+  document.body.appendChild(overlay);
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    window.clearTimeout(safetyTimer);
+    finishOverviewReturnTarget(target, overlay);
+  };
+  const safetyTimer = window.setTimeout(finish, 1500);
+  const start = () => {
+    const destination = targetImage.getBoundingClientRect();
+    if (!isValidOverviewFlightRect(destination)) {
+      finish();
+      return;
+    }
+    const axis = flight.axis === "x" ? "x" : "y";
+    const direction = Number(flight.direction) < 0 ? -1 : 1;
+    const axisDrift = 18 * direction;
+    const dx = sourceRect.left - destination.left + (axis === "x" ? axisDrift : 0);
+    const dy = sourceRect.top - destination.top + (axis === "y" ? axisDrift : 0);
+    const scaleX = sourceRect.width / destination.width;
+    const scaleY = sourceRect.height / destination.height;
+    overlay.style.left = `${destination.left}px`;
+    overlay.style.top = `${destination.top}px`;
+    overlay.style.width = `${destination.width}px`;
+    overlay.style.height = `${destination.height}px`;
+    overlay.style.setProperty("--return-flight-x", `${dx}px`);
+    overlay.style.setProperty("--return-flight-y", `${dy}px`);
+    overlay.style.setProperty("--return-flight-scale-x", scaleX.toFixed(5));
+    overlay.style.setProperty("--return-flight-scale-y", scaleY.toFixed(5));
+    target.classList.add("is-return-flight-target");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => overlay.classList.add("is-active"));
+    });
+  };
+  overlay.addEventListener("animationend", finish, { once: true });
+  if (overlay.complete && overlay.naturalWidth > 0) {
+    if (typeof overlay.decode === "function") overlay.decode().then(start).catch(start);
+    else start();
+  } else {
+    overlay.addEventListener("load", start, { once: true });
+    overlay.addEventListener("error", finish, { once: true });
+  }
 }
 function startLoadingSequence() {
   if (document.body.classList.contains("is-returning-from-rel")) {
@@ -2082,15 +2382,20 @@ function renderFocus() {
   let focusMainTouchMoved = false;
   let focusMainTouchPreventClickUntil = 0;
   let focusMainTouchBaseOffset = 0;
+  let focusMainTouchContinuationDirection = 0;
   let focusMainPointerActive = false;
   let focusMainPointerId = 0;
   let focusMainWheelLockUntil = 0;
+  let focusLastNavigationDirection = 1;
   const focusMainSwipe = {
     active: false,
     animating: false,
     frame: 0,
     offset: 0,
-    width: 1,
+    extent: 1,
+    travel: 1,
+    progress: 0,
+    axis: "x",
     direction: 0,
     fromIndex: 0,
     targetIndex: 0,
@@ -2098,8 +2403,15 @@ function renderFocus() {
     fromOffset: 0,
     toOffset: 0,
     commit: false,
-    edge: false
+    edge: false,
+    chained: false,
+    handoffPending: false,
+    railAxis: "",
+    railFrom: 0,
+    railTo: 0,
+    railReady: false
   };
+  let focusQueuedSwipe = null;
   let focusMainSwipeClearSequence = 0;
   const focusShiftPositions = new Map();
   const focusFollowRate = 0.08;
@@ -2121,6 +2433,7 @@ function renderFocus() {
   let focusIndexMainReleaseTimer = 0;
   let focusMainDockedIndex = null;
   const focusPhotoRatios = new Map();
+  const focusImagePreloadCache = new Map();
   const indexEnabled = Boolean(indexToggle);
   const indexGallery = indexEnabled ? document.createElement("section") : null;
   if (indexGallery) {
@@ -2197,11 +2510,19 @@ function renderFocus() {
     }
     try {
       const existing = JSON.parse(sessionStorage.getItem(OVERVIEW_RETURN_STORAGE_KEY) || "null") || {};
+      const activePhoto = photos[activeIndex] || photos[0];
+      const sourceRect = getFocusImageContentRect();
       sessionStorage.setItem(OVERVIEW_RETURN_STORAGE_KEY, JSON.stringify({
         rel: activeRel,
         scrollY: Number(existing.scrollY || 0),
         createdAt: Date.now(),
-        order: Array.isArray(existing.order) ? existing.order : undefined
+        order: Array.isArray(existing.order) ? existing.order : undefined,
+        flight: activePhoto && sourceRect ? {
+          photoSrc: activePhoto.full,
+          sourceRect,
+          axis: window.innerWidth <= 768 ? "x" : "y",
+          direction: focusLastNavigationDirection
+        } : undefined
       }));
     } catch (error) {
       returnFocusToOverview(activeRel, true);
@@ -2210,7 +2531,10 @@ function renderFocus() {
     document.body.classList.add("is-focus-leaving");
     window.setTimeout(() => returnFocusToOverview(activeRel, true), 360);
   });
-  window.addEventListener("wheel", clearFocusManualSelection, { passive: true });
+  window.addEventListener("wheel", () => {
+    clearFocusManualSelection();
+    if (!isFocusMainSwipeBusy()) cancelFocusRailScroll();
+  }, { passive: true });
   thumbs.addEventListener("touchstart", handleFocusTouchStart, { passive: true });
   thumbs.addEventListener("touchmove", handleFocusTouchMove, { passive: false });
   imageToggle.addEventListener("touchstart", handleFocusMainTouchStart, { passive: true });
@@ -3154,9 +3478,96 @@ function renderFocus() {
     return index;
   }
 
-  function getFocusMainSwipeWidth() {
+  function getFocusMainSwipeAxis() {
+    return window.innerWidth <= 768 ? "x" : "y";
+  }
+
+  function getFocusMainSwipeExtent(axis = getFocusMainSwipeAxis()) {
     const rect = getFocusRect(imageToggle) || getFocusRect(focusMain);
-    return Math.max(1, rect?.width || window.innerWidth || 1);
+    const width = imageToggle.clientWidth || focusMain.clientWidth || rect?.width || window.innerWidth || 1;
+    const height = imageToggle.clientHeight || focusMain.clientHeight || rect?.height || window.innerHeight || 1;
+    return Math.max(1, axis === "y" ? height : width);
+  }
+
+  function getFocusMainSwipeTravelMetrics(fromIndex, targetIndex, axis, edge = false) {
+    const width = Math.max(1, imageToggle.clientWidth || focusMain.clientWidth || window.innerWidth || 1);
+    const height = Math.max(1, imageToggle.clientHeight || focusMain.clientHeight || window.innerHeight || 1);
+    const box = { left: 0, top: 0, width, height };
+    const containerExtent = axis === "y" ? height : width;
+    if (edge) {
+      return {
+        extent: containerExtent,
+        travel: Math.min(138, Math.max(54, containerExtent * 0.2))
+      };
+    }
+    const currentRect = getContentRectWithin(box, getFocusPhotoRatio(fromIndex, box)) || box;
+    const targetRect = getContentRectWithin(box, getFocusPhotoRatio(targetIndex, box)) || box;
+    const currentExtent = axis === "y" ? currentRect.height : currentRect.width;
+    const targetExtent = axis === "y" ? targetRect.height : targetRect.width;
+    const gap = Math.min(96, Math.max(26, Math.min(currentExtent, targetExtent) * 0.18));
+    const visibleTravel = currentExtent / 2 + targetExtent / 2 + gap;
+    const minimumTravel = containerExtent * (axis === "y" ? 0.7 : 0.72);
+    return {
+      extent: containerExtent,
+      travel: Math.min(containerExtent + gap, Math.max(minimumTravel, visibleTravel))
+    };
+  }
+
+  function getFocusMainSwipeRailPosition(index) {
+    const thumb = thumbs.querySelector(`.focus-thumb[data-index="${index + 1}"]`);
+    if (!thumb) return null;
+    const rect = thumb.getBoundingClientRect();
+    if (window.innerWidth <= 768) {
+      updateMobileFocusRail();
+      const current = thumbs.scrollLeft;
+      const target = current + rect.left + rect.width / 2 - window.innerWidth / 2;
+      return {
+        axis: "x",
+        current,
+        target: Math.max(0, Math.min(target, mobileRailMaxOffset))
+      };
+    }
+    const current = window.scrollY || document.documentElement.scrollTop || 0;
+    const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const target = current + rect.top + rect.height / 2 - window.innerHeight / 2;
+    return {
+      axis: "y",
+      current,
+      target: Math.max(0, Math.min(target, maxTop))
+    };
+  }
+
+  function configureFocusMainSwipeRail(targetIndex, edge = false) {
+    focusMainSwipe.railReady = false;
+    focusMainSwipe.railAxis = "";
+    focusMainSwipe.railFrom = 0;
+    focusMainSwipe.railTo = 0;
+    if (edge) return;
+    const rail = getFocusMainSwipeRailPosition(targetIndex);
+    if (!rail) return;
+    focusMainSwipe.railReady = true;
+    focusMainSwipe.railAxis = rail.axis;
+    focusMainSwipe.railFrom = rail.current;
+    focusMainSwipe.railTo = rail.target;
+  }
+
+  function getFocusMainSwipeProgress(value, start = 0, end = 1) {
+    if (end <= start) return value >= end ? 1 : 0;
+    const normalized = Math.max(0, Math.min(1, (value - start) / (end - start)));
+    return normalized * normalized * (3 - 2 * normalized);
+  }
+
+  function updateFocusMainSwipeRail(progress) {
+    if (!focusMainSwipe.railReady || focusMainSwipe.edge) return;
+    const follow = getFocusMainSwipeProgress(progress, 0.06, 0.94);
+    const position = focusMainSwipe.railFrom + (focusMainSwipe.railTo - focusMainSwipe.railFrom) * follow;
+    if (focusMainSwipe.railAxis === "x") {
+      thumbs.scrollLeft = Math.max(0, Math.min(position, mobileRailMaxOffset));
+      return;
+    }
+    if (focusMainSwipe.railAxis === "y") {
+      window.scrollTo({ top: position, left: 0, behavior: "auto" });
+    }
   }
 
   function ensureFocusMainSwipeLayer() {
@@ -3180,26 +3591,45 @@ function renderFocus() {
 
   function setFocusMainSwipeFrame(offset, direction = focusMainSwipe.direction) {
     if (!direction) return;
-    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
-    const gap = Math.min(92, Math.max(28, width * 0.14));
+    const axis = focusMainSwipe.axis || getFocusMainSwipeAxis();
     const isEdge = Boolean(focusMainSwipe.edge);
-    const travel = isEdge ? Math.min(138, Math.max(54, width * 0.2)) : width + gap;
+    const travel = Math.max(1, focusMainSwipe.travel || focusMainSwipe.extent || getFocusMainSwipeExtent(axis));
     const clamped = Math.max(-travel, Math.min(travel, offset));
     const nextBase = direction > 0 ? travel : -travel;
     const progress = Math.min(1, Math.abs(clamped) / Math.max(1, travel));
-    const nextFade = Math.min(1, Math.max(0, (progress - 0.04) / 0.78));
-    const currentOpacity = isEdge ? 1 : Math.max(0, 1 - progress);
+    const currentDepth = getFocusMainSwipeProgress(progress, 0.02, 1);
+    const currentFade = getFocusMainSwipeProgress(progress, 0.18, 0.98);
+    const nextFade = getFocusMainSwipeProgress(progress, 0.05, 0.8);
+    const nextDepth = getFocusMainSwipeProgress(progress, 0, 0.96);
+    const currentOpacity = isEdge ? 1 : Math.max(0, 1 - currentFade);
     const nextOpacity = isEdge ? 0 : nextFade;
-    const currentScale = isEdge ? Math.max(0.975, 1 - progress * 0.025) : Math.max(0.9, 1 - progress * 0.1);
-    const nextScale = isEdge ? 1 : Math.min(1, 0.94 + progress * 0.06);
+    const currentScale = isEdge ? Math.max(0.975, 1 - progress * 0.025) : 1 - currentDepth * 0.06;
+    const nextScale = isEdge ? 1 : 0.93 + nextDepth * 0.07;
+    const currentX = axis === "x" ? clamped : 0;
+    const currentY = axis === "y" ? clamped : 0;
+    const nextPosition = nextBase + clamped;
+    const nextX = axis === "x" ? nextPosition : 0;
+    const nextY = axis === "y" ? nextPosition : 0;
     focusMainSwipe.offset = clamped;
-    shell.style.setProperty("--focus-swipe-current-x", `${clamped.toFixed(2)}px`);
-    shell.style.setProperty("--focus-swipe-next-x", `${(nextBase + clamped).toFixed(2)}px`);
+    focusMainSwipe.progress = progress;
+    shell.style.setProperty("--focus-swipe-current-x", `${currentX.toFixed(2)}px`);
+    shell.style.setProperty("--focus-swipe-current-y", `${currentY.toFixed(2)}px`);
+    shell.style.setProperty("--focus-swipe-next-x", `${nextX.toFixed(2)}px`);
+    shell.style.setProperty("--focus-swipe-next-y", `${nextY.toFixed(2)}px`);
     shell.style.setProperty("--focus-swipe-progress", progress.toFixed(3));
     shell.style.setProperty("--focus-swipe-current-opacity", currentOpacity.toFixed(3));
     shell.style.setProperty("--focus-swipe-next-opacity", nextOpacity.toFixed(3));
     shell.style.setProperty("--focus-swipe-current-scale", currentScale.toFixed(3));
     shell.style.setProperty("--focus-swipe-next-scale", nextScale.toFixed(3));
+    const notesTimelineProgress = focusMainSwipe.chained ? Math.max(progress, 0.76) : progress;
+    const notesTextProgress = getFocusMainSwipeProgress(notesTimelineProgress, 0.1, 0.74);
+    const notesLineProgress = getFocusMainSwipeProgress(notesTimelineProgress, 0.18, 0.86);
+    const notesShift = (direction > 0 ? -1 : 1) * notesTextProgress * 7;
+    shell.style.setProperty("--focus-swipe-notes-opacity", (1 - notesTextProgress).toFixed(3));
+    shell.style.setProperty("--focus-swipe-line-opacity", (1 - notesLineProgress * 0.86).toFixed(3));
+    shell.style.setProperty("--focus-swipe-notes-x", `${(axis === "x" ? notesShift : 0).toFixed(2)}px`);
+    shell.style.setProperty("--focus-swipe-notes-y", `${(axis === "y" ? notesShift : 0).toFixed(2)}px`);
+    updateFocusMainSwipeRail(progress);
   }
 
   function cancelFocusMainSwipeAnimation() {
@@ -3209,21 +3639,83 @@ function renderFocus() {
     shell.classList.remove("is-main-swipe-animating");
   }
 
-  function interruptFocusMainSwipeForNewGesture() {
-    const targetIndex = focusMainSwipe.targetIndex;
-    const shouldSettle = focusMainSwipe.active
-      && focusMainSwipe.commit
-      && Number.isFinite(targetIndex)
-      && targetIndex !== Number(shell.dataset.activeIndex || 0);
-    focusMainSwipeClearSequence += 1;
-    if (shouldSettle) {
-      setFocus(targetIndex, true, { instant: true, source: "swipe" });
+  function clearFocusQueuedSwipe() {
+    focusQueuedSwipe = null;
+  }
+
+  function queueFocusMainSwipe(direction, velocity = 0) {
+    if (!direction || focusMainSwipe.edge) return false;
+    const baseIndex = focusMainSwipe.active
+      ? focusMainSwipe.targetIndex
+      : Number(shell.dataset.activeIndex || 0);
+    if (focusQueuedSwipe) {
+      if (focusQueuedSwipe.direction !== direction || focusQueuedSwipe.steps >= 3) return false;
+      const queuedTarget = baseIndex + direction * (focusQueuedSwipe.steps + 1);
+      if (getBoundedFocusSwipeIndex(queuedTarget) === null) return false;
+      focusQueuedSwipe.steps += 1;
+      focusQueuedSwipe.velocity = Math.max(
+        focusQueuedSwipe.velocity,
+        Math.max(0.42, Math.min(1.5, Math.abs(velocity || 0)))
+      );
+      return true;
     }
+    if (getBoundedFocusSwipeIndex(baseIndex + direction) === null) return false;
+    focusQueuedSwipe = {
+      direction,
+      velocity: Math.max(0.42, Math.min(1.5, Math.abs(velocity || 0))),
+      steps: 1
+    };
+    return true;
+  }
+
+  function startQueuedFocusMainSwipe(completedIndex) {
+    const queued = focusQueuedSwipe;
+    if (!queued || getBoundedFocusSwipeIndex(completedIndex + queued.direction) === null) {
+      clearFocusQueuedSwipe();
+      return false;
+    }
+    focusQueuedSwipe = queued.steps > 1
+      ? { ...queued, steps: queued.steps - 1 }
+      : null;
+    clearFocusMainSwipe();
+    if (!configureFocusMainSwipe(queued.direction)) return false;
+    focusMainSwipe.chained = true;
+    focusMainTouchVelocityX = (queued.direction > 0 ? -1 : 1) * queued.velocity;
+    setFocusMainSwipeFrame(0, queued.direction);
+    const targetOffset = (queued.direction > 0 ? -1 : 1) * focusMainSwipe.travel;
+    startFocusMainSwipeAnimation(targetOffset, true);
+    return true;
+  }
+
+  function interruptFocusMainSwipeForNewGesture() {
+    focusMainSwipeClearSequence += 1;
+    if (focusMainSwipe.active && focusMainSwipe.animating && !focusMainSwipe.handoffPending) {
+      const continuationDirection = focusMainSwipe.commit ? focusMainSwipe.direction : 0;
+      cancelFocusMainSwipeAnimation();
+      focusMainSwipe.commit = false;
+      shell.classList.add("is-main-swiping");
+      return {
+        offset: focusMainSwipe.offset || 0,
+        continuationDirection
+      };
+    }
+    if (focusMainSwipe.active
+      && !focusMainSwipe.handoffPending
+      && !shell.classList.contains("is-main-swipe-handoff")
+      && !shell.classList.contains("is-main-swipe-fading")
+      && !shell.classList.contains("is-main-swipe-returning")) {
+      return {
+        offset: focusMainSwipe.offset || 0,
+        continuationDirection: 0
+      };
+    }
+    clearFocusQueuedSwipe();
     clearFocusMainSwipe();
     window.clearTimeout(focusSwipeSyncTimer);
     focusSwipeSyncTimer = 0;
     focusMainSwipeLockUntil = 0;
     focusSyncHoldUntil = 0;
+    return { offset: 0, continuationDirection: 0 };
   }
 
   function isFocusMainSwipeBusy() {
@@ -3240,22 +3732,35 @@ function renderFocus() {
     cancelFocusMainSwipeAnimation();
     focusMainSwipe.active = false;
     focusMainSwipe.offset = 0;
+    focusMainSwipe.progress = 0;
     focusMainSwipe.direction = 0;
+    focusMainSwipe.axis = getFocusMainSwipeAxis();
     focusMainSwipe.fromIndex = Number(shell.dataset.activeIndex || 0);
     focusMainSwipe.targetIndex = focusMainSwipe.fromIndex;
     focusMainSwipe.edge = false;
+    focusMainSwipe.commit = false;
+    focusMainSwipe.chained = false;
+    focusMainSwipe.handoffPending = false;
+    focusMainSwipe.railReady = false;
+    focusMainSwipe.railAxis = "";
     shell.classList.remove("is-main-swiping", "is-main-swipe-animating", "is-main-swipe-edge");
     if (!options.keepHandoff) shell.classList.remove("is-main-swipe-handoff");
     if (!options.keepFade) shell.classList.remove("is-main-swipe-fading");
     if (!options.keepReturn) shell.classList.remove("is-main-swipe-returning");
     if (!options.keepFrame) {
       shell.style.removeProperty("--focus-swipe-current-x");
+      shell.style.removeProperty("--focus-swipe-current-y");
       shell.style.removeProperty("--focus-swipe-next-x");
+      shell.style.removeProperty("--focus-swipe-next-y");
       shell.style.removeProperty("--focus-swipe-progress");
       shell.style.removeProperty("--focus-swipe-current-opacity");
       shell.style.removeProperty("--focus-swipe-next-opacity");
       shell.style.removeProperty("--focus-swipe-current-scale");
       shell.style.removeProperty("--focus-swipe-next-scale");
+      shell.style.removeProperty("--focus-swipe-notes-opacity");
+      shell.style.removeProperty("--focus-swipe-line-opacity");
+      shell.style.removeProperty("--focus-swipe-notes-x");
+      shell.style.removeProperty("--focus-swipe-notes-y");
       imageToggle.querySelectorAll(".focus-swipe-layer img").forEach((swipeImage) => {
         swipeImage.removeAttribute("src");
         swipeImage.alt = "";
@@ -3264,6 +3769,7 @@ function renderFocus() {
   }
 
   function finishCancelledFocusMainSwipe() {
+    clearFocusQueuedSwipe();
     const clearRunId = ++focusMainSwipeClearSequence;
     if (focusMainSwipe.direction) setFocusMainSwipeFrame(0, focusMainSwipe.direction);
     shell.classList.add("is-main-swipe-returning");
@@ -3299,26 +3805,37 @@ function renderFocus() {
       preloadFocusImage(photo.full);
     }
     focusMainSwipe.active = true;
-    focusMainSwipe.width = getFocusMainSwipeWidth();
+    focusMainSwipe.axis = getFocusMainSwipeAxis();
     focusMainSwipe.direction = direction;
     focusMainSwipe.fromIndex = fromIndex;
     focusMainSwipe.targetIndex = isEdgeSwipe ? fromIndex : targetIndex;
     focusMainSwipe.edge = isEdgeSwipe;
+    focusMainSwipe.chained = false;
+    focusMainSwipe.handoffPending = false;
+    const travelMetrics = getFocusMainSwipeTravelMetrics(fromIndex, focusMainSwipe.targetIndex, focusMainSwipe.axis, isEdgeSwipe);
+    focusMainSwipe.extent = travelMetrics.extent;
+    focusMainSwipe.travel = travelMetrics.travel;
+    configureFocusMainSwipeRail(focusMainSwipe.targetIndex, isEdgeSwipe);
     shell.classList.add("is-main-swiping");
     shell.classList.toggle("is-main-swipe-edge", isEdgeSwipe);
     return true;
   }
 
   function updateFocusMainSwipeDrag(offset) {
-    if (photos.length < 2 || !offset) return;
+    if (photos.length < 2) return;
+    if (!offset) {
+      if (focusMainSwipe.active && focusMainSwipe.direction) {
+        setFocusMainSwipeFrame(0, focusMainSwipe.direction);
+      }
+      return;
+    }
     const direction = offset < 0 ? 1 : -1;
     if (!focusMainSwipe.active || focusMainSwipe.direction !== direction) {
       if (!configureFocusMainSwipe(direction)) return;
     }
-    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
-    const gap = Math.min(92, Math.max(28, width * 0.14));
-    const dragLimit = (width + gap) * 0.94;
-    const edgeLimit = Math.min(138, Math.max(54, width * 0.2));
+    const travel = focusMainSwipe.travel || focusMainSwipe.extent || getFocusMainSwipeExtent(focusMainSwipe.axis);
+    const dragLimit = travel * 0.94;
+    const edgeLimit = travel;
     const nextOffset = focusMainSwipe.edge
       ? Math.max(-edgeLimit, Math.min(edgeLimit, offset * 0.36))
       : Math.max(-dragLimit, Math.min(dragLimit, offset));
@@ -3334,6 +3851,7 @@ function renderFocus() {
       if (didFinishClear) return;
       didFinishClear = true;
       window.clearTimeout(handoffSafetyTimer);
+      if (startQueuedFocusMainSwipe(targetIndex)) return;
       shell.classList.add("is-main-swipe-handoff");
       requestAnimationFrame(() => {
         if (clearRunId !== focusMainSwipeClearSequence) return;
@@ -3345,10 +3863,11 @@ function renderFocus() {
           handoffSafetyTimer = window.setTimeout(() => {
             if (clearRunId !== focusMainSwipeClearSequence) return;
             clearFocusMainSwipe();
-          }, 180);
+          }, 420);
         });
       });
     };
+    focusMainSwipe.handoffPending = true;
     setFocus(targetIndex, true, { instant: true, source: "swipe" });
     lockFocusRailAfterMainSwipe(targetIndex);
     waitForImageDecoded(image).then(finishClear);
@@ -3366,13 +3885,28 @@ function renderFocus() {
     focusMainSwipe.toOffset = toOffset;
     focusMainSwipe.commit = Boolean(commit);
     const distance = Math.abs(focusMainSwipe.toOffset - focusMainSwipe.fromOffset);
+    if (distance < 0.5) {
+      focusMainSwipe.animating = false;
+      focusMainSwipe.frame = 0;
+      if (focusMainSwipe.commit) commitFocusMainSwipe(focusMainSwipe.targetIndex);
+      else clearFocusMainSwipe();
+      return;
+    }
     const velocity = Math.abs(focusMainTouchVelocityX || 0);
-    const velocityDuration = velocity > 0.01 ? distance / Math.max(0.56, velocity * 1.02) : Infinity;
+    const travel = Math.max(1, focusMainSwipe.travel || focusMainSwipe.extent || distance || 1);
+    const remainingRatio = Math.max(0.08, Math.min(1, distance / travel));
+    const velocityFactor = Math.min(1.6, velocity);
     const duration = commit
-      ? Math.max(430, Math.min(760, Math.min(330 + distance * 0.48, velocityDuration + 240)))
-      : Math.max(190, Math.min(380, Math.min(150 + distance * 0.28, velocityDuration + 105)));
+      ? Math.max(440, Math.min(620, (610 - velocityFactor * 72) * (0.74 + Math.sqrt(remainingRatio) * 0.26)))
+      : Math.max(220, Math.min(420, (390 - velocityFactor * 46) * (0.68 + Math.sqrt(remainingRatio) * 0.32)));
     shell.classList.add("is-main-swipe-animating");
-    const ease = (t) => 1 - Math.pow(1 - t, 2.45);
+    const ease = (t) => {
+      const smooth = t * t * (3 - 2 * t);
+      const glide = 1 - Math.pow(1 - t, 2.35);
+      const velocityBlend = Math.min(1, velocityFactor / 1.4);
+      const glideWeight = 0.52 + velocityBlend * 0.18;
+      return smooth * (1 - glideWeight) + glide * glideWeight;
+    };
     const step = (now) => {
       const progress = Math.min(1, (now - focusMainSwipe.startedAt) / duration);
       const nextOffset = focusMainSwipe.fromOffset + (focusMainSwipe.toOffset - focusMainSwipe.fromOffset) * ease(progress);
@@ -3390,21 +3924,23 @@ function renderFocus() {
     focusMainSwipe.frame = requestAnimationFrame(step);
   }
 
-  function finishFocusMainSwipe() {
+  function finishFocusMainSwipe(queuedDirection = 0) {
     if (!focusMainSwipe.active || !focusMainSwipe.direction) {
       clearFocusMainSwipe();
       return;
     }
-    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
-    const gap = Math.min(92, Math.max(28, width * 0.14));
-    const travel = width + gap;
+    const extent = focusMainSwipe.extent || getFocusMainSwipeExtent(focusMainSwipe.axis);
+    const travel = focusMainSwipe.travel || extent;
     const offset = focusMainSwipe.offset || 0;
     const expectedSign = focusMainSwipe.direction > 0 ? -1 : 1;
     const projectedOffset = offset + focusMainTouchVelocityX * 140;
-    const distanceMatches = Math.abs(offset) > width * 0.13 && Math.sign(offset) === expectedSign;
-    const projectedMatches = Math.abs(projectedOffset) > width * 0.2 && Math.sign(projectedOffset) === expectedSign;
+    const distanceMatches = Math.abs(offset) > extent * 0.13 && Math.sign(offset) === expectedSign;
+    const projectedMatches = Math.abs(projectedOffset) > extent * 0.2 && Math.sign(projectedOffset) === expectedSign;
     const velocityMatches = Math.abs(focusMainTouchVelocityX) > 0.32 && Math.sign(focusMainTouchVelocityX) === expectedSign;
     const shouldCommit = !focusMainSwipe.edge && (distanceMatches || projectedMatches || velocityMatches);
+    if (shouldCommit && queuedDirection === focusMainSwipe.direction) {
+      queueFocusMainSwipe(queuedDirection, focusMainTouchVelocityX);
+    }
     const targetOffset = shouldCommit ? (focusMainSwipe.direction > 0 ? -travel : travel) : 0;
     startFocusMainSwipeAnimation(targetOffset, shouldCommit);
   }
@@ -3646,12 +4182,23 @@ function renderFocus() {
   }
 
   function preloadFocusImage(src) {
-    return new Promise((resolve) => {
+    if (!src) return Promise.resolve();
+    if (focusImagePreloadCache.has(src)) return focusImagePreloadCache.get(src);
+    const request = new Promise((resolve) => {
       const next = new Image();
       next.decoding = "async";
       next.onload = () => waitForImageReady(next).then(resolve);
       next.onerror = resolve;
       next.src = src;
+    });
+    focusImagePreloadCache.set(src, request);
+    return request;
+  }
+
+  function preloadFocusNeighbors(index) {
+    [index - 1, index + 1].forEach((neighborIndex) => {
+      const neighbor = photos[neighborIndex];
+      if (neighbor?.full) preloadFocusImage(neighbor.full);
     });
   }
 
@@ -3666,20 +4213,25 @@ function renderFocus() {
     }
   }
 
-  function commitFocusPhoto(photo) {
+  function commitFocusPhoto(photo, index) {
     image.src = photo.full;
     image.alt = photo.alt;
     caption.textContent = "";
     if (noteText) noteText.textContent = getPhotoNote(photo);
     title.textContent = photo.title;
+    preloadFocusNeighbors(index);
     scheduleNotesLayoutUpdate();
   }
 
   function setFocus(index, replaceUrl, options = {}) {
     const photo = photos[index];
     if (!photo) return;
-    if (options.source !== "swipe") clearFocusMainSwipe();
+    if (options.source !== "swipe") {
+      clearFocusQueuedSwipe();
+      clearFocusMainSwipe();
+    }
     const previousIndex = Number(shell.dataset.activeIndex || 0);
+    if (index !== previousIndex) focusLastNavigationDirection = index > previousIndex ? 1 : -1;
     const canAnimate = document.body.classList.contains("has-loaded")
       && !options.instant
       && image.getAttribute("src")
@@ -3692,7 +4244,7 @@ function renderFocus() {
 
     if (!canAnimate) {
       shell.classList.remove("is-switching-image");
-      commitFocusPhoto(photo);
+      commitFocusPhoto(photo, index);
       return;
     }
 
@@ -3706,7 +4258,7 @@ function renderFocus() {
       const remaining = Math.max(0, switchOutDelay - (performance.now() - startedAt));
       window.setTimeout(() => {
         if (switchRunId !== focusSwitchSequence) return;
-        commitFocusPhoto(photo);
+        commitFocusPhoto(photo, index);
         requestAnimationFrame(() => {
           if (switchRunId === focusSwitchSequence) {
             window.clearTimeout(focusSwitchTimer);
@@ -3750,6 +4302,29 @@ function renderFocus() {
     focusRailScrollFrame = requestAnimationFrame(step);
   }
 
+  function animateFocusDesktopRailTo(top, smooth) {
+    cancelFocusRailScroll();
+    const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const clampedTop = Math.max(0, Math.min(top, maxTop));
+    if (!smooth || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      window.scrollTo({ top: clampedTop, left: 0, behavior: "auto" });
+      return;
+    }
+    const startTop = window.scrollY || document.documentElement.scrollTop || 0;
+    const distance = clampedTop - startTop;
+    if (Math.abs(distance) < 1) return;
+    const duration = Math.max(360, Math.min(680, 360 + Math.abs(distance) * 0.34));
+    const startedAt = performance.now();
+    const ease = (t) => 1 - Math.pow(1 - t, 3.2);
+    const step = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      window.scrollTo({ top: startTop + distance * ease(progress), left: 0, behavior: "auto" });
+      if (progress < 1) focusRailScrollFrame = requestAnimationFrame(step);
+      else focusRailScrollFrame = 0;
+    };
+    focusRailScrollFrame = requestAnimationFrame(step);
+  }
+
   function setFocusManualSelection(index, duration = 1600) {
     focusManualSelectionIndex = index;
     window.clearTimeout(focusManualSelectionTimer);
@@ -3776,16 +4351,17 @@ function renderFocus() {
 
   function lockFocusRailAfterMainSwipe(targetIndex) {
     window.clearTimeout(focusSwipeSyncTimer);
-    glideFocusRailAfterThumbClick(targetIndex);
-    setFocusManualSelection(targetIndex, 1300);
-    focusMainSwipeLockUntil = Date.now() + 1300;
-    focusSyncHoldUntil = Date.now() + 1300;
+    cancelFocusRailScroll();
+    setFocusManualSelection(targetIndex, 520);
+    scrollToFocusIndex(targetIndex, false);
+    focusMainSwipeLockUntil = Date.now() + 520;
+    focusSyncHoldUntil = Date.now() + 520;
     focusSwipeSyncTimer = window.setTimeout(() => {
       if (Number(shell.dataset.activeIndex || 0) !== targetIndex || shell.classList.contains("is-index")) return;
       scrollToFocusIndex(targetIndex, false);
-      focusMainSwipeLockUntil = Date.now() + 420;
-      focusSyncHoldUntil = Date.now() + 420;
-    }, 520);
+      focusMainSwipeLockUntil = Date.now() + 120;
+      focusSyncHoldUntil = Date.now() + 120;
+    }, 320);
   }
 
   function releaseFocusRailUserControl() {
@@ -3795,7 +4371,7 @@ function renderFocus() {
     focusSyncHoldUntil = 0;
   }
 
-  function holdFocusRailForMainSwipeGesture(duration = 720) {
+  function holdFocusRailForMainSwipeGesture(duration = 420) {
     cancelFocusRailScroll();
     window.clearTimeout(focusSwipeSyncTimer);
     focusSwipeSyncTimer = 0;
@@ -3819,7 +4395,7 @@ function renderFocus() {
     }
     const rect = thumb.getBoundingClientRect();
     const top = window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2;
-    window.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
+    animateFocusDesktopRailTo(top, smooth);
   }
 
   function updateFocusRailMetrics() {
@@ -3857,6 +4433,7 @@ function renderFocus() {
     focusMainTouchMode = "";
     focusMainTouchMoved = false;
     focusMainTouchBaseOffset = 0;
+    focusMainTouchContinuationDirection = 0;
   }
 
   function updateFocusMainTouchVelocity(clientX, eventTime) {
@@ -3880,9 +4457,9 @@ function renderFocus() {
       resetFocusMainTouch();
       return;
     }
-    if (isFocusMainSwipeBusy()) {
-      interruptFocusMainSwipeForNewGesture();
-    }
+    const interruption = isFocusMainSwipeBusy()
+      ? interruptFocusMainSwipeForNewGesture()
+      : { offset: 0, continuationDirection: 0 };
     holdFocusRailForMainSwipeGesture();
     const touch = event.touches[0];
     focusMainTouchStartX = touch.clientX;
@@ -3891,7 +4468,8 @@ function renderFocus() {
     focusMainTouchLastY = touch.clientY;
     focusMainTouchLastMoveAt = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
     focusMainTouchVelocityX = 0;
-    focusMainTouchBaseOffset = 0;
+    focusMainTouchBaseOffset = interruption.offset;
+    focusMainTouchContinuationDirection = interruption.continuationDirection;
     focusMainTouchMode = "";
     focusMainTouchMoved = false;
   }
@@ -3941,7 +4519,16 @@ function renderFocus() {
 
     if (wasHorizontal) {
       focusMainTouchPreventClickUntil = Date.now() + 520;
-      finishFocusMainSwipe();
+      const gestureDirection = deltaX < 0 ? 1 : -1;
+      if (focusMainTouchContinuationDirection
+        && focusMainTouchContinuationDirection !== gestureDirection) {
+        clearFocusQueuedSwipe();
+      }
+      const queuedDirection = focusMainTouchContinuationDirection === gestureDirection
+        && (absX > 28 || Math.abs(focusMainTouchVelocityX) > 0.24)
+        ? gestureDirection
+        : 0;
+      finishFocusMainSwipe(queuedDirection);
     } else if (wasVertical) {
       focusMainTouchPreventClickUntil = Date.now() + 520;
       if (shell.classList.contains("is-notes") && deltaY > 44) {
@@ -3967,19 +4554,20 @@ function renderFocus() {
   function handleFocusMainPointerDown(event) {
     if (event.pointerType !== "mouse" && event.pointerType !== "pen") return;
     if (event.button !== 0 || shell.classList.contains("is-index")) return;
-    if (isFocusMainSwipeBusy()) {
-      interruptFocusMainSwipeForNewGesture();
-    }
+    const interruption = isFocusMainSwipeBusy()
+      ? interruptFocusMainSwipeForNewGesture()
+      : { offset: 0, continuationDirection: 0 };
     holdFocusRailForMainSwipeGesture();
     focusMainPointerActive = true;
     focusMainPointerId = event.pointerId;
     focusMainTouchStartX = event.clientX;
     focusMainTouchStartY = event.clientY;
-    focusMainTouchLastX = event.clientX;
+    focusMainTouchLastX = event.clientY;
     focusMainTouchLastY = event.clientY;
     focusMainTouchLastMoveAt = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
     focusMainTouchVelocityX = 0;
-    focusMainTouchBaseOffset = 0;
+    focusMainTouchBaseOffset = interruption.offset;
+    focusMainTouchContinuationDirection = interruption.continuationDirection;
     focusMainTouchMode = "";
     focusMainTouchMoved = false;
     imageToggle.setPointerCapture?.(event.pointerId);
@@ -3992,28 +4580,42 @@ function renderFocus() {
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
     focusMainTouchLastY = event.clientY;
-    updateFocusMainTouchVelocity(event.clientX, event.timeStamp);
+    updateFocusMainTouchVelocity(event.clientY, event.timeStamp);
     if (!focusMainTouchMode) {
-      if (absX > 2 && absX > absY * 0.62) focusMainTouchMode = "horizontal";
-      else if (absY > 14 && absY > absX) focusMainTouchMode = "vertical";
+      if (absY > 2 && absY > absX * 0.62) focusMainTouchMode = "vertical";
+      else if (absX > 14 && absX > absY) focusMainTouchMode = "horizontal";
     }
-    if (focusMainTouchMode !== "horizontal") return;
+    if (focusMainTouchMode !== "vertical") return;
     focusMainTouchMoved = true;
     event.preventDefault();
-    updateFocusMainSwipeDrag(focusMainTouchBaseOffset + deltaX);
+    updateFocusMainSwipeDrag(focusMainTouchBaseOffset + deltaY);
   }
 
   function handleFocusMainPointerUp(event) {
     if (!focusMainPointerActive || event.pointerId !== focusMainPointerId || !isFocusMainPointerDrag(event)) return;
     const deltaX = event.clientX - focusMainTouchStartX;
-    const wasHorizontal = focusMainTouchMode === "horizontal" && (focusMainTouchMoved || Math.abs(deltaX) > 6);
+    const deltaY = event.clientY - focusMainTouchStartY;
+    const wasVertical = focusMainTouchMode === "vertical" && (focusMainTouchMoved || Math.abs(deltaY) > 6);
+    const wasCrossAxisDrag = focusMainTouchMode === "horizontal" && Math.abs(deltaX) > 10;
     imageToggle.releasePointerCapture?.(event.pointerId);
     focusMainPointerActive = false;
     focusMainPointerId = 0;
-    if (wasHorizontal) {
+    if (wasVertical) {
       focusMainTouchPreventClickUntil = Date.now() + 520;
       event.preventDefault();
-      finishFocusMainSwipe();
+      const gestureDirection = deltaY < 0 ? 1 : -1;
+      if (focusMainTouchContinuationDirection
+        && focusMainTouchContinuationDirection !== gestureDirection) {
+        clearFocusQueuedSwipe();
+      }
+      const queuedDirection = focusMainTouchContinuationDirection === gestureDirection
+        && (Math.abs(deltaY) > 28 || Math.abs(focusMainTouchVelocityX) > 0.24)
+        ? gestureDirection
+        : 0;
+      finishFocusMainSwipe(queuedDirection);
+    } else if (wasCrossAxisDrag) {
+      focusMainTouchPreventClickUntil = Date.now() + 320;
+      event.preventDefault();
     } else if (focusMainSwipe.active && !focusMainSwipe.animating) {
       startFocusMainSwipeAnimation(0, false);
     }
@@ -4033,28 +4635,44 @@ function renderFocus() {
 
   function handleFocusMainWheel(event) {
     if (shell.classList.contains("is-index")) return;
+    const axis = getFocusMainSwipeAxis();
     const absX = Math.abs(event.deltaX);
     const absY = Math.abs(event.deltaY);
-    if (absX < 16 || absX <= absY * 1.12) return;
+    const primaryDelta = axis === "x" ? event.deltaX : event.deltaY;
+    const primaryDistance = Math.abs(primaryDelta);
+    const crossDistance = axis === "x" ? absY : absX;
+    if (primaryDistance < 16 || primaryDistance <= crossDistance * 1.08) return;
     event.preventDefault();
     if (Date.now() < focusMainWheelLockUntil) return;
-    if (isFocusMainSwipeBusy()) {
-      interruptFocusMainSwipeForNewGesture();
-    }
+    const interruption = isFocusMainSwipeBusy()
+      ? interruptFocusMainSwipeForNewGesture()
+      : { offset: 0, continuationDirection: 0 };
     holdFocusRailForMainSwipeGesture(560);
-    const direction = event.deltaX > 0 ? 1 : -1;
+    const direction = primaryDelta > 0 ? 1 : -1;
+    if (interruption.continuationDirection
+      && interruption.continuationDirection !== direction) {
+      clearFocusQueuedSwipe();
+    }
+    focusMainTouchVelocityX = (direction > 0 ? -1 : 1) * Math.max(0.55, Math.min(1.25, primaryDistance / 34));
+    focusMainWheelLockUntil = Date.now() + 90;
+    if (focusMainSwipe.active) {
+      if (focusMainSwipe.direction !== direction) {
+        startFocusMainSwipeAnimation(0, false);
+        return;
+      }
+      if (interruption.continuationDirection === direction) {
+        queueFocusMainSwipe(direction, focusMainTouchVelocityX);
+      }
+      const activeTravel = focusMainSwipe.travel || focusMainSwipe.extent || getFocusMainSwipeExtent(axis);
+      const activeTargetOffset = direction > 0 ? -activeTravel : activeTravel;
+      startFocusMainSwipeAnimation(focusMainSwipe.edge ? activeTargetOffset * 0.78 : activeTargetOffset, !focusMainSwipe.edge);
+      return;
+    }
     if (!configureFocusMainSwipe(direction)) return;
-    const width = focusMainSwipe.width || getFocusMainSwipeWidth();
-    const gap = Math.min(92, Math.max(28, width * 0.14));
-    const travel = width + gap;
-    const edgeTravel = Math.min(108, Math.max(48, width * 0.16));
+    const travel = focusMainSwipe.travel || focusMainSwipe.extent || getFocusMainSwipeExtent(axis);
     const isEdgeSwipe = Boolean(focusMainSwipe.edge);
-    const targetOffset = isEdgeSwipe
-      ? (direction > 0 ? -edgeTravel : edgeTravel)
-      : (direction > 0 ? -travel : travel);
-    focusMainTouchVelocityX = (direction > 0 ? -1 : 1) * Math.max(0.55, Math.min(1.25, absX / 34));
+    const targetOffset = direction > 0 ? -travel : travel;
     setFocusMainSwipeFrame(0, direction);
-    focusMainWheelLockUntil = Date.now() + 180;
     startFocusMainSwipeAnimation(targetOffset, !isEdgeSwipe);
   }
 
