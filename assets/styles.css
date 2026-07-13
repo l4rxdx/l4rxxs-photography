@@ -47,6 +47,10 @@ body {
   text-transform: uppercase;
 }
 
+body.focus {
+  transition: color .24s var(--ease-soft);
+}
+
 p {
   overflow-wrap: break-word;
   text-wrap: pretty;
@@ -126,8 +130,15 @@ body[data-theme="dark"] .view-switch button {
   body.is-theme-transitioning .stroke,
   body.is-theme-transitioning .theme-core,
   body.is-theme-transitioning .theme-eclipse,
-  body.is-theme-transitioning .focus-shell.is-index::before {
+  body.is-theme-transitioning .focus-shell.is-index::before,
+  body.is-theme-transitioning .logs-page::after {
     transition-property: background, background-color, color, border-color, filter, opacity;
+    transition-duration: .72s;
+    transition-timing-function: var(--ease-soft);
+  }
+
+  body.is-theme-transitioning .logs-shell {
+    transition-property: color, border-color;
     transition-duration: .72s;
     transition-timing-function: var(--ease-soft);
   }
@@ -489,7 +500,7 @@ body[data-theme="dark"] .theme-ray-d {
   height: .26rem;
   background: var(--color-dark);
   transform: translate(-50%, -50%);
-  transition: transform .5s var(--ease);
+  transition: transform .5s var(--ease), background-color .24s var(--ease-soft);
 }
 
 .nav-toggle span:last-child {
@@ -861,11 +872,6 @@ body.is-nav-logs .log-symbol__line-c {
   -webkit-backdrop-filter: blur(18px) saturate(1.06);
 }
 
-body[data-theme="dark"] .logs-page::before {
-  opacity: .28;
-  filter: blur(36px) brightness(.72) saturate(.86);
-}
-
 body[data-theme="dark"] .logs-page::after {
   background: color-mix(in srgb, var(--color-light) 80%, transparent);
 }
@@ -1149,10 +1155,6 @@ body.is-theme-transitioning:not(.is-language-transitioning) .nav-screen__logs .r
   --row-gap: 22vh;
   --translate-x: 0px;
   --translate-y: 0px;
-  --home-scene-x: 0px;
-  --home-scene-y: 0px;
-  --home-scene-rotate-x: 0deg;
-  --home-scene-rotate-y: 0deg;
   width: 110%;
   min-height: 180vh;
   position: relative;
@@ -1163,10 +1165,6 @@ body.is-theme-transitioning:not(.is-language-transitioning) .nav-screen__logs .r
   column-gap: var(--col-gap);
   row-gap: var(--row-gap);
   overflow: hidden;
-  transform: perspective(1200px) translate3d(var(--home-scene-x), var(--home-scene-y), 0) rotateX(var(--home-scene-rotate-x)) rotateY(var(--home-scene-rotate-y));
-  transform-origin: 50vw 44vh;
-  transform-style: preserve-3d;
-  will-change: transform;
 }
 
 .nav-screen__footer > span {
@@ -1222,6 +1220,7 @@ body.is-theme-transitioning:not(.is-language-transitioning) .nav-screen__logs .r
   left: 50%;
   transform: translateX(-50%) translateY(-50%);
   pointer-events: all;
+  font-size: 0;
 }
 
 body.has-loaded .c-element-overviewgrid .overview-item {
@@ -1437,6 +1436,65 @@ body[data-view="list"] .work-item__text {
   padding: 0 var(--space-4);
 }
 
+.focus-shell::after {
+  content: "";
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 900;
+  height: clamp(7.6rem, 10vh, 9.6rem);
+  background-color: color-mix(in srgb, var(--color-light) 38%, transparent);
+  backdrop-filter: blur(6px) saturate(1.02);
+  -webkit-backdrop-filter: blur(6px) saturate(1.02);
+  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .9) 38%, rgba(0, 0, 0, .34) 74%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .9) 38%, rgba(0, 0, 0, .34) 74%, transparent 100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .42s var(--ease-soft), visibility 0s linear .42s, background-color .72s var(--ease-soft);
+}
+
+.focus-shell.is-index::after {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.focus-shell.is-index .focus-actions {
+  z-index: 1000;
+}
+
+.focus-notes-background {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background-color: var(--apple-music-background-scene, var(--color-light));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.08s var(--ease-soft), background-color 1.08s var(--ease-soft);
+  will-change: opacity;
+}
+
+body.focus-notes-palette-active[data-apple-music-background-ready="true"] {
+  --color-dark: var(--apple-music-background-foreground);
+}
+
+body.focus-notes-open[data-apple-music-background-ready="true"] .focus-notes-background {
+  opacity: 1;
+}
+
+body.focus-notes-open[data-apple-music-background-ready="true"]::after {
+  background-color: color-mix(in srgb, var(--apple-music-background-scene) 38%, transparent);
+}
+
+body.focus-notes-open[data-apple-music-background-ready="true"] .theme-core,
+body.focus-notes-open[data-apple-music-background-ready="true"] .theme-eclipse {
+  background-color: var(--apple-music-background-scene);
+}
+
+body.is-focus-leaving .focus-notes-background {
+  opacity: 0;
+}
+
 .focus-title {
   display: none;
 }
@@ -1498,6 +1556,7 @@ body[data-view="list"] .work-item__text {
 .focus-thumb img {
   width: 100%;
   height: auto;
+  font-size: 0;
 }
 
 .focus-main {
@@ -1570,6 +1629,9 @@ body[data-view="list"] .work-item__text {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
   opacity: 1;
   filter: none;
   transform: translate3d(0, 0, 0);
@@ -1645,44 +1707,6 @@ body[data-view="list"] .work-item__text {
   pointer-events: none !important;
   z-index: -1 !important;
 }
-.focus-main.is-main-traveling,
-.focus-shell.is-index .focus-main.is-main-traveling,
-.focus-shell.is-index-opening .focus-main.is-main-traveling,
-.focus-shell.is-index-closing .focus-main.is-main-traveling {
-  position: fixed;
-  opacity: 1 !important;
-  filter: none !important;
-  transform-origin: 0 0;
-  pointer-events: none;
-  transition: none !important;
-  will-change: transform, left, top, width, height;
-}
-
-.focus-main.is-main-traveling.is-flight-active,
-.focus-shell.is-index .focus-main.is-main-traveling.is-flight-active,
-.focus-shell.is-index-opening .focus-main.is-main-traveling.is-flight-active,
-.focus-shell.is-index-closing .focus-main.is-main-traveling.is-flight-active {
-  transition: transform var(--focus-flight-duration, .86s) cubic-bezier(.16, .92, .18, 1) !important;
-}
-
-.focus-main.is-main-traveling .focus-main__button,
-.focus-main.is-main-traveling img {
-  width: 100%;
-  height: 100%;
-  filter: none !important;
-  transform: none !important;
-  transition: none !important;
-}
-
-.focus-main.is-main-traveling.is-flight-active .focus-main__button,
-.focus-shell.is-index .focus-main.is-main-traveling.is-flight-active .focus-main__button,
-.focus-shell.is-index-opening .focus-main.is-main-traveling.is-flight-active .focus-main__button,
-.focus-shell.is-index-closing .focus-main.is-main-traveling.is-flight-active .focus-main__button {
-  transform-origin: 0 0;
-  transform: translate3d(var(--focus-flight-x, 0px), var(--focus-flight-y, 0px), 0) scale(var(--focus-flight-scale, 1)) !important;
-  transition: transform var(--focus-flight-duration, .86s) cubic-bezier(.16, .92, .18, 1) !important;
-}
-
 .focus-shell.is-switching-image .focus-main {
   opacity: .42 !important;
   filter: blur(3px) !important;
@@ -1901,6 +1925,38 @@ body.is-return-flight-active {
   transition: none;
 }
 
+.focus-main__button > .focus-switch-hold-image {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  visibility: hidden;
+  opacity: 0;
+  transform: scale(1);
+  filter: none;
+  pointer-events: none;
+  object-fit: contain;
+  backface-visibility: hidden;
+  contain: layout paint;
+  transition: none;
+  will-change: opacity;
+}
+
+.focus-shell.is-focus-switch-holding .focus-main__button > img.focus-switch-hold-image {
+  visibility: visible;
+  opacity: 1;
+  transform: scale(1);
+  filter: none;
+  transition: none;
+}
+
+.focus-shell.is-focus-switch-fading .focus-main__button > img.focus-switch-hold-image {
+  visibility: visible;
+  opacity: 0;
+  transform: scale(1);
+  filter: none;
+  transition: opacity .28s var(--ease-soft);
+}
+
 .focus-shell.is-notes-transitioning .focus-notes {
   transition: opacity .58s var(--ease-soft), transform 1.08s var(--ease-soft);
 }
@@ -2073,32 +2129,6 @@ body.is-return-flight-active {
   z-index: 8;
 }
 
-.focus-index-travel-layer {
-  position: fixed;
-  z-index: 1300;
-  max-width: none;
-  object-fit: contain;
-  pointer-events: none;
-  opacity: 1;
-  transform-origin: 0 0;
-  transform: translate3d(0, 0, 0) scaleX(1) scaleY(1);
-  backface-visibility: hidden;
-  contain: layout paint;
-  filter: none;
-  transition: opacity .28s var(--ease-soft);
-  will-change: transform, opacity;
-}
-
-.focus-index-travel-layer.is-releasing {
-  opacity: 0;
-}
-
-.focus-shell.is-index-handoff .focus-main,
-.focus-shell.is-index-handoff .focus-main__button,
-.focus-shell.is-index-handoff .focus-main img {
-  transition-duration: .16s !important;
-  transition-delay: 0s !important;
-}
 @media (max-width: 768px) {
   body {
     font-size: 2.1rem;
@@ -2458,23 +2488,26 @@ body.is-return-flight-active {
 /* Independent full-image focus index: the rail stays a rail; the bookcase is its own layer. */
 .focus-index-gallery {
   position: fixed;
-  inset: calc(var(--space-16) + var(--space-3)) var(--space-4) calc(var(--space-16) + var(--space-3));
+  inset: 0 var(--space-4);
   z-index: 85;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 15rem));
   justify-content: center;
-  align-content: center;
+  align-content: safe center;
   gap: var(--space-8);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  padding: calc(var(--space-16) + var(--space-3)) 0;
   opacity: 0;
-  filter: blur(10px) saturate(.86);
-  transform: translateY(var(--space-6)) scale(.985);
+  filter: none;
+  transform: none;
   pointer-events: none;
   scrollbar-width: none;
-  transition: opacity .68s var(--ease-soft), filter .72s var(--ease-soft), transform .84s var(--ease-notes);
-  will-change: opacity, filter, transform;
+  transition: opacity .42s var(--ease-soft);
+  will-change: opacity;
 }
 
 .focus-index-gallery::-webkit-scrollbar {
@@ -2489,10 +2522,16 @@ body.is-return-flight-active {
 }
 
 .focus-shell.is-index-opening .focus-index-gallery {
+  opacity: 1;
+  filter: none;
   transform: none;
-  transition: opacity .68s var(--ease-soft), filter .72s var(--ease-soft);
+  overflow: hidden;
+  touch-action: none;
+  transition: none;
 }
 .focus-shell.is-index-closing .focus-index-gallery {
+  overflow: hidden;
+  touch-action: none;
   pointer-events: none;
 }
 
@@ -2524,7 +2563,6 @@ body.is-return-flight-active {
   cursor: pointer;
   transform-origin: 50% 50%;
   filter: none;
-  will-change: transform, opacity;
 }
 
 .focus-index-card__media,
@@ -2541,6 +2579,9 @@ body.is-return-flight-active {
 .focus-index-card img {
   max-width: none;
   object-fit: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .focus-index-card.is-index-hidden {
@@ -2550,6 +2591,59 @@ body.is-return-flight-active {
 
 .focus-index-card.is-active {
   opacity: 1;
+}
+
+html.focus-index-scroll-lock {
+  width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+body.focus-index-scroll-lock {
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+.focus-index-moving-image {
+  position: fixed !important;
+  z-index: 850 !important;
+  display: block !important;
+  max-width: none !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  pointer-events: none !important;
+  transform-origin: 0 0 !important;
+  backface-visibility: hidden;
+  contain: layout paint;
+  filter: blur(0) !important;
+  transition: none !important;
+  animation: none !important;
+  will-change: transform;
+}
+
+body[data-theme="dark"] .focus-index-moving-image {
+  filter: brightness(.88) contrast(1.08) !important;
+}
+
+.focus-main img[data-focus-index-full] {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.focus-shell.is-index-reparenting .focus-main,
+.focus-shell.is-index-reparenting .focus-main__button,
+.focus-shell.is-index-reparenting .focus-main img,
+.focus-shell.is-index-reparenting .focus-index-card,
+.focus-shell.is-index-reparenting .focus-index-card__media,
+.focus-shell.is-index-reparenting .focus-index-card img {
+  transition: none !important;
+  animation: none !important;
 }
 
 .focus-shell.is-index .focus-rail {
@@ -2612,7 +2706,9 @@ body.is-return-flight-active {
 
 @media (max-width: 768px) {
   .focus-index-gallery {
-    inset: calc(var(--space-20) + var(--space-8)) var(--space-4) calc(var(--space-16) + var(--space-8));
+    inset: 0 var(--space-4);
+    padding-top: calc(var(--space-20) + var(--space-8));
+    padding-bottom: calc(var(--space-16) + var(--space-8));
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -2687,7 +2783,7 @@ body.is-return-flight-active {
     pointer-events: auto;
   }
 
-  .focus-shell.is-notes:not(.is-index) .focus-main:not(.is-main-traveling) {
+  .focus-shell.is-notes:not(.is-index) .focus-main {
     width: calc(100vw - var(--space-8));
     transform: translateX(-50%) translateY(var(--notes-photo-shift-y, -3.8rem)) scale(var(--notes-photo-scale, .7));
   }
@@ -2699,6 +2795,40 @@ body.is-return-flight-active {
     pointer-events: none;
   }
 }
+
+.focus-shell.is-index-return-settling .focus-main,
+.focus-shell.is-index-return-settling .focus-main__button,
+.focus-shell.is-index-return-settling .focus-main img {
+  transition: none !important;
+  animation: none !important;
+}
+
+.focus-shell.is-index-return-settling:not(.is-index-closing) .focus-rail {
+  visibility: visible;
+  transition: opacity .48s var(--ease-soft) !important;
+}
+
+.focus-shell.is-index-return-settling .focus-index-gallery {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+.focus-shell.is-index-return-settling::before {
+  opacity: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: none !important;
+}
+
+.focus-shell.is-index-return-settling .focus-thumb,
+.focus-shell.is-index-return-settling .focus-thumb__media,
+.focus-shell.is-index-return-settling .focus-thumb img {
+  transition: none !important;
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

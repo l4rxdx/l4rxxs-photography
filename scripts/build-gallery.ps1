@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Root = (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)),
     [int]$WebMax = 1920,
     [int]$ThumbMax = 480,
@@ -42,7 +42,7 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "R0010821.jpg"; title = "ROLL 18"; category = "ROLL"; caption = "A second roll image without repeating the file." },
     @{ original = "R0010715.jpg"; title = "ROLL 19"; category = "ROLL"; caption = "The frame is kept raw and full." },
     @{ original = "R0010914-2.jpg"; title = "ROLL 20"; category = "ROLL"; caption = "An alternate frame with its own position." },
-    @{ original = "R0011072.jpg"; title = "ROLL 21"; category = "ROLL"; caption = "A later roll image for the list view." },
+    @{ original = "DSC02624.jpg"; title = "BLOOM 21"; category = "HAND"; caption = "A small white flower resting in the palm." },
     @{ original = "R0011370.jpg"; title = "ROLL 22"; category = "ROLL"; caption = "A large frame at the end of the wall." },
     @{ original = "R0011216.jpg"; title = "ROLL 23"; category = "ROLL"; caption = "A dense image with a generous margin." },
     @{ original = "R0011206.jpg"; title = "ROLL 24"; category = "ROLL"; caption = "The last stretch of the local sequence." },
@@ -62,10 +62,11 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "DSC00627.jpg"; title = "CABIN 38"; category = "FLIGHT"; caption = "An aisle view before the cabin settles." },
     @{ original = "DSC01142-2.jpg"; title = "TERMINAL 39"; category = "TRANSIT"; caption = "A black-and-white passage under a clock." },
     @{ original = "Desktop Screenshot 2025.12.07 - 15.24.09.11.jpg"; title = "CAT 40"; category = "SQUARE"; caption = "A dark cat caught beside a metal fence." },
-    @{ original = "R0010964.jpg"; title = "PATH 41"; category = "MOUNTAIN"; caption = "A rain-covered figure climbing into fog." },
-    @{ original = "DSC02624.jpg"; title = "BLOOM 42"; category = "HAND"; caption = "A small white flower resting in the palm." },
+    @{ original = "R0010392.JPG"; title = "BLUE 41"; category = "WRIST"; caption = "Blue fabric and beads around an open hand." },
+    @{ original = "R0011072.jpg"; title = "ROLL 42"; category = "ROLL"; caption = "A later roll image for the list view." },
     @{ original = "R0011060.JPG"; title = "NIGHT 43"; category = "HILL"; caption = "A nearly black horizon with one small light." },
-    @{ original = "R0010392.JPG"; title = "BLUE 44"; category = "WRIST"; caption = "Blue fabric and beads around an open hand." }
+    @{ original = "R0010964.jpg"; title = "PATH 44"; category = "MOUNTAIN"; caption = "A rain-covered figure climbing into fog." },
+    @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar." }
 )
 
 function Convert-ToSlug {
@@ -134,6 +135,19 @@ function Save-ResizedImage {
     }
 }
 
+function Get-ImageDimensions {
+    param([string]$Path)
+    $Image = [System.Drawing.Image]::FromFile($Path)
+    try {
+        return [PSCustomObject]@{
+            Width = [int]$Image.Width
+            Height = [int]$Image.Height
+        }
+    } finally {
+        $Image.Dispose()
+    }
+}
+
 function Copy-RootImagesToOriginals {
     $RootImages = Get-ChildItem -LiteralPath (Join-Path $Root "images") -File |
         Where-Object { $ImageExtensions -contains $_.Extension.ToLowerInvariant() -and $_.Name -ne "og-image.jpg" -and $ExcludedOriginals -notcontains $_.Name }
@@ -190,14 +204,19 @@ foreach ($File in $OrderedFiles) {
 
     Save-ResizedImage -Source $File.FullName -Destination $WebPath -MaxEdge $WebMax -Quality $JpegQuality
     Save-ResizedImage -Source $File.FullName -Destination $ThumbPath -MaxEdge $ThumbMax -Quality 74
+    $WebDimensions = Get-ImageDimensions -Path $WebPath
+    $ThumbDimensions = Get-ImageDimensions -Path $ThumbPath
 
     $Title = if ($Existing -and $Existing.title) { $Existing.title } elseif ($Seed) { $Seed.title } else { "IMAGE {0:D2}" -f $Id }
     $Category = if ($Existing -and $Existing.category) { $Existing.category } elseif ($Seed) { $Seed.category } else { "NEW" }
     $Caption = if ($Existing -and $Existing.caption) { $Existing.caption } elseif ($Seed) { $Seed.caption } else { "A new frame from the local archive." }
     $Alt = if ($Existing -and $Existing.alt) { $Existing.alt } else { "l4rxx photo {0:D2} - $Title" -f $Id }
     $Date = if ($Existing -and $Existing.date) { $Existing.date } else { $File.LastWriteTime.ToString("yyyy-MM-dd") }
+    $Note = if ($Existing -and $Existing.note) { $Existing.note } elseif ($Seed -and $Seed.noteCn) { $Seed.noteCn } else { "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个" }
+    $NoteCn = if ($Existing -and $Existing.noteCn) { $Existing.noteCn } elseif ($Seed -and $Seed.noteCn) { $Seed.noteCn } else { $null }
+    $NoteEn = if ($Existing -and $Existing.noteEn) { $Existing.noteEn } elseif ($Seed -and $Seed.noteEn) { $Seed.noteEn } else { $null }
 
-    $Items.Add([ordered]@{
+    $Item = [ordered]@{
         id = $Id
         title = $Title
         category = $Category
@@ -206,8 +225,16 @@ foreach ($File in $OrderedFiles) {
         original = "images/originals/$($File.Name)"
         full = $WebRelative
         thumb = $ThumbRelative
+        width = $WebDimensions.Width
+        height = $WebDimensions.Height
+        thumbWidth = $ThumbDimensions.Width
+        thumbHeight = $ThumbDimensions.Height
         date = $Date
-    })
+        note = $Note
+    }
+    if ($NoteCn) { $Item["noteCn"] = $NoteCn }
+    if ($NoteEn) { $Item["noteEn"] = $NoteEn }
+    $Items.Add($Item)
     $Id++
 }
 

@@ -31,6 +31,7 @@ for (const file of [
   "robots.txt",
   "sitemap.xml",
   "site.webmanifest",
+  "_headers",
   "UPDATE_LOG.md",
   "RELEASE_LOG.md",
   "WORK_LOG.md",
