@@ -82,7 +82,7 @@ Assert-True ($AllText -match '<meta property="og:title" content="l4rxx">') "all 
 Assert-True ($Focus -match "rel") "focus page should support rel query navigation"
 Assert-True ($App -match "new URLSearchParams\(window\.location\.search\)") "focus page should parse URL query params"
 
-Assert-True ($App -match 'PHOTO_MANIFEST_VERSION = "20260714-3"' -and $App -match 'const isLocalPreview' -and $App -match 'fetch\(manifestUrl, \{ cache: isLocalPreview \? "no-cache" : "default" \}\)') "gallery data should revalidate on local networks and use a versioned production manifest"
+Assert-True ($App -match 'PHOTO_MANIFEST_VERSION = "20260714-4"' -and $App -match 'const isLocalPreview' -and $App -match 'fetch\(manifestUrl, \{ cache: isLocalPreview \? "no-cache" : "default" \}\)') "gallery data should revalidate on local networks and use the v1.4.1 production manifest version"
 Assert-True ($App -notmatch 'const\s+photos\s*=\s*\[') "gallery photos should not be hard-coded in app.js"
 
 $ImageSources = @($Photos | ForEach-Object { $_.full; $_.thumb })

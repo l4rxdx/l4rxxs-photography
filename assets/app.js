@@ -8,7 +8,7 @@ const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
 const LANGUAGE_SESSION_STORAGE_KEY = "l4rxx-language";
-const PHOTO_MANIFEST_VERSION = "20260714-3";
+const PHOTO_MANIFEST_VERSION = "20260714-4";
 
 const languageCopy = {
   en: {
