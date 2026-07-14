@@ -16,7 +16,7 @@
 - 对比基准：`v1.4.0 - Mobile Index And Notes Locations`
 - Git commit：本次发布提交，推送后以 GitHub `main` 历史和 Cloudflare Pages 部署记录为准。
 - 上线分支：`main`
-- 缓存标识：`default-language-en1`
+- 缓存标识：`v141-manifest4`
 - 发布策略：减少首页非方形照片的多余留白，统一新会话的英语默认状态，并加入第 45 张照片；不改变 1:1 照片尺寸和既有页面交互。
 
 ### 优化
