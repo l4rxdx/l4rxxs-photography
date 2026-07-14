@@ -66,7 +66,8 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "R0011072.jpg"; title = "ROLL 42"; category = "ROLL"; caption = "A later roll image for the list view." },
     @{ original = "R0011060.JPG"; title = "NIGHT 43"; category = "HILL"; caption = "A nearly black horizon with one small light."; noteCn = "有点像skeletons专辑封面。"; noteEn = "It looks a little like the cover of Skeletons."; locationCn = "清远 学校宿舍"; locationEn = "Qingyuan School Dormitory" },
     @{ original = "R0010964.jpg"; title = "PATH 44"; category = "MOUNTAIN"; caption = "A rain-covered figure climbing into fog." },
-    @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar."; locationCn = "广州 华南植物园"; locationEn = "Guangzhou South China Botanical Garden" }
+    @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar."; locationCn = "广州 华南植物园"; locationEn = "Guangzhou South China Botanical Garden" },
+    @{ original = "luvsicpt4-water.jpg"; title = "WATER 46"; category = "STILL"; caption = "A plastic cup of water held in low light."; noteCn = "一杯水。"; noteEn = "A cup of water." }
 )
 
 function Convert-ToSlug {
@@ -164,9 +165,13 @@ function Read-ExistingPhotoMap {
     $Map = @{}
     if (-not (Test-Path -LiteralPath $PhotosPath)) { return $Map }
     try {
-        $Existing = Get-Content -Raw -LiteralPath $PhotosPath | ConvertFrom-Json
+        $ExistingJson = [System.IO.File]::ReadAllText($PhotosPath, [System.Text.Encoding]::UTF8)
+        $Existing = $ExistingJson | ConvertFrom-Json
         foreach ($Photo in @($Existing.items)) {
-            if ($Photo.original) { $Map[$Photo.original] = $Photo }
+            if ($Photo.original) {
+                $OriginalName = [System.IO.Path]::GetFileName($Photo.original)
+                if (-not [string]::IsNullOrWhiteSpace($OriginalName)) { $Map[$OriginalName] = $Photo }
+            }
         }
     } catch {
         return $Map
@@ -197,8 +202,8 @@ foreach ($File in $OrderedFiles) {
     $Seed = $SeedPhotos | Where-Object { $_.original -eq $File.Name } | Select-Object -First 1
     $Existing = $ExistingByOriginal[$File.Name]
     $Slug = "{0:D3}-{1}" -f $Id, (Convert-ToSlug $File.Name)
-    $WebRelative = "images/web/$Slug.jpg"
-    $ThumbRelative = "images/thumbs/$Slug.jpg"
+    $WebRelative = if ($Existing -and $Existing.full) { $Existing.full } else { "images/web/$Slug.jpg" }
+    $ThumbRelative = if ($Existing -and $Existing.thumb) { $Existing.thumb } else { "images/thumbs/$Slug.jpg" }
     $WebPath = Join-Path $Root $WebRelative
     $ThumbPath = Join-Path $Root $ThumbRelative
 
@@ -227,10 +232,6 @@ foreach ($File in $OrderedFiles) {
         original = "images/originals/$($File.Name)"
         full = $WebRelative
         thumb = $ThumbRelative
-        width = $WebDimensions.Width
-        height = $WebDimensions.Height
-        thumbWidth = $ThumbDimensions.Width
-        thumbHeight = $ThumbDimensions.Height
         date = $Date
         note = $Note
     }
@@ -238,6 +239,10 @@ foreach ($File in $OrderedFiles) {
     if ($NoteEn) { $Item["noteEn"] = $NoteEn }
     if ($LocationCn) { $Item["locationCn"] = $LocationCn }
     if ($LocationEn) { $Item["locationEn"] = $LocationEn }
+    $Item["width"] = $WebDimensions.Width
+    $Item["height"] = $WebDimensions.Height
+    $Item["thumbWidth"] = $ThumbDimensions.Width
+    $Item["thumbHeight"] = $ThumbDimensions.Height
     $Items.Add($Item)
     $Id++
 }
@@ -261,7 +266,7 @@ $Output = [ordered]@{
     items = $Items
 }
 
-$Json = $Output | ConvertTo-Json -Depth 6
+$Json = ($Output | ConvertTo-Json -Depth 6).Replace('\u0027', "'")
 [System.IO.File]::WriteAllText($PhotosPath, $Json + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Generated $($Items.Count) photos in content/photos.json"

@@ -7,6 +7,7 @@ const DEFAULT_PHOTO_NOTE_EN = "This space was meant for small notes for each pho
 const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
+const LANGUAGE_SESSION_STORAGE_KEY = "l4rxx-language";
 const PHOTO_MANIFEST_VERSION = "20260714-3";
 
 const languageCopy = {
@@ -55,17 +56,21 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
-    versions: ["v1.4.0", "v1.3.0"],
+    versions: ["v1.4.1", "v1.4.0", "v1.3.0"],
     date: "2026-07-14",
     categories: {
       optimizations: {
         cn: [
           "移动端大图连续滑动与缩略图同步更跟手，快速反向也能从当前画面继续。",
-          "索引图库开合、纵向滚动与图片加载更稳定，移动端动画更柔和；随记背景会根据当前照片取色。"
+          "索引图库开合、纵向滚动与图片加载更稳定，移动端动画更柔和；随记背景会根据当前照片取色。",
+          "首页非方形照片会按画幅适度放大以减少留白，1:1 照片保持原尺寸。",
+          "新会话默认使用英语，手动切换的语言会在当前会话内跨页面保持。"
         ],
         en: [
           "Mobile photo swiping and thumbnail tracking now respond continuously, including rapid reversals.",
-          "INDEX opening, vertical scrolling, and loading are more stable, with softer mobile motion; notes backgrounds now follow the active photo."
+          "INDEX opening, vertical scrolling, and loading are more stable, with softer mobile motion; notes backgrounds now follow the active photo.",
+          "Non-square home photos now scale with their aspect ratio to reduce excess whitespace, while 1:1 photos keep their original size.",
+          "New sessions now start in English, while manual language changes persist across pages within the current session."
         ]
       },
       fixes: {
@@ -85,8 +90,14 @@ const releaseLogEntries = [
         en: ["Removed desktop main-photo swiping and home-page tilt perspective."]
       },
       additions: {
-        cn: ["新增索引图库、照片取色随记背景和第 44 张照片，并为 14 张照片补充双语地点与随记。"],
-        en: ["Added the INDEX gallery, photo-derived notes backgrounds, and the 44th photo, plus bilingual locations and notes for 14 photos."]
+        cn: [
+          "新增索引图库、照片取色随记背景和第 44 张照片，并为 14 张照片补充双语地点与随记。",
+          "新增第 45 张照片 WATER 46 及其双语随记。"
+        ],
+        en: [
+          "Added the INDEX gallery, photo-derived notes backgrounds, and the 44th photo, plus bilingual locations and notes for 14 photos.",
+          "Added the 45th photo, WATER 46, with its bilingual note."
+        ]
       }
     }
   },
@@ -485,7 +496,7 @@ function initLanguageSwitch() {
   let languageTransitionTimer = 0;
   let languageTransitionRunId = 0;
   try {
-    saved = localStorage.getItem("l4rxx-language") || "en";
+    saved = sessionStorage.getItem(LANGUAGE_SESSION_STORAGE_KEY) || "en";
   } catch (error) {
     saved = "en";
   }
@@ -530,7 +541,7 @@ function initLanguageSwitch() {
     window.dispatchEvent(new CustomEvent("l4rxx:languagechange", { detail: { language: next } }));
 
     try {
-      localStorage.setItem("l4rxx-language", next);
+      sessionStorage.setItem(LANGUAGE_SESSION_STORAGE_KEY, next);
     } catch (error) {
       return;
     }
@@ -811,18 +822,35 @@ function createOverviewBatch(isOriginal = false) {
     photoIndex++;
   }
 
-  let fillIndex = 0;
-  while (items.length % 5 !== 0) {
-    const photoIndexToFill = fillIndex % sourcePhotos.length;
+  const fillCount = (5 - (items.length % 5)) % 5;
+  const fillStart = Math.max(0, Math.floor((sourcePhotos.length - fillCount) / 2));
+  for (let fillIndex = 0; fillIndex < fillCount; fillIndex++) {
+    const photoIndexToFill = (fillStart + fillIndex) % sourcePhotos.length;
     items.push(createOverviewLink(sourcePhotos[photoIndexToFill], photoIndexToFill, isOriginal, items.length, "infinity-item--fill"));
-    fillIndex++;
   }
   return items;
+}
+
+function getOverviewPhotoSizeClass(photo) {
+  const width = Number(photo?.width || 0);
+  const height = Number(photo?.height || 0);
+  if (!(width > 0 && height > 0)) return "overview-size--natural";
+  const ratio = width / height;
+  if (ratio >= .96 && ratio <= 1.04) return "overview-size--square";
+  if (ratio > 2) return "overview-size--panorama";
+  if (ratio > 1.65) return "overview-size--wide";
+  if (ratio >= 1.15) return "overview-size--landscape";
+  if (ratio > 1.04) return "overview-size--landscape-soft";
+  if (ratio < .68) return "overview-size--tall";
+  return "overview-size--portrait";
 }
 
 function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = "") {
   const link = document.createElement("a");
   link.className = `overview-item infinity-item--batch infinity-item--original${extraClass ? ` ${extraClass}` : ""}`;
+  link.classList.add(getOverviewPhotoSizeClass(photo));
+  const columnIndex = ((cellIndex % 5) + 5) % 5;
+  if (columnIndex === 0 || columnIndex === 4) link.classList.add("overview-size--edge");
   if (isOriginal && cellIndex <= 14) link.classList.add("is-visible");
   const photoRel = getPhotoRel(photo, index);
   const prioritize = isOriginal && cellIndex < 5;

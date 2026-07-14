@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-07-06T11:39:39Z",
+    "generatedAt":  "2026-07-14T09:17:33Z",
     "source":  "scripts/build-gallery.ps1",
     "webMax":  1920,
     "thumbMax":  480,
@@ -763,6 +763,24 @@
                       "height":  1280,
                       "thumbWidth":  480,
                       "thumbHeight":  320
+                  },
+                  {
+                      "id":  45,
+                      "title":  "WATER 46",
+                      "category":  "STILL",
+                      "caption":  "A plastic cup of water held in low light.",
+                      "alt":  "l4rxx photo 45 - WATER 46",
+                      "original":  "images/originals/luvsicpt4-water.jpg",
+                      "full":  "images/web/045-luvsicpt4-water.jpg",
+                      "thumb":  "images/thumbs/045-luvsicpt4-water.jpg",
+                      "date":  "2026-07-14",
+                      "note":  "一杯水。",
+                      "noteCn":  "一杯水。",
+                      "noteEn":  "A cup of water.",
+                      "width":  1920,
+                      "height":  1920,
+                      "thumbWidth":  480,
+                      "thumbHeight":  480
                   }
               ]
 }
