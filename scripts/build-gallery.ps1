@@ -23,20 +23,20 @@ foreach ($Dir in @($OriginalsDir, $WebDir, $ThumbDir, $ContentDir)) {
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 }
 
-$SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category = "OPEN AIR"; caption = "Distance, weather, and a low horizon." },
+$SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category = "OPEN AIR"; caption = "Distance, weather, and a low horizon."; noteCn = "当时是我人生第一次拿起相机在街道拍照。"; noteEn = "That was the first time in my life I picked up a camera to photograph the streets."; locationCn = "清远 中山公园"; locationEn = "Qingyuan Zhongshan Park" },
     @{ original = "Desktop Screenshot 2026.01.04 - 23.3.23.04-2.jpg"; title = "SCREEN 03"; category = "SCREEN"; caption = "A captured screen becomes part of the image rhythm." },
-    @{ original = "DSC03004.jpg"; title = "FIELD 04"; category = "STILL"; caption = "Muted light with a photographic pause." },
+    @{ original = "DSC03004.jpg"; title = "FIELD 04"; category = "STILL"; caption = "Muted light with a photographic pause."; noteCn = "爬太快，挨了两个小时冻看日出。"; noteEn = "I climbed too fast and ended up freezing for two hours while waiting for the sunrise."; locationCn = "萍乡 武功山"; locationEn = "Pingxiang Wugong Mountain" },
     @{ original = "DSC02865.jpg"; title = "FIELD 05"; category = "STILL"; caption = "Large negative space and a held center." },
-    @{ original = "DSC02785.jpg"; title = "FIELD 06"; category = "STILL"; caption = "A dense frame for the index wall." },
+    @{ original = "DSC02785.jpg"; title = "FIELD 06"; category = "STILL"; caption = "A dense frame for the index wall."; noteCn = "shing02开的luv（sic）live，那晚蹦的我结束都不会走路了。"; noteEn = "Shing02's Luv(sic) Live. I jumped so much that night I could barely walk by the end."; locationCn = "广州 声音共和livehouse"; locationEn = "Guangzhou Sound Republic Livehouse" },
     @{ original = "R0010684.jpg"; title = "TRACE 07"; category = "WALK"; caption = "A walking note from the local roll." },
     @{ original = "DSC02468.jpg"; title = "TRACE 08"; category = "WALK"; caption = "The image sits like a found page." },
     @{ original = "R0010682.jpg"; title = "TRACE 09"; category = "WALK"; caption = "A low contrast moment with soft edges." },
-    @{ original = "DSC01843.jpg"; title = "TRACE 10"; category = "PORTRAIT"; caption = "Human scale against a plain field." },
+    @{ original = "DSC01843.jpg"; title = "TRACE 10"; category = "PORTRAIT"; caption = "Human scale against a plain field."; noteCn = "窗外有些许蝉叫声，好平静。"; noteEn = "A few cicadas could be heard outside the window. It felt so peaceful."; locationCn = "东莞 东莞图书馆"; locationEn = "Dongguan Library" },
     @{ original = "My-YE-cover.png"; title = "COVER 11"; category = "GRAPHIC"; caption = "A cover image placed into the same visual system." },
-    @{ original = "DSC00811.jpg"; title = "TRACE 12"; category = "PORTRAIT"; caption = "A vertical image for the focus viewer." },
-    @{ original = "image.jpg"; title = "IMAGE 13"; category = "FOUND"; caption = "A small found image in the wider sequence." },
+    @{ original = "DSC00811.jpg"; title = "TRACE 12"; category = "PORTRAIT"; caption = "A vertical image for the focus viewer."; noteCn = "这树叶其实是绿色的，天空也是阴天。"; noteEn = "The leaves were actually green, and the sky was overcast too."; locationCn = "杭州 西湖"; locationEn = "Hangzhou West Lake" },
+    @{ original = "image.jpg"; title = "IMAGE 13"; category = "FOUND"; caption = "A small found image in the wider sequence."; noteCn = "自从离开安徽很少看到这样天空了。"; noteEn = "Since leaving Anhui, I have rarely seen a sky like this."; locationCn = "昆明 不记得哪的地铁口"; locationEn = "Kunming An Unknown Metro Entrance" },
     @{ original = "DSC00323.jpg"; title = "TRACE 14"; category = "PORTRAIT"; caption = "A quiet pause before the next frame." },
-    @{ original = "grok-image-dd0c889a-a430-408a-8e1c-e13496ad3005.jpg"; title = "SYNTH 15"; category = "GENERATED"; caption = "A synthetic image held in the same grid." },
+    @{ original = "grok-image-dd0c889a-a430-408a-8e1c-e13496ad3005.jpg"; title = "SYNTH 15"; category = "GENERATED"; caption = "A synthetic image held in the same grid."; noteCn = "新婚快乐。"; noteEn = "Wishing you a happy marriage."; locationCn = "大理 洱海"; locationEn = "Dali Erhai Lake" },
     @{ original = "DSC00261.jpg"; title = "TRACE 16"; category = "PORTRAIT"; caption = "A portrait scale frame from the folder." },
     @{ original = "R0010826.jpg"; title = "ROLL 17"; category = "ROLL"; caption = "A textured image from the R roll." },
     @{ original = "R0010821.jpg"; title = "ROLL 18"; category = "ROLL"; caption = "A second roll image without repeating the file." },
@@ -48,25 +48,25 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "R0011206.jpg"; title = "ROLL 24"; category = "ROLL"; caption = "The last stretch of the local sequence." },
     @{ original = "R0011157.jpg"; title = "ROLL 25"; category = "ROLL"; caption = "A final still before closing the set." },
     @{ original = "R0011079.jpg"; title = "ROLL 26"; category = "ROLL"; caption = "The final unique photo in this build." },
-    @{ original = "DSC02934-2.jpg"; title = "RAIN 27"; category = "WATER"; caption = "A dark figure and umbrella held against open water." },
+    @{ original = "DSC02934-2.jpg"; title = "RAIN 27"; category = "WATER"; caption = "A dark figure and umbrella held against open water."; noteCn = "记得当时是清晨，本来想起早去看日出的，可惜那天是阴天，等了很久也没有看到太阳，但是没太阳的日出也挺好看的。"; noteEn = "It was early morning. I had planned to wake up for the sunrise, but the day was overcast. I waited a long time without seeing the sun, yet the sunless sunrise was beautiful too."; locationCn = "大理 洱海"; locationEn = "Dali Erhai Lake" },
     @{ original = "DSC01690.jpg"; title = "RIDE 28"; category = "STREET"; caption = "A lifted bicycle wheel in hard afternoon light." },
     @{ original = "1.jpg"; title = "BLOOM 29"; category = "PORTRAIT"; caption = "A bright portrait framed by pink flowers." },
-    @{ original = "R0011221.jpg"; title = "PARK 30"; category = "REFLECTION"; caption = "Autumn light doubles across the pond." },
+    @{ original = "R0011221.jpg"; title = "PARK 30"; category = "REFLECTION"; caption = "Autumn light doubles across the pond."; noteCn = "正值赏花季，里面全是人，我终于找到个人少的地方。"; noteEn = "It was peak blossom season and the place was packed. I finally found a quieter spot."; locationCn = "长沙 湖南农业大学"; locationEn = "Changsha Hunan Agricultural University" },
     @{ original = "R0011494.jpg"; title = "ROOM 31"; category = "FRIENDS"; caption = "A loose flash frame from the sofa." },
     @{ original = "DSC01040.jpg"; title = "QUEUE 32"; category = "TRANSIT"; caption = "A ferry crowd compressed beneath a curved roof." },
-    @{ original = "R0011433.jpg"; title = "PARK 33"; category = "VENDOR"; caption = "Colorful kites and toys waiting in warm grass." },
-    @{ original = "R0011430.jpg"; title = "TABLE 34"; category = "BOOK"; caption = "A yellow book, a bottle, and a quiet table." },
+    @{ original = "R0011433.jpg"; title = "PARK 33"; category = "VENDOR"; caption = "Colorful kites and toys waiting in warm grass."; noteCn = "下午健完身，再去公园散了会步，好恰意。"; noteEn = "After working out that afternoon, I went for a walk in the park. It felt so relaxing."; locationCn = "东莞 中心广场公园"; locationEn = "Dongguan Central Square Park" },
+    @{ original = "R0011430.jpg"; title = "TABLE 34"; category = "BOOK"; caption = "A yellow book, a bottle, and a quiet table."; noteCn = "这本找了好久，原来漫画的封面就是动漫的过场。"; noteEn = "I looked for this volume for ages. It turns out its cover is the same image used in the anime's transition."; locationCn = "东莞 东莞图书馆"; locationEn = "Dongguan Library" },
     @{ original = "DSC02184.jpg"; title = "SHADE 35"; category = "CHILD"; caption = "A small orange held at the edge of shade." },
     @{ original = "DSC00505.jpg"; title = "COURT 36"; category = "INTERIOR"; caption = "A basketball court emptied into soft glare." },
     @{ original = "DSC00618.jpg"; title = "AIRPORT 37"; category = "NIGHT"; caption = "Blue hour planes seen through terminal glass." },
     @{ original = "DSC00627.jpg"; title = "CABIN 38"; category = "FLIGHT"; caption = "An aisle view before the cabin settles." },
     @{ original = "DSC01142-2.jpg"; title = "TERMINAL 39"; category = "TRANSIT"; caption = "A black-and-white passage under a clock." },
-    @{ original = "Desktop Screenshot 2025.12.07 - 15.24.09.11.jpg"; title = "CAT 40"; category = "SQUARE"; caption = "A dark cat caught beside a metal fence." },
+    @{ original = "Desktop Screenshot 2025.12.07 - 15.24.09.11.jpg"; title = "CAT 40"; category = "SQUARE"; caption = "A dark cat caught beside a metal fence."; noteCn = "跟了我一路，可惜我没带吃的。"; noteEn = "It followed me the whole way. Sadly, I had no food with me."; locationCn = "杭州 西湖"; locationEn = "Hangzhou West Lake" },
     @{ original = "R0010392.JPG"; title = "BLUE 41"; category = "WRIST"; caption = "Blue fabric and beads around an open hand." },
     @{ original = "R0011072.jpg"; title = "ROLL 42"; category = "ROLL"; caption = "A later roll image for the list view." },
-    @{ original = "R0011060.JPG"; title = "NIGHT 43"; category = "HILL"; caption = "A nearly black horizon with one small light." },
+    @{ original = "R0011060.JPG"; title = "NIGHT 43"; category = "HILL"; caption = "A nearly black horizon with one small light."; noteCn = "有点像skeletons专辑封面。"; noteEn = "It looks a little like the cover of Skeletons."; locationCn = "清远 学校宿舍"; locationEn = "Qingyuan School Dormitory" },
     @{ original = "R0010964.jpg"; title = "PATH 44"; category = "MOUNTAIN"; caption = "A rain-covered figure climbing into fog." },
-    @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar." }
+    @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar."; locationCn = "广州 华南植物园"; locationEn = "Guangzhou South China Botanical Garden" }
 )
 
 function Convert-ToSlug {
@@ -215,6 +215,8 @@ foreach ($File in $OrderedFiles) {
     $Note = if ($Existing -and $Existing.note) { $Existing.note } elseif ($Seed -and $Seed.noteCn) { $Seed.noteCn } else { "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个" }
     $NoteCn = if ($Existing -and $Existing.noteCn) { $Existing.noteCn } elseif ($Seed -and $Seed.noteCn) { $Seed.noteCn } else { $null }
     $NoteEn = if ($Existing -and $Existing.noteEn) { $Existing.noteEn } elseif ($Seed -and $Seed.noteEn) { $Seed.noteEn } else { $null }
+    $LocationCn = if ($Existing -and $Existing.locationCn) { $Existing.locationCn } elseif ($Seed -and $Seed.locationCn) { $Seed.locationCn } else { $null }
+    $LocationEn = if ($Existing -and $Existing.locationEn) { $Existing.locationEn } elseif ($Seed -and $Seed.locationEn) { $Seed.locationEn } else { $null }
 
     $Item = [ordered]@{
         id = $Id
@@ -234,6 +236,8 @@ foreach ($File in $OrderedFiles) {
     }
     if ($NoteCn) { $Item["noteCn"] = $NoteCn }
     if ($NoteEn) { $Item["noteEn"] = $NoteEn }
+    if ($LocationCn) { $Item["locationCn"] = $LocationCn }
+    if ($LocationEn) { $Item["locationEn"] = $LocationEn }
     $Items.Add($Item)
     $Id++
 }

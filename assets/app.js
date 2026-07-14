@@ -7,7 +7,7 @@ const DEFAULT_PHOTO_NOTE_EN = "This space was meant for small notes for each pho
 const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
-const PHOTO_MANIFEST_VERSION = "20260714-1";
+const PHOTO_MANIFEST_VERSION = "20260714-3";
 
 const languageCopy = {
   en: {
@@ -16,7 +16,7 @@ const languageCopy = {
     "nav.logs": "LOGS",
     "logs.kicker": "Release history",
     "logs.title": "LOGS",
-    "logs.intro": "User-facing release notes for visible site changes. Each version is grouped by optimizations, fixes, removals, and additions.",
+    "logs.intro": "Visible site changes, organized by date and category.",
     "home.about": "l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.",
     "work.menuAbout": "l4rxx works with available light, found color, and scenes that feel almost still.",
     contact: "CONTACT ME",
@@ -33,7 +33,7 @@ const languageCopy = {
     "nav.logs": "\u65e5\u5fd7",
     "logs.kicker": "\u6b63\u5f0f\u66f4\u65b0\u8bb0\u5f55",
     "logs.title": "\u65e5\u5fd7",
-    "logs.intro": "\u9762\u5411\u8bbf\u95ee\u8005\u7684\u7f51\u7ad9\u66f4\u65b0\u8bb0\u5f55\u3002\u6bcf\u4e2a\u7248\u672c\u6309\u4f18\u5316\u3001\u4fee\u590d\u3001\u5220\u9664\u3001\u589e\u52a0\u5206\u7c7b\u5448\u73b0\u3002",
+    "logs.intro": "\u53ef\u89c1\u7684\u7f51\u7ad9\u66f4\u65b0\uff0c\u6309\u65e5\u671f\u4e0e\u7c7b\u522b\u6574\u7406\u3002",
     "home.about": "l4rxx \u662f\u4e00\u4f4d\u89c6\u89c9\u521b\u4f5c\u8005\uff0c\u6536\u96c6\u9759\u6b62\u77ac\u95f4\u3001\u98ce\u5316\u8868\u9762\u3001\u8096\u50cf\u3001\u5c4f\u5e55\u4e0e\u5b89\u9759\u788e\u7247\u3002",
     "work.menuAbout": "l4rxx \u7528\u81ea\u7136\u5149\u3001\u88ab\u770b\u89c1\u7684\u989c\u8272\uff0c\u548c\u90a3\u4e9b\u5dee\u4e00\u70b9\u5c31\u9759\u6b62\u7684\u573a\u666f\u5de5\u4f5c\u3002",
     contact: "\u8054\u7cfb\u6211",
@@ -55,378 +55,144 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
-    version: "v1.3.0",
+    versions: ["v1.4.0", "v1.3.0"],
     date: "2026-07-14",
     categories: {
       optimizations: {
         cn: [
-          "优化移动端 rel 大图连续滑动与缩略图同步，使快速反向和连续输入可从当前画面稳定接管。",
-          "优化 INDEX 索引图库的开合、滚动和图片加载，主图与周边图片同步运动，并降低移动端解码与布局开销。",
-          "优化随记背景，按当前照片取色并随页面开合缓入缓出，同时降低明暗主题底色干扰。",
-          "优化图库首屏加载和版本化资源缓存，延后非关键缩略图与索引资源。"
+          "移动端大图连续滑动与缩略图同步更跟手，快速反向也能从当前画面继续。",
+          "索引图库开合、纵向滚动与图片加载更稳定，移动端动画更柔和；随记背景会根据当前照片取色。"
         ],
         en: [
-          "Improved continuous mobile rel swiping and thumbnail synchronization so rapid reversals and repeated input resume from the current frame.",
-          "Improved INDEX opening, closing, scrolling, and image loading with concurrent motion and lower mobile decoding and layout cost.",
-          "Refined notes backgrounds to derive color from the active photo and ease in and out with less interference from the light or dark base theme.",
-          "Improved initial gallery loading and versioned asset caching by deferring non-critical thumbnails and index resources."
+          "Mobile photo swiping and thumbnail tracking now respond continuously, including rapid reversals.",
+          "INDEX opening, vertical scrolling, and loading are more stable, with softer mobile motion; notes backgrounds now follow the active photo."
         ]
       },
       fixes: {
         cn: [
-          "修复退出随记后立即切图时大图消失的问题；慢网或连续改选时会保留当前图直到目标图解码完成。",
-          "修复 INDEX 偶发缺图、纵向滚动时页面横移、开合跳帧，以及主图回位时出现额外过渡的问题。",
-          "修复快速切换页面或动画抢占时旧请求继续落地、主图状态与 rel 编号不同步的问题。",
-          "修复移动端 rel 滑动掉帧和缩略图轨道动画阻塞下一次输入的问题。"
+          "修复索引图库偶发缺图、纵向滑动时画面横移和快速开合错位。",
+          "修复退出随记后立即切图时大图消失，以及慢网下旧请求覆盖当前图片。",
+          "修复随记切图未完整滑出、滑入屏幕的问题。"
         ],
         en: [
-          "Fixed the main photo disappearing when switching images immediately after closing notes; the visible image now remains until the target decodes under slow or repeated input.",
-          "Fixed occasional missing INDEX images, horizontal page drift during vertical scrolling, dropped opening or closing frames, and extra transitions after the main image returned.",
-          "Fixed stale requests landing after rapid page or animation takeovers and desynchronizing the visible photo from its rel number.",
-          "Fixed mobile rel frame drops and thumbnail-rail animation blocking the next gesture."
+          "Fixed occasional missing INDEX images, horizontal drift during vertical scrolling, and misalignment after rapid toggles.",
+          "Fixed photos disappearing after notes exit and stale slow-network requests overriding the current selection.",
+          "Fixed notes photos not completing their off-screen exit and entry during swipes."
         ]
       },
       removals: {
-        cn: [
-          "移除桌面端 rel 大图滑动切换，桌面端继续使用缩略图、点击和滚轮浏览。",
-          "移除首页照片随设备倾斜产生的透视效果。"
-        ],
-        en: [
-          "Removed rel main-photo swiping on desktop; desktop browsing continues through thumbnails, clicks, and scrolling.",
-          "Removed device-tilt perspective from the home photo field."
-        ]
+        cn: ["移除桌面端大图滑动与首页倾斜透视。"],
+        en: ["Removed desktop main-photo swiping and home-page tilt perspective."]
       },
       additions: {
-        cn: [
-          "正式加入 rel INDEX 索引图库，支持移动端纵向浏览、同步开合和可打断动画。",
-          "新增按当前照片取色的随记背景，并为索引页顶部与底部操作区域加入渐隐模糊。",
-          "新增第 44 张照片 COMPANION 45 及其中英文随记。"
-        ],
-        en: [
-          "Added the rel INDEX gallery with mobile vertical browsing, synchronized opening and closing, and interruptible motion.",
-          "Added photo-derived notes backgrounds and fading blur around the INDEX top and bottom controls.",
-          "Added the 44th photo, COMPANION 45, with bilingual notes."
-        ]
+        cn: ["新增索引图库、照片取色随记背景和第 44 张照片，并为 14 张照片补充双语地点与随记。"],
+        en: ["Added the INDEX gallery, photo-derived notes backgrounds, and the 44th photo, plus bilingual locations and notes for 14 photos."]
       }
     }
   },
   {
-    version: "v1.2.1",
+    versions: ["v1.2.1", "v1.2.0"],
     date: "2026-07-12",
     categories: {
       optimizations: {
         cn: [
-          "优化 rel 返回首页的高 Z 轴照片落位，使飞行层从 rel 源图的真实位置和比例连续缩放至首页目标。"
+          "增强手机倾斜对首页文字重力的双轴控制，并统一全站主题切换节奏。",
+          "优化移动端连续滑动与 rel 返回首页的照片落位。"
         ],
         en: [
-          "Refined the high-Z rel-to-home photo return so the flight layer scales continuously from the exact rel source geometry into its home target."
+          "Improved two-axis mobile letter gravity and unified theme-transition timing across the site.",
+          "Improved continuous mobile swiping and the rel-to-home photo landing."
         ]
       },
       fixes: {
         cn: [
-          "修复透视重复放大导致返回动画首帧尺寸和位置漂移的问题。",
-          "修复图片解码较慢、动画中滚动或最终图层交接时可能出现的跳位、提前结束和短暂闪动。"
+          "修复快速滑动丢手势、边界闪烁、首页开场跳图和返回二段跳。",
+          "修复菜单文字、图标与头像主题切换不同步。"
         ],
         en: [
-          "Fixed the return flight's first-frame size and position drift caused by uncompensated perspective scaling.",
-          "Fixed jumps, premature completion, and brief flashes during slower image decoding, mid-flight scrolling, and final layer handoff."
+          "Fixed dropped rapid gestures, edge flashes, home intro jumps, and two-stage return motion.",
+          "Fixed theme timing differences between menu text, icons, and the avatar."
         ]
       },
       removals: {
-        cn: ["本版本未删除面向访问者的功能。"],
-        en: ["No visitor-facing features were removed in this release."]
+        cn: ["移除顶部图标各自的模糊底板，改用共享渐隐背景。"],
+        en: ["Replaced separate blurred plates behind the top icons with one shared fading background."]
       },
       additions: {
-        cn: [
-          "增加返回动画图片就绪保护、独立安全计时和短时滚动位置锁定。"
-        ],
-        en: [
-          "Added image-readiness protection, an independent animation safety timer, and short-lived scroll-position locking for the return flight."
-        ]
+        cn: ["新增 L4RXX 合体彩蛋和最多三步的连续滑动记忆。"],
+        en: ["Added the L4RXX reunion easter egg and a bounded three-step swipe memory."]
       }
     }
   },
   {
-    version: "v1.2.0",
-    date: "2026-07-12",
-    categories: {
-      optimizations: {
-        cn: [
-          "优化首页 L4RXX 重力系统：增强移动端横纵倾斜响应，让文字在照片空白区域自然靠拢，并降低静止阶段的抖动与误碰。",
-          "优化 rel 大图切换：移动端横向、桌面端纵向滑动，并依据相邻照片的真实可见尺寸计算间距、缩放、淡入淡出与纵深变化。",
-          "优化快速连续滑动：新手势可从当前画面位置继续，主图与缩略图轨道分离推进，连续手势不再等待轨道动画结束。",
-          "统一全站明暗主题的颜色过渡，并以共享渐隐雾化边缘和轻微轮廓阴影提升顶部导航图标的可读性。",
-          "优化从 rel 返回首页的照片落位，使当前原图沿单段高 Z 轴轨迹回到原位置，并稳定交接给首页照片。"
-        ],
-        en: [
-          "Refined the home L4RXX gravity system with stronger two-axis mobile tilt response, calmer settling, and whitespace-aware grouping around photos.",
-          "Refined rel photo switching to use horizontal motion on mobile and vertical motion on desktop, with spacing, scale, fade, and depth derived from each photo's visible size.",
-          "Improved rapid consecutive swipes so a new gesture continues from the current frame while the main photo and thumbnail rail advance independently.",
-          "Unified light and dark theme color transitions across the site, with a shared fading edge haze and restrained contour shadows for clearer top controls.",
-          "Improved the rel-to-home return so the active full photo follows one high-Z descent and hands off cleanly to its home position."
-        ]
-      },
-      fixes: {
-        cn: [
-          "修复快速连续滑动被缩略图轨道动画阻塞、手势被吞掉，以及反向打断后仍继续播放旧队列的问题。",
-          "修复 rel 大图取消滑动、首尾边界回弹和图层交接时可能出现的闪亮、残留帧或错误绕回。",
-          "修复首页开场个别照片乱跳，以及从 rel 返回首页时照片二段跳和落位交接不连续的问题。",
-          "修复菜单切换主题时文字、地球图标细线与头像变色时点不一致的问题。"
-        ],
-        en: [
-          "Fixed rapid swipes being blocked by thumbnail motion, dropped gestures, and stale queued steps continuing after a reverse interruption.",
-          "Fixed flashes, retained frames, and unintended wrapping during cancelled rel swipes, edge rebound, and visual-layer handoff.",
-          "Fixed occasional home intro photo jumps and the two-stage rel-to-home landing handoff.",
-          "Fixed menu theme timing differences between text, the globe's inner lines, and the avatar."
-        ]
-      },
-      removals: {
-        cn: [
-          "删除顶部三个导航图标各自独立的模糊底板，改用一条共享且渐隐的背景雾化区域。"
-        ],
-        en: [
-          "Removed the three separate blurred plates behind the top controls and replaced them with one shared fading haze."
-        ]
-      },
-      additions: {
-        cn: [
-          "新增首页照片层随手机倾斜产生的轻微透视位移，以及 L4RXX 再次合体后的呼吸释放彩蛋。",
-          "新增桌面端 rel 大图纵向鼠标拖动、触控笔和滚轮切换，并保留移动端横向手势。",
-          "新增 rel 大图连续滑动队列，支持最多三步有边界的快速输入，并兼容普通 rel 与随记状态。"
-        ],
-        en: [
-          "Added subtle device-tilt perspective to the home photo field and a breathing release moment when L4RXX reunites.",
-          "Added vertical mouse, pen, and wheel switching for desktop rel photos while retaining horizontal mobile gestures.",
-          "Added a bounded three-step rel swipe queue for rapid input in both the standard rel and notes states."
-        ]
-      }
-    }
-  },
-  {
-    version: "v1.1.3",
+    versions: ["v1.1.3"],
     date: "2026-07-10",
     categories: {
       optimizations: {
-        cn: [
-          "优化 rel 页面大图横向滑动，支持一张一张切换、缩略图同步、快速连续手势与更柔和的释放动画。",
-          "优化随记页语言与主题切换时的文案过渡和布局稳定性，减少图片、随记线和文字跳动。",
-          "优化菜单日志入口，改为更清晰的纸张图标，并让日志内容直接占用菜单页面。",
-          "优化移动端首页 L4RXX 类重力互动，接入设备方向并加入低通滤波。"
-        ],
-        en: [
-          "Refined rel main-photo horizontal swiping with one-photo navigation, thumbnail sync, rapid repeated gestures, and a softer release motion.",
-          "Improved notes language and theme transitions so copy, note line, and image layout stay more stable.",
-          "Improved the menu log entry with a clearer document icon and an in-menu release-log view.",
-          "Improved the mobile home L4RXX gravity interaction with device-orientation input and low-pass filtering."
-        ]
+        cn: ["优化移动端大图滑动、随记图文布局、语言主题过渡与设备方向文字重力。"],
+        en: ["Improved mobile photo swiping, notes layout, language and theme transitions, and device-driven letter gravity."]
       },
       fixes: {
-        cn: [
-          "修复 rel 大图滑动后缩略图轨道失效、首尾图片绕回、取消滑动闪烁等问题。",
-          "修复系统主题变化时网站自动主题未跟随的问题。",
-          "修复随记页面多次切换语言后不自适应的问题。",
-          "修复日志页切换主题时文字闪烁，以及桌面端菜单加号头像显示异常的问题。"
-        ],
-        en: [
-          "Fixed rel main-photo swipes breaking thumbnail control, wrapping at the first or last image, and flashing after cancelled gestures.",
-          "Fixed auto theme mode not following system theme changes.",
-          "Fixed notes layout adaptation after repeated language switches.",
-          "Fixed log-page copy flicker during theme changes and the incorrect desktop menu avatar rendering."
-        ]
+        cn: ["修复首尾绕回、取消手势闪烁、缩略图失效、系统主题不同步和随记重复切换错位。"],
+        en: ["Fixed edge wrapping, cancelled-swipe flashes, thumbnail failures, theme desynchronization, and notes layout shifts."]
       },
       removals: {
-        cn: ["移除移动端 rel 页面下滑进入沉浸大图模式的手势，保留随记页面下滑退出。"],
-        en: ["Removed the mobile rel downward immersive-photo gesture while keeping swipe-down notes exit."]
+        cn: ["移除移动端下滑沉浸大图手势，保留随记下滑退出。"],
+        en: ["Removed the downward immersive-photo gesture while keeping swipe-down notes exit."]
       },
       additions: {
-        cn: [
-          "新增移动端随记上滑进入、下滑退出手势。",
-          "新增 rel 页面大图横向滑动切换，支持普通 rel 状态，并兼容随记状态。"
-        ],
-        en: [
-          "Added mobile swipe-up notes entry and swipe-down notes exit.",
-          "Added rel main-photo horizontal swiping for the standard rel view, with notes-state compatibility."
-        ]
+        cn: ["新增移动端随记上滑进入、下滑退出和菜单日志入口。"],
+        en: ["Added mobile swipe-up notes entry, swipe-down exit, and the menu log entry."]
       }
     }
   },
   {
-    version: "v1.1.2",
+    versions: ["v1.1.2", "v1.1.1", "v1.1.0"],
     date: "2026-07-09",
     categories: {
       optimizations: {
         cn: [
-          "日志入口改为右下角单页纸张图标，保持菜单界面的简洁性。",
-          "正式日志页改为面向访问者的版本记录，按版本、类别、条目分级阅读。"
+          "优化首页图片顺序、返回位置、L4RXX 重力范围和随记图文比例。",
+          "统一日志、语言与主题切换的过渡。"
         ],
         en: [
-          "Changed the log entry to a lower-right single-page document icon to keep the menu interface concise.",
-          "Rebuilt the public log page as versioned release notes grouped by version, category, and item."
+          "Improved home photo order, return position, L4RXX gravity range, and notes proportions.",
+          "Unified log, language, and theme transitions."
         ]
       },
       fixes: {
-        cn: [
-          "修正旧日志预览在浏览器中可能出现乱码、内容过细的问题。",
-          "保持日志入口参与语言切换、主题切换与菜单动效。"
-        ],
-        en: [
-          "Resolved the old browser log preview problem where markdown could appear garbled or overly technical.",
-          "Kept the log entry connected to language switching, theme switching, and menu motion."
-        ]
+        cn: ["修复首页刷新与返回状态、错误 rel 编号、随记重复切换和日志主题闪烁。"],
+        en: ["Fixed home refresh and return state, incorrect rel ids, repeated notes switching, and log theme flicker."]
       },
       removals: {
-        cn: ["移除面向访问者的 Work / Release / Index Markdown 预览切换界面。"],
-        en: ["Removed the visitor-facing Work / Release / Index markdown preview switcher."]
+        cn: ["移除旧 INFO 按钮和面向访客的技术日志预览。"],
+        en: ["Removed the old INFO button and visitor-facing technical log previews."]
       },
       additions: {
-        cn: ["新增正式用户向日志页面与独立日志图标入口。"],
-        en: ["Added a public release log page and an independent log icon entry."]
+        cn: ["新增随记模式、暗色主题、语言切换、菜单日志和首页彩蛋。"],
+        en: ["Added notes mode, dark theme, language switching, menu logs, and a home-page easter egg."]
       }
     }
   },
   {
-    version: "v1.1.1",
-    date: "2026-07-09",
-    categories: {
-      optimizations: {
-        cn: [
-          "随记页语言切换时只过渡文字，避免图片与随记线跟随抖动。",
-          "主题切换改为柔和过渡，黑夜主题为关键文字加入克制辉光。"
-        ],
-        en: [
-          "Limited note-language transitions to the copy itself so the image and note line stay stable.",
-          "Softened theme transitions and added a restrained glow to key dark-theme typography."
-        ]
-      },
-      fixes: {
-        cn: [
-          "修复随记页面多次切换语言后自适应失效的问题。",
-          "修复系统主题变化后网站未自动跟随的问题。"
-        ],
-        en: [
-          "Fixed note layout adaptation after repeated language switches.",
-          "Fixed system theme changes not being reflected by the site when auto mode is active."
-        ]
-      },
-      removals: {
-        cn: ["本版本无面向访问者的删除项。"],
-        en: ["No visitor-facing removals in this version."]
-      },
-      additions: {
-        cn: ["新增菜单日志入口，为正式版本记录提供稳定访问路径。"],
-        en: ["Added a stable menu path for the official release log."]
-      }
-    }
-  },
-  {
-    version: "v1.1.0",
-    date: "2026-07-09",
-    categories: {
-      optimizations: {
-        cn: [
-          "首页照片普通进入时随机排列，从 rel 页面返回时保持原来的滚动位置与照片顺序。",
-          "优化 L4RXX 类重力互动，降低吸附范围，并让移动端设备动作影响字母运动。",
-          "优化 rel 随记页的大图、随记线和文字比例，使桌面端与移动端更协调。"
-        ],
-        en: [
-          "Randomized the home photo order on normal entry while preserving scroll position and order after returning from rel pages.",
-          "Refined the L4RXX gravity interaction with a smaller attraction range and mobile device-motion influence.",
-          "Balanced the rel notes image, note line, and copy proportions across desktop and mobile."
-        ]
-      },
-      fixes: {
-        cn: [
-          "修复首页刷新后页面状态混乱的问题。",
-          "修复从 rel 页面返回首页时回到第一页并重播动画的问题。",
-          "修复移动端点击首页照片可能进入错误 rel 编号的问题。"
-        ],
-        en: [
-          "Fixed unstable home state after refreshing away from the first viewport.",
-          "Fixed rel back navigation returning to the first home screen and replaying the opening animation.",
-          "Fixed mobile home taps sometimes opening the wrong rel id."
-        ]
-      },
-      removals: {
-        cn: [
-          "删除 rel 页面旧 INFO 按钮。",
-          "暂时移除未稳定的 rel INDEX 入口，避免影响正式访问体验。"
-        ],
-        en: [
-          "Removed the old rel INFO button.",
-          "Temporarily removed the unstable rel INDEX entry from the public release."
-        ]
-      },
-      additions: {
-        cn: [
-          "新增 rel 页面内随记模式，点击大图即可展开或收回。",
-          "新增黑夜主题、主题按钮、语言按钮与首页人物彩蛋。"
-        ],
-        en: [
-          "Added inline rel notes that open and close from the main photo.",
-          "Added dark theme support, theme and language controls, and the home-page figure easter egg."
-        ]
-      }
-    }
-  },
-  {
-    version: "v1.0.1",
+    versions: ["v1.0.1", "v1.0.0"],
     date: "2026-07-07",
     categories: {
       optimizations: {
-        cn: [
-          "统一生成 web 图与缩略图，降低公开页面加载压力。",
-          "保持新增照片拥有稳定 rel 编号，方便后续继续补充随记。"
-        ],
-        en: [
-          "Generated optimized web images and thumbnails to reduce public-page loading pressure.",
-          "Kept stable rel ids for the expanded photo set so notes can be completed later."
-        ]
+        cn: ["建立首页、作品页和 rel 页的浏览结构，并生成适合网页加载的图片与缩略图。"],
+        en: ["Established the home, work, and rel browsing structure with web-ready images and thumbnails."]
       },
       fixes: {
-        cn: ["修复新增照片资源与图库数据之间的同步问题。"],
-        en: ["Fixed synchronization between newly added photo assets and gallery data."]
+        cn: ["修复新增照片与图库数据不同步。"],
+        en: ["Fixed synchronization between new photos and gallery data."]
       },
       removals: {
-        cn: ["删除选定的 001-dsc00081 / DSC00081 图片条目。"],
-        en: ["Removed the selected 001-dsc00081 / DSC00081 image entry."]
+        cn: ["移除一张不再展示的照片。"],
+        en: ["Removed one photo that was no longer displayed."]
       },
       additions: {
-        cn: [
-          "新增 18 个公开 rel 照片条目，公开图库从 25 张扩展到 43 张。",
-          "新增 DSC02934-2、DSC01690、R0010392 等后续批次照片。"
-        ],
-        en: [
-          "Added 18 public rel photo entries, expanding the gallery from 25 to 43 photos.",
-          "Added later-batch photos including DSC02934-2, DSC01690, and R0010392."
-        ]
-      }
-    }
-  },
-  {
-    version: "v1.0.0",
-    date: "2026-07-07",
-    categories: {
-      optimizations: {
-        cn: ["建立首页、作品页与 rel 页之间的基础浏览节奏。"],
-        en: ["Established the base browsing rhythm across the home, work, and rel pages."]
-      },
-      fixes: {
-        cn: ["本版本为初始正式上线版，无历史修复项。"],
-        en: ["Initial public release, with no prior fixes."]
-      },
-      removals: {
-        cn: ["本版本无面向访问者的删除项。"],
-        en: ["No visitor-facing removals in this version."]
-      },
-      additions: {
-        cn: [
-          "新增静态摄影作品集基础结构。",
-          "新增首批公开照片、rel 查询访问、部署文件与基础检查脚本。"
-        ],
-        en: [
-          "Added the base static photography portfolio structure.",
-          "Added the initial public photo set, rel query navigation, deployment files, and basic site checks."
-        ]
+        cn: ["上线摄影作品集，并将公开图库扩展到 43 张照片。"],
+        en: ["Launched the photography portfolio and expanded the public gallery to 43 photos."]
       }
     }
   }
@@ -508,6 +274,8 @@ function normalizePhoto(photo, index) {
     note: photo.note || photo.notes || DEFAULT_PHOTO_NOTE_CN,
     noteCn: photo.noteCn || photo.note_cn || photo.note || photo.notes || DEFAULT_PHOTO_NOTE_CN,
     noteEn: photo.noteEn || photo.note_en || photo.noteEnglish || (isDefaultPhotoNote(photo.note || photo.notes) ? DEFAULT_PHOTO_NOTE_EN : photo.note || photo.notes || DEFAULT_PHOTO_NOTE_EN),
+    locationCn: String(photo.locationCn || photo.location_cn || photo.location || "").trim(),
+    locationEn: String(photo.locationEn || photo.location_en || photo.locationEnglish || photo.location || "").trim(),
     alt: photo.alt || `l4rxx photo ${String(id).padStart(2, "0")} - ${title}`,
     original: photo.original || full,
     full,
@@ -568,6 +336,13 @@ function getPhotoNote(photo) {
     : photo.noteEn || DEFAULT_PHOTO_NOTE_EN;
 }
 
+function getPhotoLocation(photo) {
+  if (!photo) return "";
+  return getCurrentLanguage() === "cn"
+    ? photo.locationCn || photo.locationEn || ""
+    : photo.locationEn || photo.locationCn || "";
+}
+
 function showGalleryLoadError(error) {
   document.body.classList.add("has-loaded", "has-finished");
   const target = document.querySelector("main") || document.body;
@@ -618,7 +393,9 @@ function renderReleaseLogSurface(target, language = getCurrentLanguage()) {
   const next = language === "cn" ? "cn" : "en";
   target.innerHTML = releaseLogEntries.map((entry) => {
     const categories = releaseLogCategories.map((category) => {
-      const items = entry.categories[category.key][next]
+      const localizedItems = entry.categories?.[category.key]?.[next] || [];
+      if (!localizedItems.length) return "";
+      const items = localizedItems
         .map((item) => `<li>${escapeReleaseLogHtml(item)}</li>`)
         .join("");
       return `
@@ -631,8 +408,7 @@ function renderReleaseLogSurface(target, language = getCurrentLanguage()) {
     return `
       <article class="release-entry">
         <header class="release-entry__heading">
-          <h2 class="release-entry__version">${escapeReleaseLogHtml(entry.version)}</h2>
-          <p class="release-entry__date">${escapeReleaseLogHtml(entry.date)}</p>
+          <h2 class="release-entry__date"><time datetime="${escapeReleaseLogHtml(entry.date)}">${escapeReleaseLogHtml(entry.date)}</time></h2>
         </header>
         <div class="release-entry__categories">${categories}</div>
       </article>
@@ -2552,6 +2328,7 @@ function renderFocus() {
   let image = document.querySelector("[data-focus-image]");
   const caption = document.querySelector("[data-focus-caption]");
   const noteText = document.querySelector("[data-focus-note-text]");
+  const noteLocation = document.querySelector("[data-focus-note-location]");
   const notesBackground = document.querySelector("[data-focus-notes-background]");
   const imageToggle = document.querySelector("[data-focus-image-toggle]");
   const focusMain = document.querySelector("[data-focus-main]");
@@ -2577,6 +2354,15 @@ function renderFocus() {
   let focusMainTouchBaseOffset = 0;
   let focusMainTouchContinuationDirection = 0;
   let focusMainTouchGestureDirection = 0;
+  let focusIndexTouchStartX = 0;
+  let focusIndexTouchStartY = 0;
+  let focusIndexTouchLastY = 0;
+  let focusIndexTouchLastMoveAt = 0;
+  let focusIndexTouchVelocityY = 0;
+  let focusIndexTouchMoved = false;
+  let focusIndexTouchPreventClickUntil = 0;
+  let focusIndexTouchMode = "";
+  let focusIndexMomentumFrame = 0;
   let focusLastNavigationDirection = 1;
   const focusMainSwipe = {
     active: false,
@@ -2697,14 +2483,21 @@ function renderFocus() {
       indexButton.className = "focus-index-card";
       indexButton.dataset.index = String(index + 1);
       indexButton.style.setProperty("--delay", `${Math.min(index, 28) * 0.012}s`);
-      if (photo.width > 0 && photo.height > 0) indexButton.style.setProperty("--focus-index-ratio", (photo.width / photo.height).toFixed(5));
+      if (photo.width > 0 && photo.height > 0) {
+        const indexRatio = photo.width / photo.height;
+        indexButton.style.setProperty("--focus-index-ratio", indexRatio.toFixed(5));
+        indexButton.style.setProperty("--focus-index-mobile-width", `${(indexRatio * 8).toFixed(3)}rem`);
+      }
       const prewarmIndexThumb = Math.abs(index - initial) <= 4;
       const indexThumbSource = prewarmIndexThumb ? `src="${photo.thumb}"` : "";
       indexButton.innerHTML = `<span class="focus-index-card__media"><img ${indexThumbSource} data-focus-index-full="${photo.full}" data-focus-index-thumb="${photo.thumb}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo)} loading="${prewarmIndexThumb ? "eager" : "lazy"}" fetchpriority="low" decoding="async"></span>`;
       const indexImage = indexButton.querySelector("img");
       indexImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, indexImage), { once: true });
       if (indexImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, indexImage));
-      indexButton.addEventListener("click", () => selectFocusIndexCard(index));
+      indexButton.addEventListener("click", () => {
+        if (Date.now() < focusIndexTouchPreventClickUntil) return;
+        selectFocusIndexCard(index);
+      });
       indexGallery.appendChild(indexButton);
     }
   });
@@ -2730,10 +2523,14 @@ function renderFocus() {
     deferredThumbImages.forEach(hydrateDeferredImage);
   }
   indexGallery?.addEventListener("scroll", () => {
-    if (indexGallery.scrollLeft !== 0) indexGallery.scrollLeft = 0;
+    resetFocusIndexHorizontalOffset();
     scheduleFocusIndexImageWindow();
   }, { passive: true });
   indexGallery?.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
+  indexGallery?.addEventListener("touchstart", handleFocusIndexTouchStart, { passive: true });
+  indexGallery?.addEventListener("touchmove", handleFocusIndexTouchMove, { passive: false });
+  indexGallery?.addEventListener("touchend", handleFocusIndexTouchEnd, { passive: true });
+  indexGallery?.addEventListener("touchcancel", handleFocusIndexTouchCancel, { passive: true });
 
   indexToggle?.addEventListener("pointerdown", () => {
     if (focusIndexState.mode === "index" || focusIndexState.phase !== "idle" || shell.classList.contains("is-index")) return;
@@ -2887,7 +2684,7 @@ function renderFocus() {
     const active = Number(shell.dataset.activeIndex || initial);
     const activePhoto = photos[active] || photos[0];
     transitionFocusNoteCopy(() => {
-      if (noteText) noteText.textContent = getPhotoNote(activePhoto);
+      updateFocusNoteContent(activePhoto);
     });
   });
 
@@ -3225,10 +3022,49 @@ function renderFocus() {
 
   function hydrateFocusIndexCardThumb(node, index, prioritize = false) {
     const photo = photos[index];
-    if (!node || !photo?.thumb || node.getAttribute("src")) return;
+    if (!node || !photo?.thumb) return false;
+    const thumb = getFocusImageAbsoluteUrl(photo.thumb);
+    const current = getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src"));
+    if (current && current !== thumb) return node.complete && node.naturalWidth > 0;
+    const watchThumbAttempt = () => {
+      if (node.dataset.focusIndexThumbWatching === thumb) return;
+      node.dataset.focusIndexThumbWatching = thumb;
+      const onLoad = () => {
+        if (getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src")) !== thumb) return;
+        delete node.dataset.focusIndexThumbWatching;
+        node.dataset.focusIndexThumbAttempts = "0";
+      };
+      const onError = () => {
+        if (getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src")) !== thumb) return;
+        delete node.dataset.focusIndexThumbWatching;
+        node.removeAttribute("src");
+        if (Number(node.dataset.focusIndexThumbAttempts || 0) >= 3) return;
+        window.setTimeout(() => {
+          if (focusIndexState.mode === "index" || focusIndexState.phase === "opening") {
+            scheduleFocusIndexImageWindow();
+          }
+        }, 160);
+      };
+      node.addEventListener("load", onLoad, { once: true });
+      node.addEventListener("error", onError, { once: true });
+    };
+    if (current === thumb && node.complete && node.naturalWidth > 0) {
+      node.dataset.focusIndexThumbAttempts = "0";
+      return true;
+    }
+    if (current === thumb && !node.complete) {
+      watchThumbAttempt();
+      return false;
+    }
+    const attempts = Number(node.dataset.focusIndexThumbAttempts || 0);
+    if (attempts >= 3) return false;
     node.loading = "eager";
     node.fetchPriority = prioritize ? "high" : "low";
+    node.dataset.focusIndexThumbAttempts = String(attempts + 1);
+    watchThumbAttempt();
+    if (node.getAttribute("src")) node.removeAttribute("src");
     node.src = photo.thumb;
+    return false;
   }
 
   function requestFocusIndexFullImage(node, index, prioritize = false) {
@@ -3293,7 +3129,7 @@ function renderFocus() {
     const buffer = indexGallery.clientHeight * 0.25;
     const visibleTop = indexGallery.scrollTop - buffer;
     const visibleBottom = indexGallery.scrollTop + indexGallery.clientHeight + buffer;
-    indexGallery.querySelectorAll(".focus-index-card img:not([src])").forEach((node) => {
+    indexGallery.querySelectorAll(".focus-index-card img").forEach((node) => {
       const card = node.closest(".focus-index-card");
       if (!card) return;
       const cardTop = card.offsetTop;
@@ -3302,6 +3138,118 @@ function renderFocus() {
       const index = Number(card.dataset.index || 1) - 1;
       hydrateFocusIndexCardThumb(node, index, index === prioritizedIndex);
     });
+  }
+
+  function resetFocusIndexHorizontalOffset() {
+    if (indexGallery && indexGallery.scrollLeft !== 0) indexGallery.scrollLeft = 0;
+    if (document.documentElement.scrollLeft !== 0) document.documentElement.scrollLeft = 0;
+    if (document.body.scrollLeft !== 0) document.body.scrollLeft = 0;
+  }
+
+  function cancelFocusIndexMomentum() {
+    if (focusIndexMomentumFrame) cancelAnimationFrame(focusIndexMomentumFrame);
+    focusIndexMomentumFrame = 0;
+    focusIndexTouchVelocityY = 0;
+  }
+
+  function resetFocusIndexTouch() {
+    focusIndexTouchStartX = 0;
+    focusIndexTouchStartY = 0;
+    focusIndexTouchLastY = 0;
+    focusIndexTouchLastMoveAt = 0;
+    focusIndexTouchVelocityY = 0;
+    focusIndexTouchMoved = false;
+    focusIndexTouchMode = "";
+    resetFocusIndexHorizontalOffset();
+  }
+
+  function startFocusIndexMomentum(initialVelocity) {
+    cancelFocusIndexMomentum();
+    if (!indexGallery || Math.abs(initialVelocity) < 0.025) return;
+    let velocity = Math.max(-2.2, Math.min(2.2, initialVelocity));
+    let lastTime = performance.now();
+    const step = (now) => {
+      focusIndexMomentumFrame = 0;
+      if (!indexGallery || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
+      const elapsed = Math.max(1, Math.min(32, now - lastTime));
+      lastTime = now;
+      const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
+      const previousTop = indexGallery.scrollTop;
+      const nextTop = Math.max(0, Math.min(maxTop, previousTop + velocity * elapsed));
+      indexGallery.scrollTop = nextTop;
+      resetFocusIndexHorizontalOffset();
+      scheduleFocusIndexImageWindow();
+      if (Math.abs(nextTop - previousTop) < 0.01 || nextTop <= 0 || nextTop >= maxTop) return;
+      velocity *= Math.pow(0.92, elapsed / 16.67);
+      if (Math.abs(velocity) < 0.025) return;
+      focusIndexMomentumFrame = requestAnimationFrame(step);
+    };
+    focusIndexMomentumFrame = requestAnimationFrame(step);
+  }
+
+  function handleFocusIndexTouchStart(event) {
+    if (window.innerWidth > 768 || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
+    if (event.touches.length !== 1) {
+      cancelFocusIndexMomentum();
+      resetFocusIndexTouch();
+      focusIndexTouchMode = "multitouch";
+      return;
+    }
+    cancelFocusIndexMomentum();
+    const touch = event.touches[0];
+    focusIndexTouchStartX = touch.clientX;
+    focusIndexTouchStartY = touch.clientY;
+    focusIndexTouchLastY = touch.clientY;
+    focusIndexTouchLastMoveAt = event.timeStamp || performance.now();
+    focusIndexTouchVelocityY = 0;
+    focusIndexTouchMoved = false;
+    focusIndexTouchMode = "";
+    resetFocusIndexHorizontalOffset();
+  }
+
+  function handleFocusIndexTouchMove(event) {
+    if (window.innerWidth > 768 || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") {
+      resetFocusIndexTouch();
+      return;
+    }
+    if (event.touches.length !== 1 || !focusIndexTouchLastMoveAt) return;
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - focusIndexTouchStartX;
+    const deltaY = touch.clientY - focusIndexTouchStartY;
+    if (!focusIndexTouchMoved && Math.max(Math.abs(deltaX), Math.abs(deltaY)) <= 4) return;
+    if (!focusIndexTouchMode) {
+      focusIndexTouchMode = Math.abs(deltaY) >= Math.abs(deltaX) ? "vertical" : "horizontal";
+    }
+    if (event.cancelable) event.preventDefault();
+    const eventTime = event.timeStamp || performance.now();
+    const elapsed = Math.max(8, Math.min(40, eventTime - focusIndexTouchLastMoveAt || 16));
+    const previousTop = indexGallery.scrollTop;
+    const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
+    const nextTop = Math.max(0, Math.min(maxTop, previousTop - (touch.clientY - focusIndexTouchLastY)));
+    indexGallery.scrollTop = nextTop;
+    const sampledVelocity = (nextTop - previousTop) / elapsed;
+    focusIndexTouchVelocityY = focusIndexTouchVelocityY * 0.68 + sampledVelocity * 0.32;
+    focusIndexTouchLastY = touch.clientY;
+    focusIndexTouchLastMoveAt = eventTime;
+    focusIndexTouchMoved = true;
+    focusIndexTouchPreventClickUntil = Date.now() + 320;
+    resetFocusIndexHorizontalOffset();
+    scheduleFocusIndexImageWindow();
+  }
+
+  function handleFocusIndexTouchEnd() {
+    const velocity = focusIndexTouchVelocityY;
+    const shouldContinue = focusIndexState.mode === "index"
+      && focusIndexState.phase === "idle"
+      && focusIndexTouchMoved
+      && Math.abs(velocity) >= 0.025;
+    resetFocusIndexTouch();
+    if (shouldContinue) startFocusIndexMomentum(velocity);
+  }
+
+  function handleFocusIndexTouchCancel() {
+    cancelFocusIndexMomentum();
+    resetFocusIndexTouch();
   }
 
   function hydrateFocusIndexImageWindow() {
@@ -3414,13 +3362,13 @@ function renderFocus() {
   }
 
   const focusIndexMotionCurve = window.innerWidth <= 768
-    ? [.22, .76, .3, 1]
+    ? [.24, .64, .34, 1]
     : [.18, .82, .24, 1];
   const focusIndexMotionEasing = `cubic-bezier(${focusIndexMotionCurve.join(", ")})`;
   const focusIndexMotionSampleCount = window.innerWidth <= 768 ? 20 : 32;
 
   function getFocusIndexPrimaryDuration() {
-    return window.innerWidth <= 768 ? 980 : 1080;
+    return 1080;
   }
 
   function getFocusIndexCardTiming(cardRect, anchorRect, totalDuration = getFocusIndexPrimaryDuration()) {
@@ -3824,7 +3772,11 @@ function renderFocus() {
           card.style.opacity = "0";
           card.style.willChange = "transform, opacity";
           cardImage.addEventListener("load", () => {
-            if (focusIndexState.runId !== motionRunId || focusIndexState.phase !== "opening") return;
+            if (focusIndexState.runId !== motionRunId || focusIndexState.mode !== "index") return;
+            if (focusIndexState.phase !== "opening") {
+              clearFocusIndexCardMotionStyles(card);
+              return;
+            }
             const remainingDuration = timing.duration - (performance.now() - motionStartedAt);
             if (remainingDuration >= 240) {
               startCardMotion(currentTransform, "0", 0, remainingDuration);
@@ -3848,6 +3800,11 @@ function renderFocus() {
               if (focusIndexState.runId === motionRunId) clearFocusIndexCardMotionStyles(card);
               animation.cancel();
             }).catch(() => {});
+          }, { once: true });
+          cardImage.addEventListener("error", () => {
+            if (focusIndexState.runId !== motionRunId || focusIndexState.mode !== "index") return;
+            clearFocusIndexCardMotionStyles(card);
+            scheduleFocusIndexImageWindow();
           }, { once: true });
           return;
         }
@@ -4055,7 +4012,7 @@ function renderFocus() {
     }
     image.alt = photo.alt || "";
     caption.textContent = "";
-    if (noteText) noteText.textContent = getPhotoNote(photo);
+    updateFocusNoteContent(photo);
     title.textContent = photo.title;
     focusIndexState.activeIndex = index;
     preloadFocusNeighbors(index);
@@ -4066,6 +4023,9 @@ function renderFocus() {
     if (focusIndexState.runId !== runId || focusIndexState.phase !== "opening") return;
     beginFocusIndexNodeHandoff();
     dockFocusIndexImage(index, finalRect);
+    cancelFocusIndexCardAnimations(false);
+    indexGallery?.querySelectorAll(".focus-index-card").forEach(clearFocusIndexCardMotionStyles);
+    resetFocusIndexHorizontalOffset();
     shell.classList.remove("is-index-opening", "is-index-closing", "is-index-exiting");
     focusIndexState.phase = "idle";
     focusIndexState.mode = "index";
@@ -4081,6 +4041,7 @@ function renderFocus() {
 
   function finishFocusIndexClose(index, options = {}, runId = focusIndexState.runId, arrivedRect = null) {
     if (focusIndexState.runId !== runId || focusIndexState.phase !== "closing") return;
+    cancelFocusIndexMomentum();
     const restoreNotes = Boolean(options.restoreNotes);
     beginFocusIndexNodeHandoff();
     shell.classList.add("is-index-return-settling");
@@ -4197,6 +4158,7 @@ function renderFocus() {
     if (!indexEnabled || !indexGallery) return;
     const resumed = focusIndexState.phase === "closing";
     if (focusIndexState.phase === "opening" || (focusIndexState.phase === "idle" && focusIndexState.mode === "index")) return;
+    cancelFocusIndexMomentum();
     if (!resumed) {
       cancelFocusImageSwitch({ restoreVisualSelection: true });
       activeIndex = Number(shell.dataset.activeIndex || 0);
@@ -4226,6 +4188,11 @@ function renderFocus() {
     focusIndexState.pendingSelection = null;
     clearFocusQueuedSwipe();
     clearFocusMainSwipe();
+    indexGallery.querySelectorAll(".focus-index-card img:not([src])").forEach((node) => {
+      if (Number(node.dataset.focusIndexThumbAttempts || 0) >= 3) {
+        node.dataset.focusIndexThumbAttempts = "0";
+      }
+    });
     if (focusIndexPreparedIndex !== index) warmFocusIndexCardThumbs(index);
     setFocusIndexGalleryActive(index);
     getFocusIndexCardByIndex(index)?.classList.add("is-index-hidden", "is-index-anchor");
@@ -4273,6 +4240,8 @@ function renderFocus() {
     if (!indexEnabled || !indexGallery) return;
     if (focusIndexState.phase === "closing") return;
     if (focusIndexState.phase === "idle" && focusIndexState.mode !== "index") return;
+    cancelFocusIndexMomentum();
+    resetFocusIndexTouch();
     const resumed = focusIndexState.phase === "opening";
     const restoreNotes = options.restoreNotes ?? focusIndexState.returnMode === "notes";
     let sourceRect = null;
@@ -4366,7 +4335,7 @@ function renderFocus() {
     return Math.max(1, axis === "y" ? height : width);
   }
 
-  function getFocusMainSwipeTravelMetrics(fromIndex, targetIndex, axis, edge = false) {
+  function getFocusMainSwipeTravelMetrics(fromIndex, targetIndex, axis, edge = false, direction = 1) {
     const width = Math.max(1, imageToggle.clientWidth || focusMain.clientWidth || window.innerWidth || 1);
     const height = Math.max(1, imageToggle.clientHeight || focusMain.clientHeight || window.innerHeight || 1);
     const box = { left: 0, top: 0, width, height };
@@ -4384,6 +4353,23 @@ function renderFocus() {
     const gap = Math.min(96, Math.max(26, Math.min(currentExtent, targetExtent) * 0.18));
     const visibleTravel = currentExtent / 2 + targetExtent / 2 + gap;
     const minimumTravel = containerExtent * (axis === "y" ? 0.7 : 0.72);
+    if (axis === "x" && window.innerWidth <= 768 && shell.classList.contains("is-notes")) {
+      const visualBox = getFocusRect(imageToggle);
+      if (visualBox) {
+        const currentVisualRect = getContentRectWithin(visualBox, getFocusPhotoRatio(fromIndex, visualBox)) || visualBox;
+        const targetVisualRect = getContentRectWithin(visualBox, getFocusPhotoRatio(targetIndex, visualBox)) || visualBox;
+        const visualGap = Math.min(72, Math.max(24, Math.min(currentVisualRect.width, targetVisualRect.width) * 0.14));
+        const viewportWidth = window.visualViewport?.width || window.innerWidth;
+        const screenTravel = direction > 0
+          ? Math.max(currentVisualRect.left + currentVisualRect.width + visualGap, viewportWidth - targetVisualRect.left + visualGap)
+          : Math.max(viewportWidth - currentVisualRect.left + visualGap, targetVisualRect.left + targetVisualRect.width + visualGap);
+        const renderedScale = Math.max(0.01, visualBox.width / width);
+        return {
+          extent: containerExtent,
+          travel: Math.max(minimumTravel, screenTravel / renderedScale)
+        };
+      }
+    }
     return {
       extent: containerExtent,
       travel: Math.min(containerExtent + gap, Math.max(minimumTravel, visibleTravel))
@@ -4685,7 +4671,7 @@ function renderFocus() {
     focusMainSwipe.edge = isEdgeSwipe;
     focusMainSwipe.chained = false;
     focusMainSwipe.handoffPending = false;
-    const travelMetrics = getFocusMainSwipeTravelMetrics(fromIndex, focusMainSwipe.targetIndex, focusMainSwipe.axis, isEdgeSwipe);
+    const travelMetrics = getFocusMainSwipeTravelMetrics(fromIndex, focusMainSwipe.targetIndex, focusMainSwipe.axis, isEdgeSwipe, direction);
     focusMainSwipe.extent = travelMetrics.extent;
     focusMainSwipe.travel = travelMetrics.travel;
     configureFocusMainSwipeRail(focusMainSwipe.targetIndex, isEdgeSwipe);
@@ -4936,12 +4922,13 @@ function renderFocus() {
     const notesRect = getFocusRect(document.querySelector("[data-focus-notes]"));
     const currentCopyWidth = getCssPixelValue(shell, "--notes-copy-width", isMobile ? window.innerWidth - 32 : 320);
     const currentCopyGap = getCssPixelValue(shell, "--notes-copy-gap", isMobile ? 14 : 24);
+    const locationReserve = noteLocation && !noteLocation.hidden ? 20 : 0;
     const baseCopySize = isMobile ? 1.42 : window.innerWidth < 940 ? 1.34 : 1.46;
     const minCopySize = isMobile ? 1.05 : window.innerWidth < 940 ? 1.06 : 1.12;
     const charWidth = isMobile ? 9.4 : 8.8;
     const charsPerLine = Math.max(isMobile ? 8 : 12, Math.floor(currentCopyWidth / (baseCopySize * charWidth)));
     const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
-    const copyAvailableHeight = Math.max(isMobile ? 66 : 140, (notesRect?.height || 180) - currentCopyGap - 12);
+    const copyAvailableHeight = Math.max(isMobile ? 66 : 140, (notesRect?.height || 180) - currentCopyGap - locationReserve - 12);
     const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
     const copySize = clamp(minCopySize, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
     shell.style.setProperty("--notes-copy-size", `${copySize.toFixed(2)}rem`);
@@ -4953,6 +4940,7 @@ function renderFocus() {
     const photo = photos[active] || photos[0];
     const note = getPhotoNote(photo);
     const length = [...note].length;
+    const locationReserve = noteLocation && !noteLocation.hidden ? 20 : 0;
     const isMobile = window.innerWidth <= 768;
     const mainBox = document.querySelector("[data-focus-main]");
     const railBox = thumbs;
@@ -4984,11 +4972,12 @@ function renderFocus() {
       const shiftY = -clamp(28, mainHeight * 0.085, 48);
       const maxVisualBottom = maxLineTop - notesImageLineGap;
       const maxScaleFromFixedSpace = 2 * (maxVisualBottom - focusTop - shiftY - mainHeight / 2) / Math.max(1, mainHeight);
-      const photoScale = clamp(0.54, Math.min(basePhotoScale, maxScaleFromFixedSpace), basePhotoScale);
+      const minimumPhotoScale = window.innerHeight <= 620 ? 0.52 : 0.54;
+      const photoScale = clamp(minimumPhotoScale, Math.min(basePhotoScale, maxScaleFromFixedSpace), basePhotoScale);
       const visualBottom = focusTop + shiftY + mainHeight - (mainHeight * (1 - photoScale) / 2);
       const lineTop = visualBottom + notesImageLineGap;
       const copyWidth = Math.max(240, window.innerWidth - 32);
-      const copyAvailableHeight = Math.max(66, window.innerHeight - lineBottom - lineTop - notesLineCopyGap);
+      const copyAvailableHeight = Math.max(66, window.innerHeight - lineBottom - lineTop - notesLineCopyGap - locationReserve);
       const baseCopySize = 1.42;
       const charsPerLine = Math.max(8, Math.floor(copyWidth / (baseCopySize * 9.4)));
       const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
@@ -5036,7 +5025,7 @@ function renderFocus() {
     const baseCopySize = isCompactWide ? 1.34 : 1.46;
     const charsPerLine = Math.max(12, Math.floor(copyWidth / (baseCopySize * 8.8)));
     const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
-    const copyAvailableHeight = Math.max(140, mainHeight - 56);
+    const copyAvailableHeight = Math.max(140, mainHeight - 56 - locationReserve);
     const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
     const copySize = clamp(isCompactWide ? 1.06 : 1.12, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
 
@@ -5096,6 +5085,15 @@ function renderFocus() {
       window.setTimeout(() => resolve(false), timeout);
     });
     return Promise.race([decoded, safety]);
+  }
+
+  function updateFocusNoteContent(photo) {
+    if (noteText) noteText.textContent = getPhotoNote(photo);
+    if (!noteLocation) return;
+    const location = getPhotoLocation(photo);
+    noteLocation.textContent = location;
+    noteLocation.hidden = !location;
+    shell.classList.toggle("has-note-location", Boolean(location));
   }
 
   function syncFocusNotesBackground(index) {
@@ -5287,7 +5285,7 @@ function renderFocus() {
     image.src = photo.full;
     image.alt = photo.alt;
     caption.textContent = "";
-    if (noteText) noteText.textContent = getPhotoNote(photo);
+    updateFocusNoteContent(photo);
     title.textContent = photo.title;
     if (shell.classList.contains("is-notes")) syncFocusNotesBackground(index);
     preloadFocusNeighbors(index);
