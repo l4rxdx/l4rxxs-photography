@@ -26,7 +26,7 @@ const languageCopy = {
     contact: "CONTACT ME",
     "contact.copied": "EMAIL COPIED",
     "contact.copyStatus": "Email address copied to clipboard.",
-    "contact.copyFailed": "COPY FAILED",
+    "contact.copyFailed": "Clipboard access is blocked. The email address is selected for manual copy.",
     "social.douyin": "TIKTOK",
     "social.instagram": "INS",
     "focus.back": "BACK",
@@ -49,7 +49,7 @@ const languageCopy = {
     contact: "\u8054\u7cfb\u6211",
     "contact.copied": "\u90ae\u7bb1\u5df2\u590d\u5236",
     "contact.copyStatus": "\u90ae\u7bb1\u5730\u5740\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\u3002",
-    "contact.copyFailed": "\u590d\u5236\u5931\u8d25",
+    "contact.copyFailed": "\u6d4f\u89c8\u5668\u5df2\u963b\u6b62\u526a\u8d34\u677f\u6743\u9650\uff0c\u90ae\u7bb1\u5df2\u9009\u4e2d\uff0c\u53ef\u624b\u52a8\u590d\u5236\u3002",
     "social.douyin": "\u6296\u97f3",
     "social.instagram": "INS",
     "focus.back": "\u8fd4\u56de",
@@ -412,12 +412,28 @@ function initChrome() {
 }
 
 async function copyText(value) {
+  let clipboardWrite = null;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      clipboardWrite = navigator.clipboard.writeText(value).then(() => true, () => false);
+    } catch (error) {
+      clipboardWrite = null;
+    }
+  }
+
+  const activeElement = document.activeElement;
   const field = document.createElement("textarea");
   field.value = value;
   field.setAttribute("readonly", "");
   field.style.position = "fixed";
-  field.style.left = "-9999px";
-  field.style.opacity = "0";
+  field.style.left = "0";
+  field.style.top = "0";
+  field.style.width = "1px";
+  field.style.height = "1px";
+  field.style.padding = "0";
+  field.style.border = "0";
+  field.style.opacity = ".01";
+  field.style.pointerEvents = "none";
   document.body.appendChild(field);
   field.focus({ preventScroll: true });
   field.select();
@@ -429,17 +445,18 @@ async function copyText(value) {
     copied = false;
   }
   field.remove();
+  if (activeElement instanceof HTMLElement) activeElement.focus({ preventScroll: true });
   if (copied) return true;
+  return clipboardWrite ? clipboardWrite : false;
+}
 
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-  return false;
+function selectEmailFallback(label) {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(label);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 function initEmailCopy() {
@@ -454,16 +471,17 @@ function initEmailCopy() {
       const language = getCurrentLanguage();
       const copied = await copyText(email);
       window.clearTimeout(resetTimer);
-      label.textContent = languageCopy[language][copied ? "contact.copied" : "contact.copyFailed"];
+      label.textContent = copied ? languageCopy[language]["contact.copied"] : email;
       if (status) status.textContent = copied ? languageCopy[language]["contact.copyStatus"] : languageCopy[language]["contact.copyFailed"];
       button.classList.toggle("is-copied", copied);
       button.classList.toggle("is-copy-failed", !copied);
+      if (!copied) selectEmailFallback(label);
       resetTimer = window.setTimeout(() => {
         const currentLanguage = getCurrentLanguage();
         label.textContent = languageCopy[currentLanguage].contact;
         if (status) status.textContent = "";
         button.classList.remove("is-copied", "is-copy-failed");
-      }, 1600);
+      }, copied ? 1600 : 6000);
     });
   });
 }

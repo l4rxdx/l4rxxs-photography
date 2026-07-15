@@ -666,12 +666,28 @@ body[data-theme="dark"] .nav-screen__avatar {
   transition: border-color .24s var(--ease-soft), opacity .24s var(--ease-soft);
 }
 
+.nav-screen__copy-email [data-copy-email-label] {
+  display: inline-block;
+  max-width: 8.8rem;
+  white-space: nowrap;
+  transform-origin: left center;
+}
+
 .nav-screen__copy-email.is-copied {
   opacity: .62;
 }
 
 .nav-screen__copy-email.is-copy-failed {
-  opacity: .72;
+  cursor: text;
+  opacity: 1;
+}
+
+.nav-screen__copy-email.is-copy-failed [data-copy-email-label] {
+  font-size: .95rem;
+  text-transform: none;
+  user-select: all;
+  -webkit-user-select: all;
+  transform: scaleX(.88);
 }
 
 .nav-screen__log-link {
