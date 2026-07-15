@@ -14,7 +14,7 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/favicon.png">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/styles.css?v=v141-manifest4">
+  <link rel="stylesheet" href="assets/styles.css?v=work-collage1">
 </head>
 <body class="site work" data-page="work" data-view="grid" data-language="en" data-lang="en">
   <header class="site-header">
@@ -90,14 +90,21 @@
   </aside>
 
   <main class="work-page" id="phatscroll">
+    <header class="work-index" aria-labelledby="work-heading">
+      <h1 class="work-index__title" id="work-heading" data-i18n="nav.work">WORK</h1>
+      <p class="work-index__meta">
+        <span><span data-work-count>45</span> <span data-i18n="work.photographs">PHOTOGRAPHS</span></span>
+        <span data-work-years>2025-2026</span>
+      </p>
+    </header>
     <section class="work-board" data-work-items aria-label="Selected work"></section>
   </main>
 
   <footer class="view-switch" aria-label="Work view switch">
-    <button type="button" class="is-active" data-work-view="grid">GRID</button>
-    <button type="button" data-work-view="list">LIST</button>
+    <button type="button" class="is-active" data-work-view="grid" data-i18n="work.grid" aria-pressed="true">GRID</button>
+    <button type="button" data-work-view="list" data-i18n="work.list" aria-pressed="false">LIST</button>
   </footer>
 
-  <script src="assets/app.js?v=v141-manifest4"></script>
+  <script src="assets/app.js?v=work-collage1"></script>
 </body>
 </html>

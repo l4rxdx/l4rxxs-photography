@@ -20,6 +20,9 @@ const languageCopy = {
     "logs.intro": "Visible site changes, organized by date and category.",
     "home.about": "l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.",
     "work.menuAbout": "l4rxx works with available light, found color, and scenes that feel almost still.",
+    "work.photographs": "PHOTOGRAPHS",
+    "work.grid": "GRID",
+    "work.list": "LIST",
     contact: "CONTACT ME",
     "social.douyin": "TIKTOK",
     "social.instagram": "INS",
@@ -37,6 +40,9 @@ const languageCopy = {
     "logs.intro": "\u53ef\u89c1\u7684\u7f51\u7ad9\u66f4\u65b0\uff0c\u6309\u65e5\u671f\u4e0e\u7c7b\u522b\u6574\u7406\u3002",
     "home.about": "l4rxx \u662f\u4e00\u4f4d\u89c6\u89c9\u521b\u4f5c\u8005\uff0c\u6536\u96c6\u9759\u6b62\u77ac\u95f4\u3001\u98ce\u5316\u8868\u9762\u3001\u8096\u50cf\u3001\u5c4f\u5e55\u4e0e\u5b89\u9759\u788e\u7247\u3002",
     "work.menuAbout": "l4rxx \u7528\u81ea\u7136\u5149\u3001\u88ab\u770b\u89c1\u7684\u989c\u8272\uff0c\u548c\u90a3\u4e9b\u5dee\u4e00\u70b9\u5c31\u9759\u6b62\u7684\u573a\u666f\u5de5\u4f5c\u3002",
+    "work.photographs": "\u5f20\u7167\u7247",
+    "work.grid": "\u7f51\u683c",
+    "work.list": "\u5217\u8868",
     contact: "\u8054\u7cfb\u6211",
     "social.douyin": "\u6296\u97f3",
     "social.instagram": "INS",
@@ -307,9 +313,16 @@ function getPhotoImageSizeAttributes(photo, useThumb = false) {
 
 function hydrateDeferredImage(image) {
   const src = image?.dataset?.src;
-  if (!src) return;
-  image.removeAttribute("data-src");
-  image.src = src;
+  const srcset = image?.dataset?.srcset;
+  if (!src && !srcset) return;
+  if (srcset) {
+    image.removeAttribute("data-srcset");
+    image.srcset = srcset;
+  }
+  if (src) {
+    image.removeAttribute("data-src");
+    image.src = src;
+  }
 }
 
 function createDeferredImageObserver(rootMargin = "600px") {
@@ -2313,17 +2326,50 @@ function startLoadingSequence() {
 function renderWork() {
   const board = document.querySelector("[data-work-items]");
   if (!board) return;
+  const count = document.querySelector("[data-work-count]");
+  if (count) count.textContent = String(photos.length);
+  const years = photos
+    .map((photo) => String(photo.date || "").slice(0, 4))
+    .filter((year) => /^\d{4}$/.test(year))
+    .map(Number);
+  const yearRange = document.querySelector("[data-work-years]");
+  if (yearRange && years.length) {
+    const firstYear = Math.min(...years);
+    const lastYear = Math.max(...years);
+    yearRange.textContent = firstYear === lastYear ? String(firstYear) : `${firstYear}-${lastYear}`;
+  }
+  const desktopSizes = ["42vw", "34vw", "26vw", "34vw", "42vw", "26vw", "58vw", "34vw", "26vw", "42vw", "26vw", "82vw"];
+  const mobileSizes = ["calc(100vw - 3.2rem)", "calc(50vw - 2.2rem)", "calc(50vw - 2.2rem)", "82vw", "calc(50vw - 2.2rem)", "calc(50vw - 2.2rem)"];
+  const tabletSizes = ["66vw", "32vw", "32vw", "66vw", "100vw", "50vw", "50vw", "82vw"];
   photos.forEach((photo, index) => {
     const item = document.createElement("a");
     item.className = "work-item";
-    item.href = `focus.html?rel=${index + 1}`;
+    const photoRatio = Number(photo.width) > 0 && Number(photo.height) > 0
+      ? Number(photo.width) / Number(photo.height)
+      : 1.5;
+    const isPanorama = photoRatio >= 2;
+    if (isPanorama) item.classList.add("work-item--panorama");
+    const rel = getPhotoRel(photo, index);
+    item.href = `focus.html?rel=${rel}`;
+    item.dataset.workRel = String(rel);
     item.style.setProperty("--delay", `${(index % 10) * 0.03}s`);
+    const itemNumber = String(rel).padStart(2, "0");
+    const category = String(photo.category || "ARCHIVE").trim() || "ARCHIVE";
+    const year = String(photo.date || "2026").slice(0, 4) || "2026";
     const thumbSource = index < 4 ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
+    const fullWidth = Math.max(480, Number(photo.width) || 1920);
+    const responsiveSource = `${photo.thumb} 480w, ${photo.full} ${fullWidth}w`;
+    const sourceSet = index < 4 ? `srcset="${responsiveSource}"` : `data-srcset="${responsiveSource}"`;
+    const mobileSize = mobileSizes[index % mobileSizes.length];
+    const tabletSize = isPanorama ? "100vw" : tabletSizes[index % tabletSizes.length];
+    const desktopSize = isPanorama ? "82vw" : desktopSizes[index % desktopSizes.length];
+    const gridSizes = `(min-width: 600px) and (max-width: 768px) ${tabletSize}, (max-width: 768px) ${mobileSize}, ${desktopSize}`;
     item.innerHTML = `
-      <span class="work-item__image"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${index < 4 ? "eager" : "lazy"}" fetchpriority="${index < 2 ? "high" : "low"}" decoding="async"></span>
+      <span class="work-item__image"><img ${thumbSource} ${sourceSet} sizes="${gridSizes}" data-grid-sizes="${gridSizes}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${index < 4 ? "eager" : "lazy"}" fetchpriority="${index < 2 ? "high" : "low"}" decoding="async"></span>
       <span class="work-item__text">
+        <span class="work-item__index">${itemNumber}</span>
         <span class="work-item__name">${photo.title}</span>
-        <span class="work-item__meta">${photo.category}</span>
+        <span class="work-item__meta"><span>${category}</span><span>${year}</span></span>
       </span>
     `;
     board.appendChild(item);
@@ -2340,8 +2386,14 @@ function renderWork() {
 function setWorkView(view) {
   const next = view === "list" ? "list" : "grid";
   document.body.setAttribute("data-view", next);
+  document.querySelectorAll(".work-item img").forEach((image) => {
+    image.sizes = next === "list"
+      ? "(max-width: 768px) 7.2rem, min(36vw, 52rem)"
+      : image.dataset.gridSizes || "100vw";
+  });
   document.querySelectorAll("[data-work-view]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.workView === next);
+    button.setAttribute("aria-pressed", String(button.dataset.workView === next));
   });
   const url = new URL(window.location.href);
   if (next === "list") url.searchParams.set("view", "list");
