@@ -24,6 +24,9 @@ const languageCopy = {
     "work.grid": "GRID",
     "work.list": "LIST",
     contact: "CONTACT ME",
+    "contact.copied": "EMAIL COPIED",
+    "contact.copyStatus": "Email address copied to clipboard.",
+    "contact.copyFailed": "COPY FAILED",
     "social.douyin": "TIKTOK",
     "social.instagram": "INS",
     "focus.back": "BACK",
@@ -44,6 +47,9 @@ const languageCopy = {
     "work.grid": "\u7f51\u683c",
     "work.list": "\u5217\u8868",
     contact: "\u8054\u7cfb\u6211",
+    "contact.copied": "\u90ae\u7bb1\u5df2\u590d\u5236",
+    "contact.copyStatus": "\u90ae\u7bb1\u5730\u5740\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\u3002",
+    "contact.copyFailed": "\u590d\u5236\u5931\u8d25",
     "social.douyin": "\u6296\u97f3",
     "social.instagram": "INS",
     "focus.back": "\u8fd4\u56de",
@@ -240,6 +246,7 @@ const languageLabels = {
 document.addEventListener("DOMContentLoaded", async () => {
   initChrome();
   initLanguageSwitch();
+  initEmailCopy();
   initThemeSwitch();
   initReleaseLogs();
   initNavLogsMode();
@@ -401,6 +408,63 @@ function initChrome() {
       screen.setAttribute("aria-hidden", "true");
       toggle.setAttribute("aria-label", "Open navigation");
     }
+  });
+}
+
+async function copyText(value) {
+  const field = document.createElement("textarea");
+  field.value = value;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.left = "-9999px";
+  field.style.opacity = "0";
+  document.body.appendChild(field);
+  field.focus({ preventScroll: true });
+  field.select();
+  field.setSelectionRange(0, value.length);
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (error) {
+    copied = false;
+  }
+  field.remove();
+  if (copied) return true;
+
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function initEmailCopy() {
+  document.querySelectorAll("[data-copy-email]").forEach((button) => {
+    const label = button.querySelector("[data-copy-email-label]");
+    const status = button.querySelector("[data-copy-email-status]");
+    let resetTimer = 0;
+
+    button.addEventListener("click", async () => {
+      const email = String(button.dataset.copyEmail || "").trim();
+      if (!email || !label) return;
+      const language = getCurrentLanguage();
+      const copied = await copyText(email);
+      window.clearTimeout(resetTimer);
+      label.textContent = languageCopy[language][copied ? "contact.copied" : "contact.copyFailed"];
+      if (status) status.textContent = copied ? languageCopy[language]["contact.copyStatus"] : languageCopy[language]["contact.copyFailed"];
+      button.classList.toggle("is-copied", copied);
+      button.classList.toggle("is-copy-failed", !copied);
+      resetTimer = window.setTimeout(() => {
+        const currentLanguage = getCurrentLanguage();
+        label.textContent = languageCopy[currentLanguage].contact;
+        if (status) status.textContent = "";
+        button.classList.remove("is-copied", "is-copy-failed");
+      }, 1600);
+    });
   });
 }
 

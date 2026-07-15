@@ -64,6 +64,10 @@ Assert-True ($Css -match "body::after\s*\{[^}]*height:\s*clamp\([^)]+\)" -and $C
 Assert-True ($AllText -match "https://www\.douyin\.com/user/self\?from_tab_name=main") "nav screen should link to Douyin"
 Assert-True ($AllText -match "https://www\.instagram\.com/l4rxdx/") "nav screen should link to Instagram"
 Assert-True ($Css -match "\.nav-screen__social") "nav social links should have a menu footer layout"
+foreach ($Page in @($Index, $Work, $Focus, $LogsHtml)) {
+    Assert-True ($Page -match 'data-copy-email="2664395883@qq\.com"' -and $Page -match 'data-copy-email-status' -and $Page -notmatch 'mailto:hello@l4rxx\.local') "every shared menu should copy the authorized public contact email instead of linking to the placeholder address"
+}
+Assert-True ($App -match 'initEmailCopy\(\)' -and $App -match 'navigator\.clipboard\.writeText' -and $App -match 'document\.execCommand\("copy"\)' -and $App -match 'contact\.copied' -and $Css -match '\.nav-screen__copy-email') "the contact command should copy with a fallback and show bilingual stable feedback"
 Assert-True ($Css -match "\.nav-screen__log-link" -and $Css -match "\.nav-screen__log-symbol" -and $Css -match "log-symbol__page" -and $Css -match "log-symbol__fold" -and $Css -match "log-symbol__line" -and $Css -notmatch "\.nav-screen__log-label" -and $AllText -notmatch "log-symbol__corner|log-symbol__mark|nav-screen__log-label") "logs entry should use an icon-only single-page document symbol in the menu"
 Assert-True ($AllText -match "data-nav-logs" -and $AllText -match "data-nav-release-entries" -and $Css -match "is-nav-logs" -and $App -match "initNavLogsMode" -and $App -match "renderReleaseLogSurface") "logs icon should take over the existing Gaussian menu instead of navigating away"
 Assert-True ($App -match "document\.body\.classList\.remove\(`"nav-open`", `"is-nav-logs`"\)" -and $App -match "setNavLogsOpen\(false\)" -and $App -match "setNavLogsOpen\(!logsOpen\)") "top X should close the whole menu from logs mode while the lower-right logs icon toggles logs back to the menu"
@@ -138,8 +142,8 @@ foreach ($Photo in $Photos) {
 
 Assert-True (-not [string]::IsNullOrWhiteSpace($PhotoData.generatedAt)) "photos.json should include generation metadata"
 Assert-True ($Photos.Count -ge 1) "photos.json should wrap photos in an items array"
-Assert-True ($AllText -match 'assets/app\.js\?v=work-collage1' -and $AllText -match 'assets/styles\.css\?v=work-collage1') "local preview pages should use the current WORK collage cache key"
-Assert-True ($Focus -match 'assets/app\.js\?v=work-collage1' -and $Focus -match 'assets/styles\.css\?v=work-collage1') "focus should use the current local preview cache key"
+Assert-True ($AllText -match 'assets/app\.js\?v=work-contact2' -and $AllText -match 'assets/styles\.css\?v=work-contact2') "local preview pages should use the current WORK contact cache key"
+Assert-True ($Focus -match 'assets/app\.js\?v=work-contact2' -and $Focus -match 'assets/styles\.css\?v=work-contact2') "focus should use the current local preview cache key"
 Assert-True ($Work -match 'data-work-count' -and $Work -match 'data-work-years' -and $Work -match 'data-work-view="grid"' -and $Work -match 'data-work-view="list"') "work should expose its archive summary and both view controls"
 Assert-True ($App -match 'data-grid-sizes' -and $App -match 'data-srcset' -and $App -match 'tabletSizes' -and $App -match 'work-item--panorama' -and $App -match 'min\(36vw, 52rem\)' -and $Css -match '\.work-item:nth-child\(-n \+ 8\)' -and $Css -match '\.work-item:nth-child\(12n \+ 12\)' -and $Css -match '\.work-item:nth-child\(8n \+ 5\)[\s\S]*grid-column:\s*1 / -1') "work should load responsive images and use varied collage placements while animating only its opening items"
 Assert-True ($App -match "normalizePhoto") "app should normalize generated photo records"
@@ -358,6 +362,6 @@ $LogCategoryRemoveCn = -join ([char]0x5220, [char]0x9664)
 $LogCategoryAddCn = -join ([char]0x589E, [char]0x52A0)
 Assert-True ($App.Contains($LogCategoryOptimizeCn) -and $App.Contains($LogCategoryFixCn) -and $App.Contains($LogCategoryRemoveCn) -and $App.Contains($LogCategoryAddCn) -and $App -match "Optimizations" -and $App -match "Fixes" -and $App -match "Removals" -and $App -match "Additions" -and $App -match "const localizedItems = entry\.categories\?\.\[category\.key\]\?\.\[next\] \|\| \[\]" -and $App -match "if \(!localizedItems\.length\) return `"`";") "logs should render only bilingual categories that contain visitor-facing changes"
 Assert-True ((Read-Text "scripts/cloudflare-build.mjs") -match "logs/index\.html") "Cloudflare build should publish the log preview at the clean /logs route"
-Assert-True ($AllText -match "work-collage1" -and $LogsHtml -match "work-collage1" -and $UpdateLog -match "v141-manifest4" -and $ReleaseLog -match "v141-manifest4") "local preview assets should use the WORK collage cache key while formal logs retain the deployed v1.4.1 key"
+Assert-True ($AllText -match "work-contact2" -and $LogsHtml -match "work-contact2" -and $UpdateLog -match "v141-manifest4" -and $ReleaseLog -match "v141-manifest4") "local preview assets should use the WORK contact cache key while formal logs retain the deployed v1.4.1 key"
 Assert-True ($Focus -match "data-focus-index" -and $App -match "const indexEnabled = Boolean\(indexToggle\)") "focus INDEX should be enabled in the current release"
 Write-Host "site-check passed"

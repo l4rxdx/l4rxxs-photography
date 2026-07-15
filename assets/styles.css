@@ -590,6 +590,7 @@ body[data-theme="dark"] .nav-screen {
 
 .nav-screen__nav a,
 .nav-screen__footer a,
+.nav-screen__footer button,
 .language-switch button,
 .focus-actions a,
 .focus-actions button,
@@ -604,6 +605,7 @@ body[data-theme="dark"] .nav-screen {
 
 .nav-screen__nav a:hover,
 .nav-screen__footer a:hover,
+.nav-screen__footer button:hover,
 .language-switch button:hover,
 .language-switch button.is-active,
 .focus-actions a:hover,
@@ -656,6 +658,20 @@ body[data-theme="dark"] .nav-screen__avatar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
+}
+
+.nav-screen__copy-email {
+  min-width: 8.8rem;
+  text-align: left;
+  transition: border-color .24s var(--ease-soft), opacity .24s var(--ease-soft);
+}
+
+.nav-screen__copy-email.is-copied {
+  opacity: .62;
+}
+
+.nav-screen__copy-email.is-copy-failed {
+  opacity: .72;
 }
 
 .nav-screen__log-link {
