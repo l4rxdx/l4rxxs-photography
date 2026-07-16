@@ -22,7 +22,10 @@
                       "width":  1920,
                       "height":  1372,
                       "thumbWidth":  480,
-                      "thumbHeight":  343
+                      "thumbHeight":  343,
+                      "medium":  "images/medium/001-dsc00049.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  915
                   },
                   {
                       "id":  2,
@@ -38,7 +41,10 @@
                       "width":  1920,
                       "height":  1372,
                       "thumbWidth":  480,
-                      "thumbHeight":  343
+                      "thumbHeight":  343,
+                      "medium":  "images/medium/002-desktop-screenshot-2026-01-04-23-3-23-04-2.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  915
                   },
                   {
                       "id":  3,
@@ -58,7 +64,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/003-dsc03004.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  4,
@@ -74,7 +83,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/004-dsc02865.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  5,
@@ -94,7 +106,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/005-dsc02785.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  6,
@@ -110,7 +125,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/006-r0010684.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  7,
@@ -126,7 +144,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/007-dsc02468.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  8,
@@ -142,7 +163,10 @@
                       "width":  1920,
                       "height":  817,
                       "thumbWidth":  480,
-                      "thumbHeight":  204
+                      "thumbHeight":  204,
+                      "medium":  "images/medium/008-r0010682.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  545
                   },
                   {
                       "id":  9,
@@ -162,7 +186,10 @@
                       "width":  1920,
                       "height":  1440,
                       "thumbWidth":  480,
-                      "thumbHeight":  360
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/009-dsc01843.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  960
                   },
                   {
                       "id":  10,
@@ -178,7 +205,10 @@
                       "width":  1056,
                       "height":  704,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/010-my-ye-cover.jpg",
+                      "mediumWidth":  1056,
+                      "mediumHeight":  704
                   },
                   {
                       "id":  11,
@@ -198,7 +228,10 @@
                       "width":  1920,
                       "height":  1440,
                       "thumbWidth":  480,
-                      "thumbHeight":  360
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/011-dsc00811.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  960
                   },
                   {
                       "id":  12,
@@ -218,7 +251,10 @@
                       "width":  1248,
                       "height":  832,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/012-image.jpg",
+                      "mediumWidth":  1248,
+                      "mediumHeight":  832
                   },
                   {
                       "id":  13,
@@ -234,7 +270,10 @@
                       "width":  1920,
                       "height":  1696,
                       "thumbWidth":  480,
-                      "thumbHeight":  424
+                      "thumbHeight":  424,
+                      "medium":  "images/medium/013-dsc00323.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1131
                   },
                   {
                       "id":  14,
@@ -254,7 +293,10 @@
                       "width":  1248,
                       "height":  832,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/014-grok-image-dd0c889a-a430-408a-8e1c-e13496ad3005.jpg",
+                      "mediumWidth":  1248,
+                      "mediumHeight":  832
                   },
                   {
                       "id":  15,
@@ -270,7 +312,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/015-dsc00261.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  16,
@@ -286,7 +331,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/016-r0010826.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  17,
@@ -302,7 +350,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/017-r0010821.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  18,
@@ -318,7 +369,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/018-r0010715.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  19,
@@ -334,7 +388,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/019-r0010914-2.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  20,
@@ -350,7 +407,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/041-dsc02624.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  21,
@@ -366,7 +426,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/021-r0011370.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  22,
@@ -382,7 +445,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/022-r0011216.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  23,
@@ -398,7 +464,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/023-r0011206.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  24,
@@ -414,7 +483,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/024-r0011157.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  25,
@@ -430,7 +502,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/025-r0011079.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  26,
@@ -450,7 +525,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/026-dsc02934-2.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  27,
@@ -466,7 +544,10 @@
                       "width":  1920,
                       "height":  1372,
                       "thumbWidth":  480,
-                      "thumbHeight":  343
+                      "thumbHeight":  343,
+                      "medium":  "images/medium/027-dsc01690.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  915
                   },
                   {
                       "id":  28,
@@ -482,7 +563,10 @@
                       "width":  1440,
                       "height":  1800,
                       "thumbWidth":  384,
-                      "thumbHeight":  480
+                      "thumbHeight":  480,
+                      "medium":  "images/medium/028-1.jpg",
+                      "mediumWidth":  1024,
+                      "mediumHeight":  1280
                   },
                   {
                       "id":  29,
@@ -502,7 +586,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/029-r0011221.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  30,
@@ -518,7 +605,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/030-r0011494.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  31,
@@ -534,7 +624,10 @@
                       "width":  1920,
                       "height":  1440,
                       "thumbWidth":  480,
-                      "thumbHeight":  360
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/031-dsc01040.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  960
                   },
                   {
                       "id":  32,
@@ -554,7 +647,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/032-r0011433.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  33,
@@ -574,7 +670,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/033-r0011430.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  34,
@@ -590,7 +689,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/034-dsc02184.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  35,
@@ -606,7 +708,10 @@
                       "width":  1920,
                       "height":  1440,
                       "thumbWidth":  480,
-                      "thumbHeight":  360
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/035-dsc00505.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  960
                   },
                   {
                       "id":  36,
@@ -622,7 +727,10 @@
                       "width":  1920,
                       "height":  1440,
                       "thumbWidth":  480,
-                      "thumbHeight":  360
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/036-dsc00618.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  960
                   },
                   {
                       "id":  37,
@@ -638,7 +746,10 @@
                       "width":  1920,
                       "height":  1440,
                       "thumbWidth":  480,
-                      "thumbHeight":  360
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/037-dsc00627.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  960
                   },
                   {
                       "id":  38,
@@ -654,7 +765,10 @@
                       "width":  1920,
                       "height":  1813,
                       "thumbWidth":  480,
-                      "thumbHeight":  453
+                      "thumbHeight":  453,
+                      "medium":  "images/medium/038-dsc01142-2.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1209
                   },
                   {
                       "id":  39,
@@ -674,7 +788,10 @@
                       "width":  1305,
                       "height":  1305,
                       "thumbWidth":  480,
-                      "thumbHeight":  480
+                      "thumbHeight":  480,
+                      "medium":  "images/medium/039-desktop-screenshot-2025-12-07-15-24-09-11.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1280
                   },
                   {
                       "id":  40,
@@ -690,7 +807,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/043-r0010392.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  41,
@@ -706,7 +826,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/020-r0011072.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  42,
@@ -726,7 +849,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/042-r0011060.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  43,
@@ -742,7 +868,10 @@
                       "width":  1920,
                       "height":  1920,
                       "thumbWidth":  480,
-                      "thumbHeight":  480
+                      "thumbHeight":  480,
+                      "medium":  "images/medium/040-r0010964.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1280
                   },
                   {
                       "id":  44,
@@ -762,7 +891,10 @@
                       "width":  1920,
                       "height":  1280,
                       "thumbWidth":  480,
-                      "thumbHeight":  320
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/044-r0011529.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
                   },
                   {
                       "id":  45,
@@ -780,7 +912,11 @@
                       "width":  1920,
                       "height":  1920,
                       "thumbWidth":  480,
-                      "thumbHeight":  480
+                      "thumbHeight":  480,
+                      "medium":  "images/medium/045-luvsicpt4-water.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1280
                   }
-              ]
+              ],
+    "mediumMax":  1280
 }

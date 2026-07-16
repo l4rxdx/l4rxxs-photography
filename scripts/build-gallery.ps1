@@ -1,6 +1,7 @@
 ﻿param(
     [string]$Root = (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)),
     [int]$WebMax = 1920,
+    [int]$MediumMax = 1280,
     [int]$ThumbMax = 480,
     [int]$JpegQuality = 82,
     [switch]$Force
@@ -14,12 +15,13 @@ $ImageExtensions = @(".jpg", ".jpeg", ".png", ".bmp")
 $ExcludedOriginals = @("DSC00081.jpg")
 $OriginalsDir = Join-Path $Root "images\originals"
 $WebDir = Join-Path $Root "images\web"
+$MediumDir = Join-Path $Root "images\medium"
 $ThumbDir = Join-Path $Root "images\thumbs"
 $ContentDir = Join-Path $Root "content"
 $PhotosPath = Join-Path $ContentDir "photos.json"
 $OgPath = Join-Path $Root "images\og-image.jpg"
 
-foreach ($Dir in @($OriginalsDir, $WebDir, $ThumbDir, $ContentDir)) {
+foreach ($Dir in @($OriginalsDir, $WebDir, $MediumDir, $ThumbDir, $ContentDir)) {
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
 }
 
@@ -203,13 +205,17 @@ foreach ($File in $OrderedFiles) {
     $Existing = $ExistingByOriginal[$File.Name]
     $Slug = "{0:D3}-{1}" -f $Id, (Convert-ToSlug $File.Name)
     $WebRelative = if ($Existing -and $Existing.full) { $Existing.full } else { "images/web/$Slug.jpg" }
+    $MediumRelative = if ($Existing -and $Existing.medium) { $Existing.medium } else { "images/medium/$([System.IO.Path]::GetFileName($WebRelative))" }
     $ThumbRelative = if ($Existing -and $Existing.thumb) { $Existing.thumb } else { "images/thumbs/$Slug.jpg" }
     $WebPath = Join-Path $Root $WebRelative
+    $MediumPath = Join-Path $Root $MediumRelative
     $ThumbPath = Join-Path $Root $ThumbRelative
 
     Save-ResizedImage -Source $File.FullName -Destination $WebPath -MaxEdge $WebMax -Quality $JpegQuality
+    Save-ResizedImage -Source $File.FullName -Destination $MediumPath -MaxEdge $MediumMax -Quality 80
     Save-ResizedImage -Source $File.FullName -Destination $ThumbPath -MaxEdge $ThumbMax -Quality 74
     $WebDimensions = Get-ImageDimensions -Path $WebPath
+    $MediumDimensions = Get-ImageDimensions -Path $MediumPath
     $ThumbDimensions = Get-ImageDimensions -Path $ThumbPath
 
     $Title = if ($Existing -and $Existing.title) { $Existing.title } elseif ($Seed) { $Seed.title } else { "IMAGE {0:D2}" -f $Id }
@@ -231,6 +237,7 @@ foreach ($File in $OrderedFiles) {
         alt = $Alt
         original = "images/originals/$($File.Name)"
         full = $WebRelative
+        medium = $MediumRelative
         thumb = $ThumbRelative
         date = $Date
         note = $Note
@@ -241,6 +248,8 @@ foreach ($File in $OrderedFiles) {
     if ($LocationEn) { $Item["locationEn"] = $LocationEn }
     $Item["width"] = $WebDimensions.Width
     $Item["height"] = $WebDimensions.Height
+    $Item["mediumWidth"] = $MediumDimensions.Width
+    $Item["mediumHeight"] = $MediumDimensions.Height
     $Item["thumbWidth"] = $ThumbDimensions.Width
     $Item["thumbHeight"] = $ThumbDimensions.Height
     $Items.Add($Item)
@@ -262,6 +271,7 @@ $Output = [ordered]@{
     generatedAt = $GeneratedAt
     source = "scripts/build-gallery.ps1"
     webMax = $WebMax
+    mediumMax = $MediumMax
     thumbMax = $ThumbMax
     items = $Items
 }

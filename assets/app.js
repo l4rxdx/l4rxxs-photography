@@ -289,6 +289,7 @@ function normalizePhoto(photo, index) {
   const id = Number(photo.id) || index + 1;
   const title = photo.title || `IMAGE ${String(id).padStart(2, "0")}`;
   const full = photo.full || photo.src || photo.thumb;
+  const medium = photo.medium || full;
   const thumb = photo.thumb || full;
   return {
     id,
@@ -303,9 +304,12 @@ function normalizePhoto(photo, index) {
     alt: photo.alt || `l4rxx photo ${String(id).padStart(2, "0")} - ${title}`,
     original: photo.original || full,
     full,
+    medium,
     thumb,
     width: Math.max(0, Number(photo.width) || 0),
     height: Math.max(0, Number(photo.height) || 0),
+    mediumWidth: Math.max(0, Number(photo.mediumWidth) || Number(photo.width) || 0),
+    mediumHeight: Math.max(0, Number(photo.mediumHeight) || Number(photo.height) || 0),
     thumbWidth: Math.max(0, Number(photo.thumbWidth) || Number(photo.width) || 0),
     thumbHeight: Math.max(0, Number(photo.thumbHeight) || Number(photo.height) || 0),
     date: photo.date || ""
@@ -957,6 +961,7 @@ function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = ""
 }
 
 function appendOverviewBatch(grid, batch, isInitial = false) {
+  const fragment = document.createDocumentFragment();
   batch.forEach((item) => {
     const clone = isInitial ? item : item.cloneNode(true);
     if (!isInitial) {
@@ -965,8 +970,9 @@ function appendOverviewBatch(grid, batch, isInitial = false) {
       clone.removeAttribute("style");
       clone.querySelectorAll("[style]").forEach((child) => child.removeAttribute("style"));
     }
-    grid.appendChild(clone);
+    fragment.appendChild(clone);
   });
+  grid.appendChild(fragment);
   observeDeferredImages(grid, overviewImageObserver);
 }
 
@@ -1333,6 +1339,11 @@ function initializeOverviewInteraction(grid) {
   let reunionArmed = true;
   let restTargetKey = "";
   let cachedRestTargets = new Map();
+  let photoColliderCache = [];
+  let photoColliderCacheAt = 0;
+  let photoColliderCacheScrollY = NaN;
+  let photoColliderCacheWidth = 0;
+  let photoColliderCacheHeight = 0;
   const ORIENTATION_LOW_PASS_RATE = 0.12;
   const MOTION_LOW_PASS_RATE = 0.08;
   const motionGestureOptions = { passive: true };
@@ -1343,10 +1354,10 @@ function initializeOverviewInteraction(grid) {
   const photoAvoidRadius = () => isMobile() ? 10 : 16;
   const getSoftCollisionThreshold = () => isMobile() ? 0.82 : 0.98;
   const scheduleFrame = (callback) => {
-    return window.setTimeout(() => callback(Date.now()), 16);
+    return window.requestAnimationFrame(callback);
   };
   const cancelFrame = (id) => {
-    window.clearTimeout(id);
+    window.cancelAnimationFrame(id);
   };
   const blendMotion = (nextX, nextY, nextTwist = 0, rate = 0.18) => {
     motionInfluence.x += (clamp(nextX, -1, 1) - motionInfluence.x) * rate;
@@ -1386,15 +1397,24 @@ function initializeOverviewInteraction(grid) {
   };
 
   const setPieceTransform = (piece) => {
+    const x = `${piece.x.toFixed(2)}px`;
+    const y = `${piece.y.toFixed(2)}px`;
+    const angle = `${piece.angle.toFixed(2)}deg`;
     if (piece.type === "figure") {
-      piece.el.style.setProperty("--figure-x", `${piece.x.toFixed(2)}px`);
-      piece.el.style.setProperty("--figure-y", `${piece.y.toFixed(2)}px`);
-      piece.el.style.setProperty("--figure-rotate", `${piece.angle.toFixed(2)}deg`);
+      if (piece.renderX !== x) piece.el.style.setProperty("--figure-x", x);
+      if (piece.renderY !== y) piece.el.style.setProperty("--figure-y", y);
+      if (piece.renderAngle !== angle) piece.el.style.setProperty("--figure-rotate", angle);
+      piece.renderX = x;
+      piece.renderY = y;
+      piece.renderAngle = angle;
       return;
     }
-    piece.el.style.setProperty("--letter-x", `${piece.x.toFixed(2)}px`);
-    piece.el.style.setProperty("--letter-y", `${piece.y.toFixed(2)}px`);
-    piece.el.style.setProperty("--letter-rotate", `${piece.angle.toFixed(2)}deg`);
+    if (piece.renderX !== x) piece.el.style.setProperty("--letter-x", x);
+    if (piece.renderY !== y) piece.el.style.setProperty("--letter-y", y);
+    if (piece.renderAngle !== angle) piece.el.style.setProperty("--letter-rotate", angle);
+    piece.renderX = x;
+    piece.renderY = y;
+    piece.renderAngle = angle;
   };
 
   const getScreenAngle = () => {
@@ -1549,6 +1569,7 @@ function initializeOverviewInteraction(grid) {
   };
 
   const setActiveItem = (item, colliders) => {
+    if (activeItem === item) return;
     if (activeItem !== item) {
       if (activeItem) activeItem.classList.remove("is-home-active");
       activeItem = item || null;
@@ -1572,9 +1593,34 @@ function initializeOverviewInteraction(grid) {
     nearItems.forEach((nearItem) => nearItem.classList.add("is-home-near"));
   };
 
-  const getPhotoColliders = () => {
+  const getPhotoColliders = (force = false) => {
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const now = performance.now();
+    const cacheDuration = isMobile() ? 96 : 48;
+    if (!force
+      && photoColliderCacheAt
+      && now - photoColliderCacheAt < cacheDuration
+      && photoColliderCacheWidth === window.innerWidth
+      && photoColliderCacheHeight === window.innerHeight) {
+      if (photoColliderCacheScrollY !== scrollY) {
+        const shiftY = photoColliderCacheScrollY - scrollY;
+        photoColliderCache = photoColliderCache.map(({ item, rect }) => ({
+          item,
+          rect: {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top + shiftY,
+            bottom: rect.bottom + shiftY,
+            width: rect.width,
+            height: rect.height
+          }
+        }));
+        photoColliderCacheScrollY = scrollY;
+      }
+      return photoColliderCache;
+    }
     const edgeBuffer = isMobile() ? 110 : 160;
-    return [...grid.querySelectorAll(".overview-item[href]")].map((item) => {
+    photoColliderCache = [...grid.querySelectorAll(".overview-item[href]")].map((item) => {
       const image = item.querySelector("img");
       const media = item.querySelector(".fs-media");
       const rect = image && image.complete && image.naturalWidth > 0
@@ -1590,6 +1636,11 @@ function initializeOverviewInteraction(grid) {
         rect.bottom > -edgeBuffer &&
         rect.top < window.innerHeight + edgeBuffer;
     });
+    photoColliderCacheAt = now;
+    photoColliderCacheScrollY = scrollY;
+    photoColliderCacheWidth = window.innerWidth;
+    photoColliderCacheHeight = window.innerHeight;
+    return photoColliderCache;
   };
 
   const getTopDropX = (pieceWidth, sidePadding, hitbox = { left: 0.18, right: 0.18 }) => {
@@ -1924,6 +1975,14 @@ function initializeOverviewInteraction(grid) {
   };
 
   const tick = (time) => {
+    const allPiecesSleeping = pieces.length > 0 && pieces.every((piece) => piece.sleeping);
+    const frameInterval = isMobile()
+      ? allPiecesSleeping ? 72 : 30
+      : allPiecesSleeping ? 48 : 14;
+    if (lastTime && time - lastTime < frameInterval) {
+      frame = scheduleFrame(tick);
+      return;
+    }
     if (!lastTime) lastTime = time;
     if (!physicsStartedAt) physicsStartedAt = time;
     const dt = clamp((time - lastTime) / 16.67, 0.5, 1.35);
@@ -1973,7 +2032,6 @@ function initializeOverviewInteraction(grid) {
         piece.vy = 0;
         piece.va = 0;
         piece.angle += (piece.restAngle - piece.angle) * 0.055;
-        setPieceTransform(piece);
         return;
       }
 
@@ -2070,7 +2128,6 @@ function initializeOverviewInteraction(grid) {
         }
       }
 
-      setPieceTransform(piece);
     });
 
     collideLetters(dt, restTargets);
@@ -2226,10 +2283,18 @@ function initializeOverviewInteraction(grid) {
 
   const handleResize = () => {
     if (!started) return;
+    photoColliderCacheAt = 0;
     syncPieceMetrics();
   };
 
+  const handlePhysicsScroll = () => {
+    if (!started) return;
+    lastTime = 0;
+    photoColliderCacheAt = 0;
+  };
+
   window.addEventListener("resize", handleResize);
+  window.addEventListener("scroll", handlePhysicsScroll, { passive: true });
   setupMotionAccess();
   waitForIntro();
 
@@ -2238,6 +2303,7 @@ function initializeOverviewInteraction(grid) {
     window.clearTimeout(readyTimer);
     window.clearTimeout(waitTimer);
     window.removeEventListener("resize", handleResize);
+    window.removeEventListener("scroll", handlePhysicsScroll);
     window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
     window.removeEventListener("devicemotion", handleDeviceMotion, true);
     window.removeEventListener("pointerdown", requestMotionAccess);
@@ -2439,8 +2505,11 @@ function renderWork() {
     const category = String(photo.category || "ARCHIVE").trim() || "ARCHIVE";
     const year = String(photo.date || "2026").slice(0, 4) || "2026";
     const thumbSource = index < 4 ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
-    const fullWidth = Math.max(480, Number(photo.width) || 1920);
-    const responsiveSource = `${photo.thumb} 480w, ${photo.full} ${fullWidth}w`;
+    const mediumWidth = Math.max(480, Number(photo.mediumWidth) || Number(photo.width) || 1280);
+    const fullWidth = Math.max(mediumWidth, Number(photo.width) || 1920);
+    const responsiveSource = photo.medium && photo.medium !== photo.full
+      ? `${photo.thumb} 480w, ${photo.medium} ${mediumWidth}w, ${photo.full} ${fullWidth}w`
+      : `${photo.thumb} 480w, ${photo.full} ${fullWidth}w`;
     const sourceSet = index < 4 ? `srcset="${responsiveSource}"` : `data-srcset="${responsiveSource}"`;
     const mobileSize = mobileSizes[index % mobileSizes.length];
     const tabletSize = isPanorama ? "100vw" : tabletSizes[index % tabletSizes.length];
@@ -2498,6 +2567,9 @@ function renderFocus() {
   const navToggle = document.querySelector(".js-nav-toggle");
   const backLink = document.querySelector(".js-back");
   if (!shell || !title || !thumbs || !image || !caption || !imageToggle || !focusMain) return;
+  const getFocusPhotoSource = (photo) => window.innerWidth <= 768
+    ? photo?.medium || photo?.full || photo?.thumb || ""
+    : photo?.full || photo?.medium || photo?.thumb || "";
   let mobileRailMaxOffset = 0;
   let focusSyncHoldUntil = 0;
   let focusTouchStartX = 0;
@@ -2563,7 +2635,7 @@ function renderFocus() {
   let focusRailSyncUntil = 0;
   let focusRailThumbMetrics = [];
   let focusIndexPreparedIndex = -1;
-  let focusIndexIdleWarmTimer = 0;
+  let focusIndexThumbBatchTimer = 0;
   let focusIndexPreparedRect = null;
   let focusIndexPreparedViewportWidth = 0;
   let focusIndexPreparedViewportHeight = 0;
@@ -2575,8 +2647,10 @@ function renderFocus() {
   let focusNotesTransitionTimer = 0;
   let focusNotesPaletteTimer = 0;
   let focusIndexReturnSettleTimer = 0;
+  let focusNeighborPreloadRun = 0;
   const focusPhotoRatios = new Map();
   const focusImagePreloadCache = new Map();
+  const focusImagePreloadCacheLimit = 8;
   const rel = Number(new URLSearchParams(window.location.search).get("rel"));
   const initial = Number.isFinite(rel) && rel > 0 ? Math.min(rel - 1, photos.length - 1) : 0;
   const focusIndexState = {
@@ -2618,6 +2692,8 @@ function renderFocus() {
   }
   image.loading = "eager";
   image.fetchPriority = "high";
+  const thumbFragment = document.createDocumentFragment();
+  const indexFragment = indexGallery ? document.createDocumentFragment() : null;
   photos.forEach((photo, index) => {
     if (photo.width > 0 && photo.height > 0) focusPhotoRatios.set(index, photo.width / photo.height);
     const button = document.createElement("button");
@@ -2637,7 +2713,7 @@ function renderFocus() {
       setFocus(index, true, { source: "thumb" });
       glideFocusRailAfterThumbClick(index);
     });
-    thumbs.appendChild(button);
+    thumbFragment.appendChild(button);
 
     if (indexGallery) {
       const indexButton = document.createElement("button");
@@ -2650,9 +2726,9 @@ function renderFocus() {
         indexButton.style.setProperty("--focus-index-ratio", indexRatio.toFixed(5));
         indexButton.style.setProperty("--focus-index-mobile-width", `${(indexRatio * 8).toFixed(3)}rem`);
       }
-      const prewarmIndexThumb = Math.abs(index - initial) <= 4;
+      const prewarmIndexThumb = false;
       const indexThumbSource = prewarmIndexThumb ? `src="${photo.thumb}"` : "";
-      indexButton.innerHTML = `<span class="focus-index-card__media"><img ${indexThumbSource} data-focus-index-full="${photo.full}" data-focus-index-thumb="${photo.thumb}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo)} loading="${prewarmIndexThumb ? "eager" : "lazy"}" fetchpriority="low" decoding="async"></span>`;
+      indexButton.innerHTML = `<span class="focus-index-card__media"><img ${indexThumbSource} data-focus-index-full="${getFocusPhotoSource(photo)}" data-focus-index-thumb="${photo.thumb}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo)} loading="${prewarmIndexThumb ? "eager" : "lazy"}" fetchpriority="low" decoding="async"></span>`;
       const indexImage = indexButton.querySelector("img");
       indexImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, indexImage), { once: true });
       if (indexImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, indexImage));
@@ -2660,9 +2736,11 @@ function renderFocus() {
         if (Date.now() < focusIndexTouchPreventClickUntil) return;
         selectFocusIndexCard(index);
       });
-      indexGallery.appendChild(indexButton);
+      indexFragment.appendChild(indexButton);
     }
   });
+  thumbs.appendChild(thumbFragment);
+  if (indexGallery && indexFragment) indexGallery.appendChild(indexFragment);
 
   const hydrateFocusThumbRange = (centerIndex, radius = 2) => {
     const start = Math.max(0, centerIndex - radius);
@@ -2699,16 +2777,6 @@ function renderFocus() {
     const activeIndex = Number(shell.dataset.activeIndex || 0);
     if (focusIndexPreparedIndex !== activeIndex) warmFocusIndexCardThumbs(activeIndex);
   }, { passive: true });
-
-  if (indexGallery && window.innerWidth <= 768) {
-    const scheduleWarmup = () => {
-      const warmup = () => warmFocusIndexCardThumbs(Number(shell.dataset.activeIndex || 0));
-      if ("requestIdleCallback" in window) window.requestIdleCallback(warmup, { timeout: 1800 });
-      else window.setTimeout(warmup, 900);
-    };
-    if (document.readyState === "complete") scheduleWarmup();
-    else window.addEventListener("load", scheduleWarmup, { once: true });
-  }
 
   indexToggle?.addEventListener("click", () => {
     if (!indexEnabled) return;
@@ -2839,7 +2907,6 @@ function renderFocus() {
       focusIndexPreparedIndex = -1;
       focusIndexPreparedRect = null;
       scrollToFocusIndex(activeIndex, false);
-      scheduleFocusIndexCardWarmup(activeIndex, 260);
     }
   });
   window.addEventListener("l4rxx:languagechange", () => {
@@ -3161,7 +3228,7 @@ function renderFocus() {
     const photo = photos[index];
     if (!node || !photo) return node;
     node.dataset.focusIndexPhoto = String(index);
-    node.dataset.focusIndexFull = photo.full;
+    node.dataset.focusIndexFull = getFocusPhotoSource(photo);
     node.dataset.focusIndexThumb = photo.thumb;
     node.alt = photo.alt || "";
     node.decoding = "async";
@@ -3231,10 +3298,11 @@ function renderFocus() {
 
   function requestFocusIndexFullImage(node, index, prioritize = false) {
     const photo = photos[index];
-    if (!node || !photo?.full) return;
+    const source = getFocusPhotoSource(photo);
+    if (!node || !source) return;
     prepareFocusIndexImage(node, index);
     hydrateFocusIndexCardThumb(node, index, prioritize);
-    const full = getFocusImageAbsoluteUrl(photo.full);
+    const full = getFocusImageAbsoluteUrl(source);
     const current = getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src"));
     const thumb = getFocusImageAbsoluteUrl(photo.thumb);
     if (current === thumb && (!node.complete || node.naturalWidth <= 0) && node.dataset.focusIndexThumbFailed !== thumb) {
@@ -3280,7 +3348,7 @@ function renderFocus() {
     };
     node.addEventListener("load", finish, { once: true });
     node.addEventListener("error", fail, { once: true });
-    node.src = photo.full;
+    node.src = source;
     if (node.complete && node.naturalWidth > 0) finish();
   }
 
@@ -3291,6 +3359,7 @@ function renderFocus() {
     const buffer = indexGallery.clientHeight * 0.25;
     const visibleTop = indexGallery.scrollTop - buffer;
     const visibleBottom = indexGallery.scrollTop + indexGallery.clientHeight + buffer;
+    const candidates = [];
     indexGallery.querySelectorAll(".focus-index-card img").forEach((node) => {
       const card = node.closest(".focus-index-card");
       if (!card) return;
@@ -3298,8 +3367,28 @@ function renderFocus() {
       const cardBottom = cardTop + card.offsetHeight;
       if (cardBottom < visibleTop || cardTop > visibleBottom) return;
       const index = Number(card.dataset.index || 1) - 1;
-      hydrateFocusIndexCardThumb(node, index, index === prioritizedIndex);
+      candidates.push({ node, index });
     });
+    candidates.sort((first, second) => Math.abs(first.index - prioritizedIndex) - Math.abs(second.index - prioritizedIndex));
+    const maxStarts = focusIndexState.phase === "opening" ? 6 : 8;
+    let starts = 0;
+    let hasPending = false;
+    candidates.forEach(({ node, index }) => {
+      const current = getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src"));
+      const needsRequest = !current;
+      if (needsRequest && starts >= maxStarts) {
+        hasPending = true;
+        return;
+      }
+      hydrateFocusIndexCardThumb(node, index, index === prioritizedIndex);
+      if (needsRequest) starts += 1;
+    });
+    if (hasPending && !focusIndexThumbBatchTimer) {
+      focusIndexThumbBatchTimer = window.setTimeout(() => {
+        focusIndexThumbBatchTimer = 0;
+        scheduleFocusIndexImageWindow();
+      }, 120);
+    }
   }
 
   function resetFocusIndexHorizontalOffset() {
@@ -3416,7 +3505,7 @@ function renderFocus() {
 
   function hydrateFocusIndexImageWindow() {
     focusIndexState.loadFrame = 0;
-    if (!indexGallery || (focusIndexState.mode !== "index" && focusIndexState.phase === "idle")) return;
+    if (!indexGallery || (focusIndexState.mode !== "index" && focusIndexState.phase !== "opening")) return;
     hydrateFocusIndexVisibleThumbs();
   }
 
@@ -3428,16 +3517,6 @@ function renderFocus() {
     focusIndexPreparedViewportHeight = window.innerHeight;
     hydrateFocusIndexVisibleThumbs(boundedIndex);
     focusIndexPreparedIndex = boundedIndex;
-  }
-
-  function scheduleFocusIndexCardWarmup(index, delay = 420) {
-    window.clearTimeout(focusIndexIdleWarmTimer);
-    focusIndexIdleWarmTimer = window.setTimeout(() => {
-      focusIndexIdleWarmTimer = 0;
-      if (focusIndexState.phase !== "idle" || focusIndexState.mode === "index") return;
-      if (Number(shell.dataset.activeIndex || 0) !== index) return;
-      warmFocusIndexCardThumbs(index);
-    }, delay);
   }
 
   function scheduleFocusIndexImageWindow() {
@@ -4177,7 +4256,7 @@ function renderFocus() {
     updateFocusNoteContent(photo);
     title.textContent = photo.title;
     focusIndexState.activeIndex = index;
-    preloadFocusNeighbors(index);
+    scheduleFocusNeighborPreload(index);
     scheduleNotesLayoutUpdate();
   }
 
@@ -4234,7 +4313,6 @@ function renderFocus() {
     focusSyncHoldUntil = Date.now() + 900;
     scrollToFocusIndex(index, false);
     requestFocusIndexFullImage(image, index, true);
-    scheduleFocusIndexCardWarmup(index, 560);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
   }
 
@@ -5084,14 +5162,14 @@ function renderFocus() {
     const notesRect = getFocusRect(document.querySelector("[data-focus-notes]"));
     const currentCopyWidth = getCssPixelValue(shell, "--notes-copy-width", isMobile ? window.innerWidth - 32 : 320);
     const currentCopyGap = getCssPixelValue(shell, "--notes-copy-gap", isMobile ? 14 : 24);
-    const locationReserve = noteLocation && !noteLocation.hidden ? 20 : 0;
-    const baseCopySize = isMobile ? 1.42 : window.innerWidth < 940 ? 1.34 : 1.46;
-    const minCopySize = isMobile ? 1.05 : window.innerWidth < 940 ? 1.06 : 1.12;
-    const charWidth = isMobile ? 9.4 : 8.8;
+    const locationReserve = noteLocation && !noteLocation.hidden ? 24 : 0;
+    const baseCopySize = isMobile ? 1.56 : window.innerWidth < 940 ? 1.48 : 1.58;
+    const minCopySize = isMobile ? 1.12 : window.innerWidth < 940 ? 1.08 : 1.14;
+    const charWidth = isMobile ? 9.2 : 8.9;
     const charsPerLine = Math.max(isMobile ? 8 : 12, Math.floor(currentCopyWidth / (baseCopySize * charWidth)));
     const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
-    const copyAvailableHeight = Math.max(isMobile ? 66 : 140, (notesRect?.height || 180) - currentCopyGap - locationReserve - 12);
-    const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
+    const copyAvailableHeight = Math.max(isMobile ? 44 : 140, (notesRect?.height || 180) - currentCopyGap - locationReserve - 12);
+    const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.52;
     const copySize = clamp(minCopySize, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
     shell.style.setProperty("--notes-copy-size", `${copySize.toFixed(2)}rem`);
   }
@@ -5102,7 +5180,7 @@ function renderFocus() {
     const photo = photos[active] || photos[0];
     const note = getPhotoNote(photo);
     const length = [...note].length;
-    const locationReserve = noteLocation && !noteLocation.hidden ? 20 : 0;
+    const locationReserve = noteLocation && !noteLocation.hidden ? 24 : 0;
     const isMobile = window.innerWidth <= 768;
     const mainBox = document.querySelector("[data-focus-main]");
     const railBox = thumbs;
@@ -5126,7 +5204,9 @@ function renderFocus() {
       const railTop = railRect
         ? railRect.top - getElementTranslateY(railBox) + notesRailShift
         : window.innerHeight - 200;
-      const lineBottom = Math.max(150, window.innerHeight - railTop + 8);
+      const lineBottom = Math.max(150, window.innerHeight - railTop - 4);
+      const compactPanelInset = window.innerHeight <= 520 ? 20 : 14;
+      const panelBottom = window.innerHeight <= 620 ? Math.max(132, lineBottom - compactPanelInset) : lineBottom;
       const fixedCopyReserve = clamp(88, window.innerHeight * 0.16, 136);
       const maxLineTop = window.innerHeight - lineBottom - fixedCopyReserve;
       const scaleFromRatio = imageRatio < 0.78 ? -0.04 : imageRatio > 1.18 ? 0.015 : 0;
@@ -5139,17 +5219,17 @@ function renderFocus() {
       const visualBottom = focusTop + shiftY + mainHeight - (mainHeight * (1 - photoScale) / 2);
       const lineTop = visualBottom + notesImageLineGap;
       const copyWidth = Math.max(240, window.innerWidth - 32);
-      const copyAvailableHeight = Math.max(66, window.innerHeight - lineBottom - lineTop - notesLineCopyGap - locationReserve);
-      const baseCopySize = 1.42;
-      const charsPerLine = Math.max(8, Math.floor(copyWidth / (baseCopySize * 9.4)));
+      const copyAvailableHeight = Math.max(44, window.innerHeight - panelBottom - lineTop - notesLineCopyGap - locationReserve);
+      const baseCopySize = 1.56;
+      const charsPerLine = Math.max(8, Math.floor(copyWidth / (baseCopySize * 9.2)));
       const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
-      const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
-      const copySize = clamp(1.05, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
+      const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.52;
+      const copySize = clamp(1.12, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
 
       shell.style.setProperty("--notes-photo-scale", photoScale.toFixed(3));
       shell.style.setProperty("--notes-photo-shift-y", `${shiftY.toFixed(1)}px`);
       shell.style.setProperty("--notes-line-top", `${lineTop.toFixed(1)}px`);
-      shell.style.setProperty("--notes-line-bottom", `${lineBottom.toFixed(1)}px`);
+      shell.style.setProperty("--notes-line-bottom", `${panelBottom.toFixed(1)}px`);
       shell.style.setProperty("--notes-copy-size", `${copySize.toFixed(2)}rem`);
       shell.style.setProperty("--notes-copy-width", `${copyWidth.toFixed(1)}px`);
       shell.style.setProperty("--notes-copy-gap", `${notesLineCopyGap.toFixed(1)}px`);
@@ -5184,12 +5264,12 @@ function renderFocus() {
     const desiredCenter = clamp(minCenter, Math.min(rightAlignedCenter, balancedCenter), maxCenter);
     const shiftX = desiredCenter - window.innerWidth / 2;
     const copyWidth = clamp(isCompactWide ? 218 : 280, idealCopyWidth, isCompactWide ? 248 : 460);
-    const baseCopySize = isCompactWide ? 1.34 : 1.46;
-    const charsPerLine = Math.max(12, Math.floor(copyWidth / (baseCopySize * 8.8)));
+    const baseCopySize = isCompactWide ? 1.48 : 1.58;
+    const charsPerLine = Math.max(12, Math.floor(copyWidth / (baseCopySize * 8.9)));
     const copyLines = Math.max(1, Math.ceil(length / charsPerLine));
     const copyAvailableHeight = Math.max(140, mainHeight - 56 - locationReserve);
-    const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.35;
-    const copySize = clamp(isCompactWide ? 1.06 : 1.12, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
+    const requiredNotesHeight = copyLines * baseCopySize * 10 * 1.52;
+    const copySize = clamp(isCompactWide ? 1.08 : 1.14, baseCopySize * Math.min(1, copyAvailableHeight / Math.max(1, requiredNotesHeight)), baseCopySize);
 
     shell.style.setProperty("--notes-photo-scale", photoScale.toFixed(3));
     shell.style.setProperty("--notes-photo-shift-x", `${shiftX.toFixed(1)}px`);
@@ -5260,36 +5340,72 @@ function renderFocus() {
 
   function syncFocusNotesBackground(index) {
     const photo = photos[index];
-    if (!notesBackground || !photo?.full || !window.AppleMusicBackground?.from) return;
+    const photoSource = getFocusPhotoSource(photo);
+    if (!notesBackground || !photoSource || !window.AppleMusicBackground?.from) return;
     const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
-    const expectedSource = getFocusImageAbsoluteUrl(photo.full);
+    const expectedSource = getFocusImageAbsoluteUrl(photoSource);
     const source = image.complete && image.naturalWidth > 0 && currentSource === expectedSource
       ? image
-      : photo.full;
+      : photoSource;
     window.AppleMusicBackground.from(source, document.body).catch(() => {});
   }
 
-  function preloadFocusImage(src) {
-    if (!src) return Promise.resolve();
-    if (focusImagePreloadCache.has(src)) return focusImagePreloadCache.get(src);
-    const request = new Promise((resolve) => {
+  function trimFocusImagePreloadCache() {
+    if (focusImagePreloadCache.size <= focusImagePreloadCacheLimit) return;
+    for (const [src, entry] of focusImagePreloadCache) {
+      if (focusImagePreloadCache.size <= focusImagePreloadCacheLimit) break;
+      if (!entry.settled) continue;
+      focusImagePreloadCache.delete(src);
+    }
+  }
+
+  function preloadFocusImage(src, priority = "low", decode = false) {
+    if (!src) return Promise.resolve(false);
+    let entry = focusImagePreloadCache.get(src);
+    if (entry) {
+      if (priority === "high") entry.image.fetchPriority = "high";
+      focusImagePreloadCache.delete(src);
+      focusImagePreloadCache.set(src, entry);
+    } else {
       const next = new Image();
       next.decoding = "async";
-      next.onload = () => waitForImageReady(next).then(resolve);
-      next.onerror = resolve;
+      next.fetchPriority = priority;
+      entry = { image: next, request: null, settled: false };
+      entry.request = new Promise((resolve) => {
+        next.onload = () => {
+          entry.settled = true;
+          trimFocusImagePreloadCache();
+          resolve(true);
+        };
+        next.onerror = () => {
+          entry.settled = true;
+          trimFocusImagePreloadCache();
+          resolve(false);
+        };
+      });
+      focusImagePreloadCache.set(src, entry);
       next.src = src;
-    });
-    focusImagePreloadCache.set(src, request);
-    return request;
+    }
+    if (!decode) return entry.request;
+    return entry.request.then((ready) => ready ? waitForImageDecoded(entry.image, 0) : false);
+  }
+
+  function getFocusPreloadDepth(count) {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!connection) return count;
+    if (connection.saveData || /^(slow-2g|2g)$/.test(connection.effectiveType || "")) return Math.min(1, count);
+    if (connection.effectiveType === "3g" || (connection.downlink > 0 && connection.downlink < 1.5)) return Math.min(2, count);
+    return count;
   }
 
   function preloadFocusDirection(index, direction, count = 3) {
     if (!direction) return;
-    for (let step = 1; step <= count; step++) {
+    const preloadDepth = getFocusPreloadDepth(count);
+    for (let step = 1; step <= preloadDepth; step++) {
       const photoIndex = index + direction * step;
       const photo = photos[photoIndex];
       if (!photo) break;
-      preloadFocusImage(photo.full);
+      preloadFocusImage(getFocusPhotoSource(photo), step === 1 ? "high" : "low");
       hydrateDeferredImage(thumbs.querySelector(`.focus-thumb[data-index="${photoIndex + 1}"] img`));
     }
   }
@@ -5303,11 +5419,11 @@ function renderFocus() {
   }
 
   function setFocusSwipeImage(target, photo) {
-    if (!target || !photo?.full) {
+    const source = getFocusPhotoSource(photo);
+    if (!target || !source) {
       clearFocusSwipeImage(target);
       return;
     }
-    const source = photo.full;
     target.dataset.swipeSource = source;
     target.fetchPriority = "high";
     target.alt = photo.alt || "";
@@ -5329,7 +5445,28 @@ function renderFocus() {
   function preloadFocusNeighbors(index) {
     [index - 1, index + 1].forEach((neighborIndex) => {
       const neighbor = photos[neighborIndex];
-      if (neighbor?.full) preloadFocusImage(neighbor.full);
+      const source = getFocusPhotoSource(neighbor);
+      if (source) preloadFocusImage(source, "low");
+    });
+  }
+
+  function scheduleFocusNeighborPreload(index) {
+    const photo = photos[index];
+    const photoSource = getFocusPhotoSource(photo);
+    if (!photoSource) return;
+    const runId = ++focusNeighborPreloadRun;
+    const expectedSource = getFocusImageAbsoluteUrl(photoSource);
+    waitForImageDecoded(image, 0).then((ready) => {
+      if (!ready || runId !== focusNeighborPreloadRun) return;
+      if (Number(shell.dataset.activeIndex || 0) !== index) return;
+      const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
+      if (currentSource !== expectedSource) return;
+      const warmup = () => {
+        if (runId !== focusNeighborPreloadRun || Number(shell.dataset.activeIndex || 0) !== index) return;
+        preloadFocusNeighbors(index);
+      };
+      if ("requestIdleCallback" in window) window.requestIdleCallback(warmup, { timeout: 1200 });
+      else window.setTimeout(warmup, 240);
     });
   }
 
@@ -5360,7 +5497,7 @@ function renderFocus() {
   function getFocusPhotoIndexForSource(source) {
     const absoluteSource = getFocusImageAbsoluteUrl(source);
     if (!absoluteSource) return -1;
-    return photos.findIndex((photo) => getFocusImageAbsoluteUrl(photo.full) === absoluteSource);
+    return photos.findIndex((photo) => [photo.full, photo.medium].some((candidate) => getFocusImageAbsoluteUrl(candidate) === absoluteSource));
   }
 
   function getVisibleFocusPhotoIndex() {
@@ -5416,20 +5553,13 @@ function renderFocus() {
   }
 
   function preloadFocusImageDecoded(src) {
-    if (!src) return Promise.resolve(false);
-    const next = new Image();
-    next.decoding = "async";
-    next.src = src;
-    return waitForImageDecoded(next, 0);
+    return preloadFocusImage(src, "high", true);
   }
 
   function updateFocusChrome(index, replaceUrl) {
     shell.dataset.activeIndex = String(index);
     if (focusIndexState.phase === "idle" && focusIndexState.mode !== "index") focusIndexState.activeIndex = index;
     hydrateFocusThumbRange(index);
-    if (indexEnabled && document.body.classList.contains("has-loaded") && focusIndexState.phase === "idle" && focusIndexState.mode !== "index") {
-      scheduleFocusIndexCardWarmup(index);
-    }
     thumbs.querySelectorAll(".focus-thumb").forEach((thumb, thumbIndex) => {
       const active = thumbIndex === index;
       thumb.classList.toggle("is-active", active);
@@ -5444,13 +5574,13 @@ function renderFocus() {
       image.width = photo.width;
       image.height = photo.height;
     }
-    image.src = photo.full;
+    image.src = getFocusPhotoSource(photo);
     image.alt = photo.alt;
     caption.textContent = "";
     updateFocusNoteContent(photo);
     title.textContent = photo.title;
     if (shell.classList.contains("is-notes")) syncFocusNotesBackground(index);
-    preloadFocusNeighbors(index);
+    scheduleFocusNeighborPreload(index);
     scheduleNotesLayoutUpdate();
   }
 
@@ -5464,7 +5594,8 @@ function renderFocus() {
     const previousIndex = Number(shell.dataset.activeIndex || 0);
     if (index !== previousIndex) focusLastNavigationDirection = index > previousIndex ? 1 : -1;
     const currentImageSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
-    const targetImageSource = getFocusImageAbsoluteUrl(photo.full);
+    const photoSource = getFocusPhotoSource(photo);
+    const targetImageSource = getFocusImageAbsoluteUrl(photoSource);
     const imageNeedsCommit = currentImageSource !== targetImageSource;
     const canAnimate = document.body.classList.contains("has-loaded")
       && !options.instant
@@ -5494,8 +5625,7 @@ function renderFocus() {
 
     if (useHeldSwitch) {
       shell.classList.remove("is-switching-image");
-      preloadFocusImage(photo.full);
-      preloadFocusImageDecoded(photo.full).then((ready) => {
+      preloadFocusImageDecoded(photoSource).then((ready) => {
         if (switchRunId !== focusSwitchSequence) return;
         if (!ready) {
           clearFocusSwitchHandoff();
@@ -5514,7 +5644,7 @@ function renderFocus() {
     }, 760);
     const startedAt = performance.now();
     const switchOutDelay = options.source === "swipe" ? 160 : 260;
-    preloadFocusImage(photo.full).then(() => {
+    preloadFocusImageDecoded(photoSource).then(() => {
       const remaining = Math.max(0, switchOutDelay - (performance.now() - startedAt));
       window.setTimeout(() => {
         if (switchRunId !== focusSwitchSequence) return;

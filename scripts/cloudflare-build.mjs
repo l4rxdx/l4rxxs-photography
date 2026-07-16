@@ -45,6 +45,7 @@ await copyFileIfPresent("logs.html", "logs/index.html");
 await copyDirIfPresent("assets", "assets");
 await copyDirIfPresent("content", "content");
 await copyDirIfPresent("images/web", "images/web");
+await copyDirIfPresent("images/medium", "images/medium");
 await copyDirIfPresent("images/thumbs", "images/thumbs");
 await copyFileIfPresent("images/og-image.jpg", "images/og-image.jpg");
 
