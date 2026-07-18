@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-07-14T09:17:33Z",
+    "generatedAt":  "2026-07-16T10:08:36Z",
     "source":  "scripts/build-gallery.ps1",
     "webMax":  1920,
     "thumbMax":  480,
@@ -916,6 +916,44 @@
                       "medium":  "images/medium/045-luvsicpt4-water.jpg",
                       "mediumWidth":  1280,
                       "mediumHeight":  1280
+                  },
+                  {
+                      "id":  46,
+                      "title":  "CANOPY 47",
+                      "category":  "PARK",
+                      "caption":  "A green lawn held beneath a dark tree canopy.",
+                      "alt":  "l4rxx photo 46 - CANOPY 47",
+                      "original":  "images/originals/1.1.2_1.1.2.jpg",
+                      "full":  "images/web/046-1-1-2-1-1-2.jpg",
+                      "thumb":  "images/thumbs/046-1-1-2-1-1-2.jpg",
+                      "date":  "2026-07-16",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  1280,
+                      "thumbWidth":  480,
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/046-1-1-2-1-1-2.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
+                  },
+                  {
+                      "id":  47,
+                      "title":  "COURT 48",
+                      "category":  "NIGHT",
+                      "caption":  "A night basketball court seen through chain-link fencing.",
+                      "alt":  "l4rxx photo 47 - COURT 48",
+                      "original":  "images/originals/R0011406.jpg",
+                      "full":  "images/web/047-r0011406.jpg",
+                      "thumb":  "images/thumbs/047-r0011406.jpg",
+                      "date":  "2026-07-14",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  817,
+                      "thumbWidth":  480,
+                      "thumbHeight":  204,
+                      "medium":  "images/medium/047-r0011406.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  545
                   }
               ],
     "mediumMax":  1280

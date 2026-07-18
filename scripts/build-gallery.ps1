@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
 $ImageExtensions = @(".jpg", ".jpeg", ".png", ".bmp")
-$ExcludedOriginals = @("DSC00081.jpg")
+$ExcludedOriginals = @("DSC00081.jpg", "zz-douyin-follow-meme.jpg")
 $OriginalsDir = Join-Path $Root "images\originals"
 $WebDir = Join-Path $Root "images\web"
 $MediumDir = Join-Path $Root "images\medium"
@@ -69,7 +69,9 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "R0011060.JPG"; title = "NIGHT 43"; category = "HILL"; caption = "A nearly black horizon with one small light."; noteCn = "有点像skeletons专辑封面。"; noteEn = "It looks a little like the cover of Skeletons."; locationCn = "清远 学校宿舍"; locationEn = "Qingyuan School Dormitory" },
     @{ original = "R0010964.jpg"; title = "PATH 44"; category = "MOUNTAIN"; caption = "A rain-covered figure climbing into fog." },
     @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar."; locationCn = "广州 华南植物园"; locationEn = "Guangzhou South China Botanical Garden" },
-    @{ original = "luvsicpt4-water.jpg"; title = "WATER 46"; category = "STILL"; caption = "A plastic cup of water held in low light."; noteCn = "一杯水。"; noteEn = "A cup of water." }
+    @{ original = "luvsicpt4-water.jpg"; title = "WATER 46"; category = "STILL"; caption = "A plastic cup of water held in low light."; noteCn = "一杯水。"; noteEn = "A cup of water." },
+    @{ original = "1.1.2_1.1.2.jpg"; title = "CANOPY 47"; category = "PARK"; caption = "A green lawn held beneath a dark tree canopy." },
+    @{ original = "R0011406.jpg"; title = "COURT 48"; category = "NIGHT"; caption = "A night basketball court seen through chain-link fencing." }
 )
 
 function Convert-ToSlug {
@@ -237,7 +239,6 @@ foreach ($File in $OrderedFiles) {
         alt = $Alt
         original = "images/originals/$($File.Name)"
         full = $WebRelative
-        medium = $MediumRelative
         thumb = $ThumbRelative
         date = $Date
         note = $Note
@@ -248,10 +249,11 @@ foreach ($File in $OrderedFiles) {
     if ($LocationEn) { $Item["locationEn"] = $LocationEn }
     $Item["width"] = $WebDimensions.Width
     $Item["height"] = $WebDimensions.Height
-    $Item["mediumWidth"] = $MediumDimensions.Width
-    $Item["mediumHeight"] = $MediumDimensions.Height
     $Item["thumbWidth"] = $ThumbDimensions.Width
     $Item["thumbHeight"] = $ThumbDimensions.Height
+    $Item["medium"] = $MediumRelative
+    $Item["mediumWidth"] = $MediumDimensions.Width
+    $Item["mediumHeight"] = $MediumDimensions.Height
     $Items.Add($Item)
     $Id++
 }
@@ -271,9 +273,9 @@ $Output = [ordered]@{
     generatedAt = $GeneratedAt
     source = "scripts/build-gallery.ps1"
     webMax = $WebMax
-    mediumMax = $MediumMax
     thumbMax = $ThumbMax
     items = $Items
+    mediumMax = $MediumMax
 }
 
 $Json = ($Output | ConvertTo-Json -Depth 6).Replace('\u0027', "'")

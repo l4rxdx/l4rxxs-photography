@@ -2,13 +2,15 @@ let photos = [];
 let overviewPhotos = [];
 let overviewOrder = [];
 let overviewImageObserver = null;
+let workViewAnimation = null;
+let workViewRunId = 0;
 const DEFAULT_PHOTO_NOTE_CN = "\u8fd9\u5730\u65b9\u672c\u6765\u662f\u7ed9\u6bcf\u4e2a\u7167\u7247\u5199\u70b9\u968f\u8bb0\u7684\uff0c\u4f46\u662f\u53c9\u6ef4\u53c9\u6709\u70b9\u61d2\u6ca1\u5199\u51e0\u4e2a";
 const DEFAULT_PHOTO_NOTE_EN = "This space was meant for small notes for each photo, but XDX got lazy and only wrote a few.";
 const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
 const LANGUAGE_SESSION_STORAGE_KEY = "l4rxx-language";
-const PHOTO_MANIFEST_VERSION = "20260714-4";
+const PHOTO_MANIFEST_VERSION = "20260716-2";
 
 const languageCopy = {
   en: {
@@ -67,6 +69,24 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.4.2"],
+    date: "2026-07-16",
+    categories: {
+      optimizations: {
+        cn: [
+          "移动端 rel 改用中尺寸照片，并延后索引与相邻图片加载，减少首屏请求和等待。",
+          "首页文字重力改为按屏幕刷新率运行，并降低静止阶段的布局计算与样式写入。",
+          "随记正文与地点改用本地手写字体，地点保留清晰的粗体层级。"
+        ],
+        en: [
+          "Mobile rel pages now use medium-sized photos and defer INDEX and neighboring image loads, reducing initial requests and wait time.",
+          "Home-page letter gravity now follows the display refresh rate while reducing idle layout work and style writes.",
+          "Notes copy and locations now use a locally hosted handwriting font, with locations retaining a clear bold hierarchy."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.4.1", "v1.4.0", "v1.3.0"],
     date: "2026-07-14",
@@ -681,9 +701,6 @@ function initThemeSwitch() {
   let savedMode = "auto";
   let savedTheme = null;
   let themeTransitionTimer = 0;
-  let navThemeColorAnimation = null;
-  let logsThemeTransitionTimers = [];
-  let logsThemeTransitionCleanups = [];
   try {
     savedMode = localStorage.getItem("l4rxx-theme-mode") || "auto";
     savedTheme = localStorage.getItem("l4rxx-theme");
@@ -696,6 +713,8 @@ function initThemeSwitch() {
   const getSystemTheme = () => systemTheme?.matches ? "dark" : "light";
 
   const clearThemeTransition = () => {
+    window.clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = 0;
     document.documentElement.classList.remove("is-theme-transitioning");
     document.body.classList.remove("is-theme-transitioning");
   };
@@ -703,84 +722,19 @@ function initThemeSwitch() {
   const startThemeTransition = () => {
     if (reduceMotion?.matches || !document.body.classList.contains("has-loaded")) return;
     window.clearTimeout(themeTransitionTimer);
-    document.documentElement.classList.add("is-theme-transitioning");
-    document.body.classList.add("is-theme-transitioning");
-    document.body.offsetHeight;
-    themeTransitionTimer = window.setTimeout(clearThemeTransition, 940);
-  };
-
-  const clearLogsThemeTransitionTimers = () => {
-    logsThemeTransitionTimers.forEach((timer) => window.clearTimeout(timer));
-    logsThemeTransitionTimers = [];
-    logsThemeTransitionCleanups.forEach((cleanup) => cleanup());
-    logsThemeTransitionCleanups = [];
-  };
-
-  const animateNavThemeColor = (next, animate) => {
-    const navScreen = document.querySelector(".nav-screen");
-    if (!navScreen) return;
-    const currentColor = getComputedStyle(navScreen).color;
-    navThemeColorAnimation?.cancel();
-    navThemeColorAnimation = null;
-    if (reduceMotion?.matches || !animate || !document.body.classList.contains("has-loaded")) return;
-    const targetColor = next === "dark" ? "#ebe7df" : "#0c0c0c";
-    const animation = navScreen.animate(
-      [{ color: currentColor }, { color: targetColor }],
-      { duration: 720, easing: "cubic-bezier(.5, 0, .5, 1)", fill: "both" }
-    );
-    navThemeColorAnimation = animation;
-    animation.finished.then(() => {
-      if (navThemeColorAnimation !== animation) return;
-      navThemeColorAnimation = null;
-      animation.cancel();
-    }).catch(() => {});
-  };
-
-  const animateLogsThemeColor = (next, animate) => {
-    clearLogsThemeTransitionTimers();
-    const shells = [...document.querySelectorAll(".logs-shell")];
-    if (!shells.length) return;
-    const targetColor = next === "dark" ? "#ebe7df" : "#0c0c0c";
-    if (reduceMotion?.matches || !animate || !document.body.classList.contains("has-loaded")) {
-      shells.forEach((shell) => {
-        shell.style.transition = "";
-        shell.style.color = "";
-      });
-      return;
+    const alreadyTransitioning = document.body.classList.contains("is-theme-transitioning");
+    if (!alreadyTransitioning) {
+      document.documentElement.classList.add("is-theme-transitioning");
+      document.body.classList.add("is-theme-transitioning");
+      document.body.offsetHeight;
     }
-    shells.forEach((shell) => {
-      const currentColor = getComputedStyle(shell).color;
-      shell.style.transition = "none";
-      shell.style.color = currentColor;
-      shell.offsetHeight;
-      shell.style.transition = "color .72s var(--ease-soft), border-color .72s var(--ease-soft)";
-      requestAnimationFrame(() => {
-        shell.style.color = targetColor;
-      });
-      let didFinish = false;
-      const finish = (event) => {
-        if (event && event.propertyName !== "color") return;
-        if (didFinish) return;
-        didFinish = true;
-        shell.removeEventListener("transitionend", finish);
-        shell.style.transition = "none";
-        shell.style.color = targetColor;
-        shell.offsetHeight;
-        shell.style.transition = "";
-        shell.style.color = "";
-      };
-      shell.addEventListener("transitionend", finish);
-      logsThemeTransitionCleanups.push(() => finish());
-      logsThemeTransitionTimers.push(window.setTimeout(finish, 1800));
-    });
+    themeTransitionTimer = window.setTimeout(clearThemeTransition, 560);
   };
 
   const applyTheme = (theme, animate = false) => {
     const next = theme === "dark" ? "dark" : "light";
     const shouldAnimate = animate && next !== currentTheme;
     if (shouldAnimate) startThemeTransition();
-    animateNavThemeColor(next, shouldAnimate);
-    animateLogsThemeColor(next, shouldAnimate);
     currentTheme = next;
     document.documentElement.dataset.theme = next;
     document.body.dataset.theme = next;
@@ -1315,6 +1269,7 @@ function initializeOverviewInteraction(grid) {
   let frame = 0;
   let readyTimer = 0;
   let waitTimer = 0;
+  let introCleanup = null;
   let started = false;
   let activeItem = null;
   let nearItems = [];
@@ -1596,7 +1551,7 @@ function initializeOverviewInteraction(grid) {
   const getPhotoColliders = (force = false) => {
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
     const now = performance.now();
-    const cacheDuration = isMobile() ? 96 : 48;
+    const cacheDuration = isMobile() ? 180 : 96;
     if (!force
       && photoColliderCacheAt
       && now - photoColliderCacheAt < cacheDuration
@@ -1604,17 +1559,10 @@ function initializeOverviewInteraction(grid) {
       && photoColliderCacheHeight === window.innerHeight) {
       if (photoColliderCacheScrollY !== scrollY) {
         const shiftY = photoColliderCacheScrollY - scrollY;
-        photoColliderCache = photoColliderCache.map(({ item, rect }) => ({
-          item,
-          rect: {
-            left: rect.left,
-            right: rect.right,
-            top: rect.top + shiftY,
-            bottom: rect.bottom + shiftY,
-            width: rect.width,
-            height: rect.height
-          }
-        }));
+        photoColliderCache.forEach(({ rect }) => {
+          rect.top += shiftY;
+          rect.bottom += shiftY;
+        });
         photoColliderCacheScrollY = scrollY;
       }
       return photoColliderCache;
@@ -1977,7 +1925,7 @@ function initializeOverviewInteraction(grid) {
   const tick = (time) => {
     const allPiecesSleeping = pieces.length > 0 && pieces.every((piece) => piece.sleeping);
     const frameInterval = isMobile()
-      ? allPiecesSleeping ? 72 : 30
+      ? allPiecesSleeping ? 56 : 15
       : allPiecesSleeping ? 48 : 14;
     if (lastTime && time - lastTime < frameInterval) {
       frame = scheduleFrame(tick);
@@ -2265,20 +2213,48 @@ function initializeOverviewInteraction(grid) {
     frame = scheduleFrame(tick);
   };
 
+  const waitForBrandIntro = () => {
+    const introLetter = letters[0];
+    if (!introLetter) {
+      readyTimer = window.setTimeout(startPhysics, 120);
+      return;
+    }
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(readyTimer);
+      introCleanup?.();
+      introCleanup = null;
+      readyTimer = window.setTimeout(startPhysics, 120);
+    };
+    const handleTransitionEnd = (event) => {
+      if (event.target !== introLetter || event.propertyName !== "opacity") return;
+      finish();
+    };
+    introLetter.addEventListener("transitionend", handleTransitionEnd);
+    introCleanup = () => introLetter.removeEventListener("transitionend", handleTransitionEnd);
+    if (Number.parseFloat(getComputedStyle(introLetter).opacity) >= .995) {
+      finish();
+      return;
+    }
+    readyTimer = window.setTimeout(finish, 720);
+  };
+
   const waitForIntro = () => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       applyIdleState();
       return;
     }
     if (document.body.classList.contains("is-returning-from-rel")) {
-      readyTimer = window.setTimeout(startPhysics, 360);
+      readyTimer = window.setTimeout(startPhysics, 180);
       return;
     }
     if (document.body.classList.contains("has-finished")) {
-      readyTimer = window.setTimeout(startPhysics, 1250);
+      waitForBrandIntro();
       return;
     }
-    waitTimer = window.setTimeout(waitForIntro, 80);
+    waitTimer = window.setTimeout(waitForIntro, 50);
   };
 
   const handleResize = () => {
@@ -2289,8 +2265,9 @@ function initializeOverviewInteraction(grid) {
 
   const handlePhysicsScroll = () => {
     if (!started) return;
-    lastTime = 0;
-    photoColliderCacheAt = 0;
+    const now = performance.now();
+    lastScrollMoveAt = now;
+    lastTime = Math.min(lastTime || now - 16.67, now - 16.67);
   };
 
   window.addEventListener("resize", handleResize);
@@ -2302,6 +2279,7 @@ function initializeOverviewInteraction(grid) {
     if (frame) cancelFrame(frame);
     window.clearTimeout(readyTimer);
     window.clearTimeout(waitTimer);
+    introCleanup?.();
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("scroll", handlePhysicsScroll);
     window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
@@ -2362,7 +2340,9 @@ function runOverviewReturnFlight(target, state) {
   let started = false;
   let safetyTimer = 0;
   let loadTimer = 0;
+  let interruptTimer = 0;
   let scrollLocked = false;
+  let interrupted = false;
   const lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
   const preventScrollInput = (event) => event.preventDefault();
   const keepReturnScrollPosition = () => {
@@ -2375,7 +2355,8 @@ function runOverviewReturnFlight(target, state) {
     if (scrollLocked) return;
     scrollLocked = true;
     document.body.classList.add("is-return-flight-active");
-    window.addEventListener("wheel", preventScrollInput, { passive: false, capture: true });
+    window.addEventListener("wheel", interruptReturnFlight, { passive: true, capture: true });
+    window.addEventListener("touchstart", interruptReturnFlight, { passive: true, capture: true });
     window.addEventListener("touchmove", preventScrollInput, { passive: false, capture: true });
     window.addEventListener("scroll", keepReturnScrollPosition, { passive: true });
   };
@@ -2383,7 +2364,8 @@ function runOverviewReturnFlight(target, state) {
     if (!scrollLocked) return;
     scrollLocked = false;
     document.body.classList.remove("is-return-flight-active");
-    window.removeEventListener("wheel", preventScrollInput, true);
+    window.removeEventListener("wheel", interruptReturnFlight, true);
+    window.removeEventListener("touchstart", interruptReturnFlight, true);
     window.removeEventListener("touchmove", preventScrollInput, true);
     window.removeEventListener("scroll", keepReturnScrollPosition);
   };
@@ -2392,8 +2374,37 @@ function runOverviewReturnFlight(target, state) {
     finished = true;
     window.clearTimeout(safetyTimer);
     window.clearTimeout(loadTimer);
+    window.clearTimeout(interruptTimer);
     finishOverviewReturnTarget(target, overlay, unlockReturnScroll);
   };
+  const finishInterrupted = () => {
+    if (finished) return;
+    finished = true;
+    window.clearTimeout(safetyTimer);
+    window.clearTimeout(loadTimer);
+    window.clearTimeout(interruptTimer);
+    unlockReturnScroll();
+    overlay.remove();
+    target.classList.remove("is-return-flight-handoff", "is-return-flight-target", "is-return-target");
+  };
+  function interruptReturnFlight() {
+    if (!started || finished || interrupted) return;
+    interrupted = true;
+    window.clearTimeout(safetyTimer);
+    const presentation = getComputedStyle(overlay);
+    overlay.style.transform = presentation.transform;
+    overlay.style.opacity = presentation.opacity;
+    overlay.style.boxShadow = presentation.boxShadow;
+    overlay.style.animation = "none";
+    overlay.classList.add("is-interrupted");
+    target.classList.add("is-return-flight-handoff");
+    target.classList.remove("is-return-flight-target", "is-return-target");
+    unlockReturnScroll();
+    overlay.offsetHeight;
+    overlay.style.transition = "opacity 150ms cubic-bezier(.2, .8, .2, 1)";
+    overlay.style.opacity = "0";
+    interruptTimer = window.setTimeout(finishInterrupted, 160);
+  }
   const start = () => {
     if (started || finished) return;
     started = true;
@@ -2430,8 +2441,12 @@ function runOverviewReturnFlight(target, state) {
       });
     });
   };
-  overlay.addEventListener("animationend", finish, { once: true });
-  overlay.addEventListener("animationcancel", finish, { once: true });
+  overlay.addEventListener("animationend", () => {
+    if (!interrupted) finish();
+  }, { once: true });
+  overlay.addEventListener("animationcancel", () => {
+    if (!interrupted) finish();
+  }, { once: true });
   const waitForImage = (image) => new Promise((resolve, reject) => {
     if (image.complete) {
       if (image.naturalWidth <= 0) {
@@ -2458,17 +2473,13 @@ function startLoadingSequence() {
     document.documentElement.classList.add("has-landed");
     return;
   }
-  const finish = () => {
+  requestAnimationFrame(() => {
     document.body.classList.add("has-loaded");
-    setTimeout(() => {
+    window.setTimeout(() => {
       document.body.classList.add("has-finished");
       document.documentElement.classList.add("has-landed");
-    }, 1000);
-  };
-  setTimeout(() => {
-    if (document.readyState === "complete") finish();
-    else window.addEventListener("load", finish, { once: true });
-  }, 300);
+    }, 180);
+  });
 }
 
 function renderWork() {
@@ -2531,25 +2542,126 @@ function renderWork() {
   document.querySelectorAll("[data-work-view]").forEach((button) => {
     button.addEventListener("click", () => setWorkView(button.dataset.workView));
   });
-  setWorkView(new URLSearchParams(window.location.search).get("view") || "grid");
+  setWorkView(new URLSearchParams(window.location.search).get("view") || "grid", { animate: false });
 }
 
-function setWorkView(view) {
+function setWorkView(view, options = {}) {
   const next = view === "list" ? "list" : "grid";
-  document.body.setAttribute("data-view", next);
-  document.querySelectorAll(".work-item img").forEach((image) => {
-    image.sizes = next === "list"
-      ? "(max-width: 768px) 7.2rem, min(36vw, 52rem)"
-      : image.dataset.gridSizes || "100vw";
+  const current = document.body.dataset.view === "list" ? "list" : "grid";
+  const board = document.querySelector("[data-work-items]");
+  const syncControls = () => {
+    document.querySelectorAll("[data-work-view]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.workView === next);
+      button.setAttribute("aria-pressed", String(button.dataset.workView === next));
+    });
+    const url = new URL(window.location.href);
+    if (next === "list") url.searchParams.set("view", "list");
+    else url.searchParams.delete("view");
+    window.history.replaceState({}, "", url.pathname + url.search);
+  };
+  const applyLayout = () => {
+    document.body.setAttribute("data-view", next);
+    document.querySelectorAll(".work-item img").forEach((image) => {
+      image.sizes = next === "list"
+        ? "(max-width: 768px) 7.2rem, min(36vw, 52rem)"
+        : image.dataset.gridSizes || "100vw";
+    });
+  };
+  const clearBoardStyles = () => {
+    if (!board) return;
+    board.style.removeProperty("opacity");
+    board.style.removeProperty("transform");
+    board.style.removeProperty("will-change");
+  };
+  const freezeBoard = () => {
+    if (!board || !workViewAnimation) return null;
+    const computed = getComputedStyle(board);
+    const snapshot = {
+      opacity: computed.opacity,
+      transform: computed.transform === "none" ? "none" : computed.transform
+    };
+    workViewAnimation.cancel();
+    workViewAnimation = null;
+    board.style.opacity = snapshot.opacity;
+    board.style.transform = snapshot.transform;
+    return snapshot;
+  };
+
+  syncControls();
+  const canAnimate = options.animate !== false
+    && board
+    && typeof board.animate === "function"
+    && document.body.classList.contains("has-loaded")
+    && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const runId = ++workViewRunId;
+
+  if (!canAnimate) {
+    if (workViewAnimation) workViewAnimation.cancel();
+    workViewAnimation = null;
+    applyLayout();
+    clearBoardStyles();
+    return;
+  }
+
+  const frozen = freezeBoard();
+  const computed = frozen || {
+    opacity: getComputedStyle(board).opacity,
+    transform: getComputedStyle(board).transform === "none" ? "none" : getComputedStyle(board).transform
+  };
+  board.style.willChange = "transform, opacity";
+
+  if (next === current) {
+    workViewAnimation = board.animate([
+      { opacity: computed.opacity, transform: computed.transform },
+      { opacity: 1, transform: "translate3d(0, 0, 0)" }
+    ], {
+      duration: 180,
+      easing: "cubic-bezier(.23, 1, .32, 1)",
+      fill: "both"
+    });
+    const restoreAnimation = workViewAnimation;
+    restoreAnimation.finished.then(() => {
+      if (workViewRunId !== runId || workViewAnimation !== restoreAnimation) return;
+      workViewAnimation = null;
+      restoreAnimation.cancel();
+      clearBoardStyles();
+    }).catch(() => {});
+    return;
+  }
+
+  workViewAnimation = board.animate([
+    { opacity: computed.opacity, transform: computed.transform },
+    { opacity: 0, transform: "translate3d(0, .6rem, 0)" }
+  ], {
+    duration: 110,
+    easing: "cubic-bezier(.23, 1, .32, 1)",
+    fill: "both"
   });
-  document.querySelectorAll("[data-work-view]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.workView === next);
-    button.setAttribute("aria-pressed", String(button.dataset.workView === next));
-  });
-  const url = new URL(window.location.href);
-  if (next === "list") url.searchParams.set("view", "list");
-  else url.searchParams.delete("view");
-  window.history.replaceState({}, "", url.pathname + url.search);
+  const exitAnimation = workViewAnimation;
+  exitAnimation.finished.then(() => {
+    if (workViewRunId !== runId || workViewAnimation !== exitAnimation) return;
+    exitAnimation.cancel();
+    workViewAnimation = null;
+    applyLayout();
+    board.style.opacity = "0";
+    board.style.transform = "translate3d(0, .6rem, 0)";
+    board.offsetHeight;
+    workViewAnimation = board.animate([
+      { opacity: 0, transform: "translate3d(0, .6rem, 0)" },
+      { opacity: 1, transform: "translate3d(0, 0, 0)" }
+    ], {
+      duration: 260,
+      easing: "cubic-bezier(.23, 1, .32, 1)",
+      fill: "both"
+    });
+    const enterAnimation = workViewAnimation;
+    enterAnimation.finished.then(() => {
+      if (workViewRunId !== runId || workViewAnimation !== enterAnimation) return;
+      workViewAnimation = null;
+      enterAnimation.cancel();
+      clearBoardStyles();
+    }).catch(() => {});
+  }).catch(() => {});
 }
 
 function renderFocus() {
@@ -2582,6 +2694,8 @@ function renderFocus() {
   let focusMainTouchLastY = 0;
   let focusMainTouchLastMoveAt = 0;
   let focusMainTouchVelocityX = 0;
+  let focusMainTouchVelocityY = 0;
+  let focusMainTouchHistory = [];
   let focusMainTouchMode = "";
   let focusMainTouchMoved = false;
   let focusMainTouchPreventClickUntil = 0;
@@ -2620,7 +2734,18 @@ function renderFocus() {
     railAxis: "",
     railFrom: 0,
     railTo: 0,
-    railReady: false
+    railReady: false,
+    velocity: 0
+  };
+  const focusNotesGesture = {
+    active: false,
+    animating: false,
+    frame: 0,
+    progress: 0,
+    startProgress: 0,
+    velocity: 0,
+    startedOpen: false,
+    travel: 72
   };
   let focusQueuedSwipe = null;
   let focusMainSwipeClearSequence = 0;
@@ -2639,13 +2764,15 @@ function renderFocus() {
   let focusIndexPreparedRect = null;
   let focusIndexPreparedViewportWidth = 0;
   let focusIndexPreparedViewportHeight = 0;
+  let focusIndexMotionWarmupHandle = 0;
+  let focusIndexMotionWarmupTimer = 0;
+  let focusIndexMotionWarmupRun = 0;
   let focusManualSelectionIndex = null;
   let focusManualSelectionTimer = 0;
   let focusSwipeSyncTimer = 0;
   let focusMainSwipeLockUntil = 0;
   let focusNoteCopyTransitionTimer = 0;
   let focusNotesTransitionTimer = 0;
-  let focusNotesPaletteTimer = 0;
   let focusIndexReturnSettleTimer = 0;
   let focusNeighborPreloadRun = 0;
   const focusPhotoRatios = new Map();
@@ -2662,6 +2789,8 @@ function renderFocus() {
     imageAnimation: null,
     cardAnimations: [],
     cardMotionFrames: new Map(),
+    cardMotionRects: new Map(),
+    cardMotionGalleryRect: null,
     cardMotionIndex: initial,
     cardMotionEndTime: 0,
     cardMotionViewportWidth: 0,
@@ -2904,9 +3033,10 @@ function renderFocus() {
       scheduleFocusIndexResize();
     } else {
       const activeIndex = Number(shell.dataset.activeIndex || initial);
-      focusIndexPreparedIndex = -1;
-      focusIndexPreparedRect = null;
+      cancelFocusIndexMotionWarmup();
+      invalidateFocusIndexMotionPlan();
       scrollToFocusIndex(activeIndex, false);
+      scheduleFocusIndexMotionWarmup(activeIndex);
     }
   });
   window.addEventListener("l4rxx:languagechange", () => {
@@ -3512,7 +3642,15 @@ function renderFocus() {
   function warmFocusIndexCardThumbs(centerIndex) {
     if (!indexGallery) return;
     const boundedIndex = getBoundedFocusIndex(centerIndex);
-    focusIndexPreparedRect = copyFocusRect(positionFocusIndexGalleryOnActive(boundedIndex));
+    if (!canReuseFocusIndexCardMotionFrames(boundedIndex)) {
+      prepareFocusIndexCardMotionPlan(boundedIndex);
+    }
+    if (!focusIndexPreparedRect
+      || focusIndexPreparedIndex !== boundedIndex
+      || focusIndexPreparedViewportWidth !== window.innerWidth
+      || focusIndexPreparedViewportHeight !== window.innerHeight) {
+      focusIndexPreparedRect = copyFocusRect(positionFocusIndexGalleryOnActive(boundedIndex));
+    }
     focusIndexPreparedViewportWidth = window.innerWidth;
     focusIndexPreparedViewportHeight = window.innerHeight;
     hydrateFocusIndexVisibleThumbs(boundedIndex);
@@ -3839,6 +3977,8 @@ function renderFocus() {
 
   function resetFocusIndexCardMotionFrames(index) {
     focusIndexState.cardMotionFrames.clear();
+    focusIndexState.cardMotionRects.clear();
+    focusIndexState.cardMotionGalleryRect = null;
     focusIndexState.cardMotionIndex = index;
     focusIndexState.cardMotionEndTime = 0;
     focusIndexState.cardMotionViewportWidth = window.innerWidth;
@@ -3848,7 +3988,20 @@ function renderFocus() {
   function canReuseFocusIndexCardMotionFrames(index) {
     return focusIndexState.cardMotionIndex === index
       && focusIndexState.cardMotionViewportWidth === window.innerWidth
-      && focusIndexState.cardMotionViewportHeight === window.innerHeight;
+      && focusIndexState.cardMotionViewportHeight === window.innerHeight
+      && focusIndexState.cardMotionFrames.size > 0
+      && focusIndexState.cardMotionRects.size > 0
+      && Boolean(focusIndexState.cardMotionGalleryRect);
+  }
+
+  function invalidateFocusIndexMotionPlan() {
+    focusIndexState.cardMotionFrames.clear();
+    focusIndexState.cardMotionRects.clear();
+    focusIndexState.cardMotionGalleryRect = null;
+    focusIndexState.cardMotionIndex = -1;
+    focusIndexState.cardMotionEndTime = 0;
+    focusIndexPreparedIndex = -1;
+    focusIndexPreparedRect = null;
   }
 
   function getFocusIndexSpawnFrame(cardRect, index, savedFrame = null) {
@@ -3876,24 +4029,23 @@ function renderFocus() {
     };
   }
 
-  function playFocusIndexCardMotion(direction, anchorRect, selectedIndex, resume = false, options = {}) {
-    if (!indexGallery || !anchorRect || isFocusIndexReducedMotion()) return 0;
-    cancelFocusIndexCardAnimations(resume);
-    const galleryRect = getFocusRect(indexGallery);
-    if (!galleryRect) return 0;
-    const totalDuration = Math.max(180, Number(options.totalDuration) || getFocusIndexPrimaryDuration());
-    const reusableFrames = canReuseFocusIndexCardMotionFrames(selectedIndex);
-    const needsPlan = !reusableFrames;
-    if (needsPlan) {
-      resetFocusIndexCardMotionFrames(selectedIndex);
-    }
-    const buffer = Math.min(96, indexGallery.clientHeight * .12);
-    const motions = [];
+  function collectFocusIndexCardMotions(anchorRect, selectedIndex, totalDuration, options = {}) {
     const cards = [...indexGallery.querySelectorAll(".focus-index-card")];
-    const baseRects = getFocusIndexCardBaseRects(cards);
+    const canUseCachedRects = Boolean(options.useCachedRects)
+      && focusIndexState.cardMotionGalleryRect
+      && cards.every((card, visualIndex) => focusIndexState.cardMotionRects.has(visualIndex));
+    const galleryRect = canUseCachedRects
+      ? copyFocusRect(focusIndexState.cardMotionGalleryRect)
+      : getFocusRect(indexGallery);
+    if (!galleryRect) return { cards, motions: [], baseRects: new Map(), galleryRect: null };
+    const baseRects = canUseCachedRects
+      ? new Map(cards.map((card, visualIndex) => [card, copyFocusRect(focusIndexState.cardMotionRects.get(visualIndex))]))
+      : getFocusIndexCardBaseRects(cards);
+    const buffer = Math.min(96, galleryRect.height * .12);
+    const motions = [];
     cards.forEach((card, visualIndex) => {
       if (visualIndex === selectedIndex) {
-        clearFocusIndexCardMotionStyles(card);
+        if (options.clearStyles) clearFocusIndexCardMotionStyles(card);
         return;
       }
       const cardRect = baseRects.get(card);
@@ -3903,10 +4055,12 @@ function renderFocus() {
         && cardRect.top + cardRect.height >= galleryRect.top - buffer
         && cardRect.top <= galleryRect.top + galleryRect.height + buffer;
       if (!visible) {
-        if (direction === "open") clearFocusIndexCardMotionStyles(card);
+        if (options.clearStyles && options.direction === "open") clearFocusIndexCardMotionStyles(card);
         return;
       }
-      const savedFrame = focusIndexState.cardMotionFrames.get(visualIndex);
+      const savedFrame = options.useSavedFrames
+        ? focusIndexState.cardMotionFrames.get(visualIndex)
+        : null;
       const spawn = getFocusIndexSpawnFrame(cardRect, visualIndex, savedFrame);
       const baseTiming = getFocusIndexCardTiming(cardRect, anchorRect, totalDuration);
       const timing = {
@@ -3929,6 +4083,125 @@ function renderFocus() {
         revealStart: Number(savedFrame?.revealStart) || 0
       });
     });
+    return { cards, motions, baseRects, galleryRect };
+  }
+
+  function storeFocusIndexCardMotionPlan(motions, baseRects, galleryRect, selectedIndex) {
+    focusIndexState.cardMotionFrames.clear();
+    focusIndexState.cardMotionRects.clear();
+    baseRects.forEach((rect, card) => {
+      const visualIndex = Number(card.dataset.index || 0) - 1;
+      if (visualIndex >= 0 && rect) focusIndexState.cardMotionRects.set(visualIndex, copyFocusRect(rect));
+    });
+    focusIndexState.cardMotionGalleryRect = copyFocusRect(galleryRect);
+    focusIndexState.cardMotionIndex = selectedIndex;
+    focusIndexState.cardMotionViewportWidth = window.innerWidth;
+    focusIndexState.cardMotionViewportHeight = window.innerHeight;
+    focusIndexState.cardMotionEndTime = 0;
+    motions.forEach(({ visualIndex, spawn, timing, revealStart, distanceRatio }) => {
+      focusIndexState.cardMotionFrames.set(visualIndex, {
+        x: spawn.x,
+        y: spawn.y,
+        scale: spawn.scale,
+        duration: timing.duration,
+        delay: timing.delay,
+        revealStart,
+        distanceRatio
+      });
+      focusIndexState.cardMotionEndTime = Math.max(
+        focusIndexState.cardMotionEndTime,
+        timing.delay + timing.duration
+      );
+    });
+    return focusIndexState.cardMotionEndTime;
+  }
+
+  function prepareFocusIndexCardMotionPlan(activeIndex) {
+    if (!indexGallery || isFocusIndexReducedMotion()) return 0;
+    if (focusIndexState.mode === "index" || focusIndexState.phase !== "idle") return 0;
+    const index = getBoundedFocusIndex(activeIndex);
+    if (canReuseFocusIndexCardMotionFrames(index)) return focusIndexState.cardMotionEndTime;
+    const targetRect = positionFocusIndexGalleryOnActive(index);
+    const sourceRect = getFocusImageContentRect() || getFocusRect(image);
+    if (!targetRect || !sourceRect) return 0;
+    const totalDuration = getFocusIndexImageMotionDuration(
+      index,
+      sourceRect,
+      targetRect,
+      getFocusIndexPrimaryDuration(),
+      false
+    );
+    resetFocusIndexCardMotionFrames(index);
+    const plan = collectFocusIndexCardMotions(targetRect, index, totalDuration);
+    assignFocusIndexConcurrentLanes(plan.motions, targetRect);
+    planFocusIndexConcurrentMotions(plan.motions, {
+      fromRect: sourceRect,
+      toRect: targetRect,
+      duration: totalDuration
+    });
+    storeFocusIndexCardMotionPlan(plan.motions, plan.baseRects, plan.galleryRect, index);
+    focusIndexPreparedIndex = index;
+    focusIndexPreparedRect = copyFocusRect(targetRect);
+    focusIndexPreparedViewportWidth = window.innerWidth;
+    focusIndexPreparedViewportHeight = window.innerHeight;
+    return focusIndexState.cardMotionEndTime;
+  }
+
+  function cancelFocusIndexMotionWarmup() {
+    focusIndexMotionWarmupRun += 1;
+    if (focusIndexMotionWarmupHandle && "cancelIdleCallback" in window) {
+      window.cancelIdleCallback(focusIndexMotionWarmupHandle);
+    }
+    focusIndexMotionWarmupHandle = 0;
+    window.clearTimeout(focusIndexMotionWarmupTimer);
+    focusIndexMotionWarmupTimer = 0;
+  }
+
+  function scheduleFocusIndexMotionWarmup(activeIndex) {
+    cancelFocusIndexMotionWarmup();
+    if (!indexGallery || isFocusIndexReducedMotion()) return;
+    const index = getBoundedFocusIndex(activeIndex);
+    const runId = focusIndexMotionWarmupRun;
+    const queueWarmup = () => {
+      if (runId !== focusIndexMotionWarmupRun) return;
+      if (Number(shell.dataset.activeIndex || 0) !== index) return;
+      const warmup = (deadline = null) => {
+        focusIndexMotionWarmupHandle = 0;
+        focusIndexMotionWarmupTimer = 0;
+        if (runId !== focusIndexMotionWarmupRun) return;
+        if (focusIndexState.mode === "index" || focusIndexState.phase !== "idle") return;
+        if (deadline && !deadline.didTimeout && deadline.timeRemaining() < 8) {
+          focusIndexMotionWarmupHandle = window.requestIdleCallback(warmup, { timeout: 640 });
+          return;
+        }
+        prepareFocusIndexCardMotionPlan(index);
+      };
+      if ("requestIdleCallback" in window) {
+        focusIndexMotionWarmupHandle = window.requestIdleCallback(warmup, { timeout: 900 });
+      } else {
+        focusIndexMotionWarmupTimer = window.setTimeout(warmup, 140);
+      }
+    };
+    waitForImageDecoded(image, 800).then(queueWarmup);
+  }
+
+  function playFocusIndexCardMotion(direction, anchorRect, selectedIndex, resume = false, options = {}) {
+    if (!indexGallery || !anchorRect || isFocusIndexReducedMotion()) return 0;
+    cancelFocusIndexCardAnimations(resume);
+    const totalDuration = Math.max(180, Number(options.totalDuration) || getFocusIndexPrimaryDuration());
+    const reusableFrames = canReuseFocusIndexCardMotionFrames(selectedIndex);
+    const needsPlan = !reusableFrames;
+    if (needsPlan) {
+      resetFocusIndexCardMotionFrames(selectedIndex);
+    }
+    const plan = collectFocusIndexCardMotions(anchorRect, selectedIndex, totalDuration, {
+      useCachedRects: reusableFrames,
+      useSavedFrames: reusableFrames,
+      clearStyles: true,
+      direction
+    });
+    const motions = plan.motions;
+    if (!plan.galleryRect) return 0;
     if (needsPlan) {
       assignFocusIndexConcurrentLanes(motions, anchorRect);
       const mainMotion = direction === "open"
@@ -3946,23 +4219,12 @@ function renderFocus() {
       motion.currentTransform = computed.transform === "none" ? "none" : computed.transform;
       motion.currentOpacity = computed.opacity;
     });
-    focusIndexState.cardMotionEndTime = 0;
-    motions.forEach(({ visualIndex, spawn, timing, revealStart, distanceRatio }) => {
-      focusIndexState.cardMotionFrames.set(visualIndex, {
-        x: spawn.x,
-        y: spawn.y,
-        scale: spawn.scale,
-        duration: timing.duration,
-        delay: timing.delay,
-        revealStart,
-        distanceRatio
-      });
-      focusIndexState.cardMotionEndTime = Math.max(
-        focusIndexState.cardMotionEndTime,
-        timing.delay + timing.duration
-      );
-    });
-    const timelineEnd = focusIndexState.cardMotionEndTime;
+    const timelineEnd = storeFocusIndexCardMotionPlan(
+      motions,
+      plan.baseRects,
+      plan.galleryRect,
+      selectedIndex
+    );
     const motionStartedAt = performance.now();
     motions.forEach((motion) => {
       const { card, visualIndex, spawn, timing, currentTransform, currentOpacity } = motion;
@@ -4314,6 +4576,7 @@ function renderFocus() {
     scrollToFocusIndex(index, false);
     requestFocusIndexFullImage(image, index, true);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
+    if (!restoreNotes) scheduleFocusIndexMotionWarmup(index);
   }
 
   function scheduleFocusIndexResize() {
@@ -4387,7 +4650,7 @@ function renderFocus() {
 
   function selectFocusIndexCard(index) {
     if (focusIndexState.phase === "opening") {
-      focusIndexState.pendingSelection = getBoundedFocusIndex(index);
+      closeFocusIndex(getBoundedFocusIndex(index), { restoreNotes: focusIndexState.returnMode === "notes" });
       return;
     }
     if (focusIndexState.phase !== "idle" || focusIndexState.mode !== "index") return;
@@ -4398,6 +4661,7 @@ function renderFocus() {
     if (!indexEnabled || !indexGallery) return;
     const resumed = focusIndexState.phase === "closing";
     if (focusIndexState.phase === "opening" || (focusIndexState.phase === "idle" && focusIndexState.mode === "index")) return;
+    cancelFocusIndexMotionWarmup();
     cancelFocusIndexMomentum();
     if (!resumed) {
       cancelFocusImageSwitch({ restoreVisualSelection: true });
@@ -4568,6 +4832,20 @@ function renderFocus() {
     return "x";
   }
 
+  function clampFocusUnit(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function projectFocusMotion(initialVelocity, decelerationRate = 0.99) {
+    const rate = Math.max(0.9, Math.min(0.999, decelerationRate));
+    return (initialVelocity / 1000) * rate / (1 - rate);
+  }
+
+  function getFocusRubberBandOffset(offset, dimension, constant = 0.5) {
+    const extent = Math.max(1, dimension);
+    return (offset * extent * constant) / (extent + constant * Math.abs(offset));
+  }
+
   function getFocusMainSwipeExtent(axis = getFocusMainSwipeAxis()) {
     const rect = getFocusRect(imageToggle) || getFocusRect(focusMain);
     const width = imageToggle.clientWidth || focusMain.clientWidth || rect?.width || window.innerWidth || 1;
@@ -4643,6 +4921,7 @@ function renderFocus() {
   function configureFocusMainSwipeRail(targetIndex, edge = false) {
     focusMainSwipe.railReady = false;
     focusMainSwipe.railAxis = "";
+    focusMainSwipe.velocity = 0;
     focusMainSwipe.railFrom = 0;
     focusMainSwipe.railTo = 0;
     if (edge) return;
@@ -4751,6 +5030,7 @@ function renderFocus() {
     const baseIndex = focusMainSwipe.active
       ? focusMainSwipe.targetIndex
       : Number(shell.dataset.activeIndex || 0);
+    cancelStaleFocusImagePreloads([baseIndex, ...getFocusPreloadIndexes(baseIndex, direction, 3)]);
     preloadFocusDirection(baseIndex, direction, 3);
     if (focusQueuedSwipe) {
       if (focusQueuedSwipe.direction !== direction || focusQueuedSwipe.steps >= 3) return false;
@@ -4896,6 +5176,7 @@ function renderFocus() {
     if (!isEdgeSwipe && !photo) return false;
     const { current, next } = ensureFocusMainSwipeLayer();
     shell.classList.remove("is-main-swipe-handoff", "is-main-swipe-fading", "is-main-swipe-returning", "is-main-swipe-edge");
+    cancelStaleFocusImagePreloads([fromIndex, ...getFocusPreloadIndexes(fromIndex, direction, 3)]);
     preloadFocusDirection(fromIndex, direction, 3);
     setFocusSwipeImage(current, photos[fromIndex]);
     if (isEdgeSwipe) {
@@ -4941,7 +5222,7 @@ function renderFocus() {
     focusMainSwipe.chained = true;
     const nextTravel = focusMainSwipe.travel || focusMainSwipe.extent || getFocusMainSwipeExtent(focusMainSwipe.axis);
     const nextOffset = focusMainSwipe.edge
-      ? Math.max(-nextTravel, Math.min(nextTravel, overflow * 0.36))
+      ? Math.max(-nextTravel, Math.min(nextTravel, getFocusRubberBandOffset(overflow, focusMainSwipe.extent)))
       : Math.max(-nextTravel * 0.94, Math.min(nextTravel * 0.94, overflow));
     setFocusMainSwipeFrame(nextOffset, direction);
     return { offset: nextOffset, advanced: true };
@@ -4967,7 +5248,7 @@ function renderFocus() {
     const dragLimit = travel * 0.94;
     const edgeLimit = travel;
     const nextOffset = focusMainSwipe.edge
-      ? Math.max(-edgeLimit, Math.min(edgeLimit, offset * 0.36))
+      ? Math.max(-edgeLimit, Math.min(edgeLimit, getFocusRubberBandOffset(offset, focusMainSwipe.extent)))
       : Math.max(-dragLimit, Math.min(dragLimit, offset));
     setFocusMainSwipeFrame(nextOffset, direction);
     return { offset: nextOffset, advanced: false };
@@ -5000,9 +5281,9 @@ function renderFocus() {
     setFocus(targetIndex, true, { instant: true, source: "swipe" });
     lockFocusRailAfterMainSwipe(targetIndex);
     if (focusQueuedSwipe && startQueuedFocusMainSwipe(targetIndex)) return;
-    waitForImageDecoded(image, 0).then((ready) => {
-      if (ready) finishClear();
-    });
+    waitForImageDecoded(image, 0)
+      .then((ready) => ready ? true : waitForImageDecoded(image, 1800))
+      .then(finishClear);
   }
 
   function startFocusMainSwipeAnimation(toOffset, commit = false) {
@@ -5017,39 +5298,54 @@ function renderFocus() {
     if (distance < 0.5) {
       focusMainSwipe.animating = false;
       focusMainSwipe.frame = 0;
+      focusMainSwipe.velocity = 0;
       if (focusMainSwipe.commit) commitFocusMainSwipe(focusMainSwipe.targetIndex);
       else clearFocusMainSwipe();
       return;
     }
-    const velocity = Math.abs(focusMainTouchVelocityX || 0);
     const travel = Math.max(1, focusMainSwipe.travel || focusMainSwipe.extent || distance || 1);
-    const remainingRatio = Math.max(0.08, Math.min(1, distance / travel));
-    const velocityFactor = Math.min(1.6, velocity);
-    const distanceFactor = 0.2 + Math.sqrt(remainingRatio) * 0.8;
-    const duration = commit
-      ? Math.max(120, Math.min(620, (610 - velocityFactor * 72) * distanceFactor))
-      : Math.max(110, Math.min(420, (390 - velocityFactor * 46) * distanceFactor));
-    shell.classList.add("is-main-swipe-animating");
-    const ease = (t) => {
-      const smooth = t * t * (3 - 2 * t);
-      const glide = 1 - Math.pow(1 - t, 2.35);
-      const velocityBlend = Math.min(1, velocityFactor / 1.4);
-      const glideWeight = 0.52 + velocityBlend * 0.18;
-      return smooth * (1 - glideWeight) + glide * glideWeight;
-    };
-    const step = (now) => {
-      const progress = Math.min(1, (now - focusMainSwipe.startedAt) / duration);
-      const nextOffset = focusMainSwipe.fromOffset + (focusMainSwipe.toOffset - focusMainSwipe.fromOffset) * ease(progress);
-      setFocusMainSwipeFrame(nextOffset);
-      if (progress < 1 && focusMainSwipe.animating) {
-        focusMainSwipe.frame = requestAnimationFrame(step);
-        return;
-      }
-      focusMainSwipe.frame = 0;
+    const maxVelocity = Math.max(1600, travel * 6);
+    const initialVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, (focusMainTouchVelocityX || 0) * 1000));
+    const response = commit ? 0.42 : 0.34;
+    const omega = 2 * Math.PI / response;
+    const displacement = focusMainSwipe.fromOffset - focusMainSwipe.toOffset;
+    const velocityCoefficient = initialVelocity + omega * displacement;
+    const directionToTarget = Math.sign(focusMainSwipe.toOffset - focusMainSwipe.fromOffset);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setFocusMainSwipeFrame(focusMainSwipe.toOffset);
       focusMainSwipe.animating = false;
-      shell.classList.remove("is-main-swipe-animating");
+      focusMainSwipe.frame = 0;
+      focusMainSwipe.velocity = 0;
       if (focusMainSwipe.commit) commitFocusMainSwipe(focusMainSwipe.targetIndex);
       else finishCancelledFocusMainSwipe();
+      return;
+    }
+    shell.classList.add("is-main-swipe-animating");
+    const step = (now) => {
+      const elapsed = Math.max(0, (now - focusMainSwipe.startedAt) / 1000);
+      const decay = Math.exp(-omega * elapsed);
+      const springDisplacement = (displacement + velocityCoefficient * elapsed) * decay;
+      const nextOffset = focusMainSwipe.toOffset + springDisplacement;
+      const currentVelocity = (velocityCoefficient - omega * (displacement + velocityCoefficient * elapsed)) * decay;
+      const crossedTarget = directionToTarget !== 0
+        && Math.sign(focusMainSwipe.toOffset - nextOffset) !== directionToTarget;
+      const settled = Math.abs(focusMainSwipe.toOffset - nextOffset) < 0.35 && Math.abs(currentVelocity) < 8;
+      const timedOut = elapsed > response * 2.4;
+      focusMainSwipe.velocity = currentVelocity;
+      if (crossedTarget || settled || timedOut) {
+        setFocusMainSwipeFrame(focusMainSwipe.toOffset);
+        focusMainSwipe.frame = 0;
+        focusMainSwipe.animating = false;
+        focusMainSwipe.velocity = 0;
+        shell.classList.remove("is-main-swipe-animating");
+        if (focusMainSwipe.commit) commitFocusMainSwipe(focusMainSwipe.targetIndex);
+        else finishCancelledFocusMainSwipe();
+        return;
+      }
+      setFocusMainSwipeFrame(nextOffset);
+      if (focusMainSwipe.animating) {
+        focusMainSwipe.frame = requestAnimationFrame(step);
+      }
     };
     focusMainSwipe.frame = requestAnimationFrame(step);
   }
@@ -5063,10 +5359,14 @@ function renderFocus() {
     const travel = focusMainSwipe.travel || extent;
     const offset = focusMainSwipe.offset || 0;
     const expectedSign = focusMainSwipe.direction > 0 ? -1 : 1;
-    const projectedOffset = offset + focusMainTouchVelocityX * 140;
-    const distanceMatches = Math.abs(offset) > extent * 0.13 && Math.sign(offset) === expectedSign;
-    const projectedMatches = Math.abs(projectedOffset) > extent * 0.2 && Math.sign(projectedOffset) === expectedSign;
-    const velocityMatches = Math.abs(focusMainTouchVelocityX) > 0.32 && Math.sign(focusMainTouchVelocityX) === expectedSign;
+    const releaseVelocity = focusMainTouchVelocityX * 1000;
+    const projectedOffset = offset + projectFocusMotion(releaseVelocity, 0.99);
+    const directionalDistance = expectedSign * offset;
+    const directionalProjection = expectedSign * projectedOffset;
+    const directionalVelocity = expectedSign * releaseVelocity;
+    const distanceMatches = directionalDistance > travel * 0.16;
+    const projectedMatches = directionalProjection > travel * 0.34;
+    const velocityMatches = directionalVelocity > 320;
     const shouldCommit = !focusMainSwipe.edge && (distanceMatches || projectedMatches || velocityMatches);
     if (shouldCommit && queuedDirection === focusMainSwipe.direction) {
       queueFocusMainSwipe(queuedDirection, focusMainTouchVelocityX);
@@ -5082,17 +5382,21 @@ function renderFocus() {
       if (isOpen) updateNotesLayout();
       return;
     }
+    const refreshIndexMotionPlan = focusIndexState.phase === "idle" && focusIndexState.mode !== "index";
+    if (refreshIndexMotionPlan) {
+      cancelFocusIndexMotionWarmup();
+      invalidateFocusIndexMotionPlan();
+    }
     if (isOpen) {
       syncFocusNotesBackground(Number(shell.dataset.activeIndex || 0));
       updateNotesLayout();
     }
-    window.clearTimeout(focusNotesPaletteTimer);
     const reduceNotesMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const applyNotesPalette = () => document.body.classList.toggle("focus-notes-palette-active", isOpen);
-    if (reduceNotesMotion || !document.body.classList.contains("has-loaded")) applyNotesPalette();
-    else focusNotesPaletteTimer = window.setTimeout(applyNotesPalette, 460);
+    const gestureMotion = Boolean(options.gesture);
+    document.body.classList.toggle("focus-notes-palette-active", isOpen);
     window.clearTimeout(focusNotesTransitionTimer);
-    shell.classList.add("is-notes-transitioning");
+    if (reduceNotesMotion || gestureMotion) shell.classList.remove("is-notes-transitioning");
+    else shell.classList.add("is-notes-transitioning");
     shell.classList.toggle("is-notes", isOpen);
     document.body.classList.toggle("focus-notes-open", isOpen);
     imageToggle.setAttribute("aria-expanded", String(isOpen));
@@ -5104,10 +5408,17 @@ function renderFocus() {
       focusIndexState.mode = isOpen ? "notes" : "rel";
       focusIndexState.returnMode = focusIndexState.mode;
     }
-    const transitionCleanupDelay = isOpen ? 1380 : 1120;
-    focusNotesTransitionTimer = window.setTimeout(() => {
-      shell.classList.remove("is-notes-transitioning");
-    }, transitionCleanupDelay);
+    if (!reduceNotesMotion && !gestureMotion) {
+      const transitionCleanupDelay = isOpen ? 920 : 820;
+      focusNotesTransitionTimer = window.setTimeout(() => {
+        shell.classList.remove("is-notes-transitioning");
+        if (!isOpen && refreshIndexMotionPlan) {
+          scheduleFocusIndexMotionWarmup(Number(shell.dataset.activeIndex || 0));
+        }
+      }, transitionCleanupDelay);
+    } else if (!isOpen && refreshIndexMotionPlan && !gestureMotion) {
+      scheduleFocusIndexMotionWarmup(Number(shell.dataset.activeIndex || 0));
+    }
   }
 
   function scheduleNotesLayoutUpdate() {
@@ -5363,22 +5674,30 @@ function renderFocus() {
     if (!src) return Promise.resolve(false);
     let entry = focusImagePreloadCache.get(src);
     if (entry) {
-      if (priority === "high") entry.image.fetchPriority = "high";
+      if (priority === "high") {
+        entry.priority = "high";
+        entry.image.fetchPriority = "high";
+      }
       focusImagePreloadCache.delete(src);
       focusImagePreloadCache.set(src, entry);
     } else {
       const next = new Image();
       next.decoding = "async";
       next.fetchPriority = priority;
-      entry = { image: next, request: null, settled: false };
+      entry = { image: next, request: null, resolve: null, settled: false, priority };
       entry.request = new Promise((resolve) => {
+        entry.resolve = resolve;
         next.onload = () => {
+          if (entry.settled) return;
           entry.settled = true;
+          entry.resolve = null;
           trimFocusImagePreloadCache();
           resolve(true);
         };
         next.onerror = () => {
+          if (entry.settled) return;
           entry.settled = true;
+          entry.resolve = null;
           trimFocusImagePreloadCache();
           resolve(false);
         };
@@ -5390,6 +5709,22 @@ function renderFocus() {
     return entry.request.then((ready) => ready ? waitForImageDecoded(entry.image, 0) : false);
   }
 
+  function cancelStaleFocusImagePreloads(keepIndexes = []) {
+    const keepSources = new Set(keepIndexes
+      .map((index) => getFocusPhotoSource(photos[index]))
+      .filter(Boolean));
+    for (const [src, entry] of focusImagePreloadCache) {
+      if (entry.settled || keepSources.has(src)) continue;
+      entry.settled = true;
+      entry.image.onload = null;
+      entry.image.onerror = null;
+      entry.image.removeAttribute("src");
+      entry.resolve?.(false);
+      entry.resolve = null;
+      focusImagePreloadCache.delete(src);
+    }
+  }
+
   function getFocusPreloadDepth(count) {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (!connection) return count;
@@ -5398,16 +5733,26 @@ function renderFocus() {
     return count;
   }
 
+  function getFocusPreloadIndexes(index, direction, count = 3) {
+    if (!direction) return [];
+    const indexes = [];
+    const preloadDepth = getFocusPreloadDepth(count);
+    for (let step = 1; step <= preloadDepth; step += 1) {
+      const photoIndex = index + direction * step;
+      if (!photos[photoIndex]) break;
+      indexes.push(photoIndex);
+    }
+    return indexes;
+  }
+
   function preloadFocusDirection(index, direction, count = 3) {
     if (!direction) return;
-    const preloadDepth = getFocusPreloadDepth(count);
-    for (let step = 1; step <= preloadDepth; step++) {
-      const photoIndex = index + direction * step;
+    const preloadIndexes = getFocusPreloadIndexes(index, direction, count);
+    preloadIndexes.forEach((photoIndex, offset) => {
       const photo = photos[photoIndex];
-      if (!photo) break;
-      preloadFocusImage(getFocusPhotoSource(photo), step === 1 ? "high" : "low");
+      preloadFocusImage(getFocusPhotoSource(photo), offset === 0 ? "high" : "low");
       hydrateDeferredImage(thumbs.querySelector(`.focus-thumb[data-index="${photoIndex + 1}"] img`));
-    }
+    });
   }
 
   function clearFocusSwipeImage(target) {
@@ -5574,7 +5919,18 @@ function renderFocus() {
       image.width = photo.width;
       image.height = photo.height;
     }
-    image.src = getFocusPhotoSource(photo);
+    const photoSource = getFocusPhotoSource(photo);
+    image.dataset.focusSource = photoSource;
+    delete image.dataset.focusFallback;
+    image.addEventListener("error", () => {
+      if (image.dataset.focusSource !== photoSource) return;
+      const fallbackSource = photo.thumb || "";
+      if (!fallbackSource || getFocusImageAbsoluteUrl(fallbackSource) === getFocusImageAbsoluteUrl(photoSource)) return;
+      image.dataset.focusFallback = "true";
+      image.fetchPriority = "high";
+      image.src = fallbackSource;
+    }, { once: true });
+    image.src = photoSource;
     image.alt = photo.alt;
     caption.textContent = "";
     updateFocusNoteContent(photo);
@@ -5582,6 +5938,9 @@ function renderFocus() {
     if (shell.classList.contains("is-notes")) syncFocusNotesBackground(index);
     scheduleFocusNeighborPreload(index);
     scheduleNotesLayoutUpdate();
+    if (!shell.classList.contains("is-notes") && focusIndexState.mode !== "index") {
+      scheduleFocusIndexMotionWarmup(index);
+    }
   }
 
   function setFocus(index, replaceUrl, options = {}) {
@@ -5820,6 +6179,141 @@ function renderFocus() {
       && focusRailThumbMetrics.every((metric) => metric.width > 0 && metric.height > 0);
   }
 
+  function cancelFocusNotesGestureAnimation() {
+    if (focusNotesGesture.frame) cancelAnimationFrame(focusNotesGesture.frame);
+    focusNotesGesture.frame = 0;
+    focusNotesGesture.animating = false;
+  }
+
+  function setFocusNotesGestureFrame(progress) {
+    const nextProgress = clampFocusUnit(progress);
+    const computed = getComputedStyle(shell);
+    const openShiftY = Number.parseFloat(computed.getPropertyValue("--notes-photo-shift-y")) || -38;
+    const openScale = Number.parseFloat(computed.getPropertyValue("--notes-photo-scale")) || 0.7;
+    const panelDistance = getCssLengthValue(shell, "--space-8", 32);
+    const railDistance = getCssLengthValue(shell, "--space-4", 16);
+    const copyProgress = clampFocusUnit((nextProgress - 0.18) / 0.82);
+    focusNotesGesture.progress = nextProgress;
+    shell.style.setProperty("--focus-notes-drag-progress", nextProgress.toFixed(4));
+    shell.style.setProperty("--focus-notes-drag-y", `${(openShiftY * nextProgress).toFixed(2)}px`);
+    shell.style.setProperty("--focus-notes-drag-scale", (1 + (openScale - 1) * nextProgress).toFixed(4));
+    shell.style.setProperty("--focus-notes-drag-panel-y", `${(panelDistance * (1 - nextProgress)).toFixed(2)}px`);
+    shell.style.setProperty("--focus-notes-drag-panel-scale", (0.96 + 0.04 * nextProgress).toFixed(4));
+    shell.style.setProperty("--focus-notes-drag-rail-y", `${(railDistance * nextProgress).toFixed(2)}px`);
+    shell.style.setProperty("--focus-notes-drag-rail-opacity", (1 - nextProgress * 0.78).toFixed(4));
+    shell.style.setProperty("--focus-notes-drag-rail-blur", `${(nextProgress * 2).toFixed(2)}px`);
+    shell.style.setProperty("--focus-notes-drag-rail-saturation", (1 - nextProgress * 0.28).toFixed(4));
+    shell.style.setProperty("--focus-notes-drag-copy-opacity", copyProgress.toFixed(4));
+    shell.style.setProperty("--focus-notes-drag-copy-y", `${((1 - copyProgress) * 5).toFixed(2)}px`);
+  }
+
+  function clearFocusNotesGestureStyles() {
+    shell.classList.remove("is-notes-gesture-active");
+    document.body.classList.remove("focus-notes-dragging");
+    [
+      "--focus-notes-drag-progress",
+      "--focus-notes-drag-y",
+      "--focus-notes-drag-scale",
+      "--focus-notes-drag-panel-y",
+      "--focus-notes-drag-panel-scale",
+      "--focus-notes-drag-rail-y",
+      "--focus-notes-drag-rail-opacity",
+      "--focus-notes-drag-rail-blur",
+      "--focus-notes-drag-rail-saturation",
+      "--focus-notes-drag-copy-opacity",
+      "--focus-notes-drag-copy-y"
+    ].forEach((property) => shell.style.removeProperty(property));
+  }
+
+  function beginFocusNotesDrag() {
+    const wasRunning = focusNotesGesture.active || focusNotesGesture.animating || shell.classList.contains("is-notes-gesture-active");
+    const currentProgress = wasRunning
+      ? focusNotesGesture.progress
+      : shell.classList.contains("is-notes") ? 1 : 0;
+    cancelFocusNotesGestureAnimation();
+    window.clearTimeout(focusNotesTransitionTimer);
+    shell.classList.remove("is-notes-transitioning");
+    syncFocusNotesBackground(Number(shell.dataset.activeIndex || 0));
+    updateNotesLayout();
+    focusNotesGesture.active = true;
+    focusNotesGesture.startedOpen = currentProgress >= 0.5;
+    focusNotesGesture.startProgress = currentProgress;
+    focusNotesGesture.travel = Math.max(68, Math.min(96, window.innerHeight * 0.1));
+    focusNotesGesture.velocity = 0;
+    shell.classList.add("is-notes-gesture-active");
+    document.body.classList.add("focus-notes-dragging");
+    setFocusNotesGestureFrame(currentProgress);
+  }
+
+  function updateFocusNotesDrag(deltaY) {
+    if (!focusNotesGesture.active) beginFocusNotesDrag();
+    const progress = focusNotesGesture.startProgress - deltaY / Math.max(1, focusNotesGesture.travel);
+    setFocusNotesGestureFrame(progress);
+  }
+
+  function completeFocusNotesGesture(targetProgress) {
+    cancelFocusNotesGestureAnimation();
+    focusNotesGesture.active = false;
+    focusNotesGesture.progress = targetProgress;
+    focusNotesGesture.velocity = 0;
+    setFocusNotesGestureFrame(targetProgress);
+    clearFocusNotesGestureStyles();
+    scheduleNotesLayoutUpdate();
+    if (targetProgress <= 0 && focusIndexState.phase === "idle" && focusIndexState.mode !== "index") {
+      scheduleFocusIndexMotionWarmup(Number(shell.dataset.activeIndex || 0));
+    }
+  }
+
+  function animateFocusNotesGestureTo(targetProgress, initialVelocity = 0) {
+    cancelFocusNotesGestureAnimation();
+    const fromProgress = focusNotesGesture.progress;
+    const toProgress = clampFocusUnit(targetProgress);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || Math.abs(toProgress - fromProgress) < 0.001) {
+      completeFocusNotesGesture(toProgress);
+      return;
+    }
+    focusNotesGesture.active = false;
+    focusNotesGesture.animating = true;
+    const response = 0.42;
+    const omega = 2 * Math.PI / response;
+    const displacement = fromProgress - toProgress;
+    const boundedVelocity = Math.max(-6, Math.min(6, initialVelocity));
+    const velocityCoefficient = boundedVelocity + omega * displacement;
+    const directionToTarget = Math.sign(toProgress - fromProgress);
+    const startedAt = performance.now();
+    const step = (now) => {
+      const elapsed = Math.max(0, (now - startedAt) / 1000);
+      const decay = Math.exp(-omega * elapsed);
+      const springDisplacement = (displacement + velocityCoefficient * elapsed) * decay;
+      const nextProgress = toProgress + springDisplacement;
+      const currentVelocity = (velocityCoefficient - omega * (displacement + velocityCoefficient * elapsed)) * decay;
+      const crossedTarget = directionToTarget !== 0
+        && Math.sign(toProgress - nextProgress) !== directionToTarget;
+      const settled = Math.abs(toProgress - nextProgress) < 0.002 && Math.abs(currentVelocity) < 0.02;
+      focusNotesGesture.velocity = currentVelocity;
+      if (crossedTarget || settled || elapsed > response * 2.4) {
+        completeFocusNotesGesture(toProgress);
+        return;
+      }
+      setFocusNotesGestureFrame(nextProgress);
+      if (focusNotesGesture.animating) focusNotesGesture.frame = requestAnimationFrame(step);
+    };
+    focusNotesGesture.frame = requestAnimationFrame(step);
+  }
+
+  function finishFocusNotesDrag(cancelled = false) {
+    if (!focusNotesGesture.active && !focusNotesGesture.animating) return;
+    const progressVelocity = -focusMainTouchVelocityY * 1000 / Math.max(1, focusNotesGesture.travel);
+    const projectedProgress = focusNotesGesture.progress + projectFocusMotion(progressVelocity, 0.99);
+    const targetOpen = cancelled
+      ? focusNotesGesture.startedOpen
+      : Math.abs(progressVelocity) > 0.72
+        ? progressVelocity > 0
+        : projectedProgress >= 0.5;
+    setNotesOpen(targetOpen, { source: "swipe", gesture: true });
+    animateFocusNotesGestureTo(targetOpen ? 1 : 0, cancelled ? 0 : progressVelocity);
+  }
+
   function resetFocusMainTouch() {
     focusMainTouchStartX = 0;
     focusMainTouchStartY = 0;
@@ -5827,6 +6321,8 @@ function renderFocus() {
     focusMainTouchLastY = 0;
     focusMainTouchLastMoveAt = 0;
     focusMainTouchVelocityX = 0;
+    focusMainTouchVelocityY = 0;
+    focusMainTouchHistory = [];
     focusMainTouchMode = "";
     focusMainTouchMoved = false;
     focusMainTouchBaseOffset = 0;
@@ -5834,18 +6330,18 @@ function renderFocus() {
     focusMainTouchGestureDirection = 0;
   }
 
-  function updateFocusMainTouchVelocity(clientX, eventTime) {
+  function updateFocusMainTouchVelocity(clientX, clientY, eventTime) {
     const now = Number.isFinite(eventTime) ? eventTime : performance.now();
-    if (!focusMainTouchLastMoveAt) {
-      focusMainTouchLastX = clientX;
-      focusMainTouchLastMoveAt = now;
-      focusMainTouchVelocityX = 0;
-      return;
-    }
-    const dt = Math.max(8, now - focusMainTouchLastMoveAt);
-    const instantVelocity = (clientX - focusMainTouchLastX) / dt;
-    focusMainTouchVelocityX = focusMainTouchVelocityX * 0.28 + instantVelocity * 0.72;
+    if (focusMainTouchLastMoveAt && now - focusMainTouchLastMoveAt > 96) focusMainTouchHistory = [];
+    focusMainTouchHistory.push({ x: clientX, y: clientY, time: now });
+    focusMainTouchHistory = focusMainTouchHistory.filter((sample) => now - sample.time <= 96).slice(-6);
+    const first = focusMainTouchHistory[0];
+    const last = focusMainTouchHistory[focusMainTouchHistory.length - 1];
+    const dt = Math.max(8, (last?.time || now) - (first?.time || now));
+    focusMainTouchVelocityX = first && last && first !== last ? (last.x - first.x) / dt : 0;
+    focusMainTouchVelocityY = first && last && first !== last ? (last.y - first.y) / dt : 0;
     focusMainTouchLastX = clientX;
+    focusMainTouchLastY = clientY;
     focusMainTouchLastMoveAt = now;
   }
 
@@ -5866,6 +6362,12 @@ function renderFocus() {
     focusMainTouchLastY = touch.clientY;
     focusMainTouchLastMoveAt = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
     focusMainTouchVelocityX = 0;
+    focusMainTouchVelocityY = 0;
+    focusMainTouchHistory = [{
+      x: touch.clientX,
+      y: touch.clientY,
+      time: focusMainTouchLastMoveAt
+    }];
     focusMainTouchBaseOffset = interruption.offset;
     focusMainTouchContinuationDirection = interruption.continuationDirection;
     focusMainTouchMode = "";
@@ -5880,11 +6382,21 @@ function renderFocus() {
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
     focusMainTouchLastY = touch.clientY;
-    updateFocusMainTouchVelocity(touch.clientX, event.timeStamp);
+    updateFocusMainTouchVelocity(touch.clientX, touch.clientY, event.timeStamp);
 
     if (!focusMainTouchMode) {
-      if (absX > 3 && absX > absY * 0.72) focusMainTouchMode = "horizontal";
-      else if (absY > 10 && absY > absX * 1.18) focusMainTouchMode = "vertical";
+      if (Math.max(absX, absY) > 8) {
+        if (absX > absY * 1.18) focusMainTouchMode = "horizontal";
+        else if (absY > absX * 1.18) {
+          if (shell.classList.contains("is-notes")) {
+            focusMainTouchMode = "vertical";
+            beginFocusNotesDrag();
+          } else {
+            focusMainTouchMode = "vertical-passive";
+            focusMainTouchMoved = true;
+          }
+        }
+      }
     }
     if (focusMainTouchMode === "horizontal") {
       focusMainTouchMoved = true;
@@ -5903,8 +6415,7 @@ function renderFocus() {
     if (focusMainTouchMode === "vertical") {
       focusMainTouchMoved = true;
       event.preventDefault();
-
-      if (shell.classList.contains("is-notes")) return;
+      updateFocusNotesDrag(deltaY);
     }
   }
 
@@ -5916,11 +6427,13 @@ function renderFocus() {
     const touch = event.changedTouches?.[0];
     const endY = touch ? touch.clientY : focusMainTouchLastY;
     const endX = touch ? touch.clientX : focusMainTouchStartX;
+    updateFocusMainTouchVelocity(endX, endY, event.timeStamp);
     const deltaX = endX - focusMainTouchStartX;
     const deltaY = endY - focusMainTouchStartY;
     const absY = Math.abs(deltaY);
     const absX = Math.abs(deltaX);
     const wasVertical = focusMainTouchMode === "vertical" && (focusMainTouchMoved || absY > 24);
+    const wasPassiveVertical = focusMainTouchMode === "vertical-passive" && (focusMainTouchMoved || absY > 10);
     const wasHorizontal = focusMainTouchMode === "horizontal" && (focusMainTouchMoved || absX > 6);
 
     if (wasHorizontal) {
@@ -5937,11 +6450,9 @@ function renderFocus() {
       finishFocusMainSwipe(queuedDirection);
     } else if (wasVertical) {
       focusMainTouchPreventClickUntil = Date.now() + 520;
-      if (shell.classList.contains("is-notes") && deltaY > 44) {
-        setNotesOpen(false, { source: "swipe" });
-      } else if (!shell.classList.contains("is-notes") && deltaY < -46) {
-        setNotesOpen(true, { source: "swipe" });
-      }
+      finishFocusNotesDrag(false);
+    } else if (wasPassiveVertical) {
+      focusMainTouchPreventClickUntil = Date.now() + 520;
     } else {
       if (focusMainSwipe.active && !focusMainSwipe.animating) startFocusMainSwipeAnimation(0, false);
     }
@@ -5950,6 +6461,7 @@ function renderFocus() {
 
   function handleFocusMainTouchCancel() {
     if (focusMainSwipe.active) startFocusMainSwipeAnimation(0, false);
+    if (focusNotesGesture.active || focusNotesGesture.animating) finishFocusNotesDrag(true);
     resetFocusMainTouch();
   }
 
