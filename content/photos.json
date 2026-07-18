@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-07-16T10:08:36Z",
+    "generatedAt":  "2026-07-18T10:33:48Z",
     "source":  "scripts/build-gallery.ps1",
     "webMax":  1920,
     "thumbMax":  480,
@@ -954,6 +954,44 @@
                       "medium":  "images/medium/047-r0011406.jpg",
                       "mediumWidth":  1280,
                       "mediumHeight":  545
+                  },
+                  {
+                      "id":  48,
+                      "title":  "WINTER 49",
+                      "category":  "STILL",
+                      "caption":  "A hand holding a blue Winter Sweet CD against a pale wall.",
+                      "alt":  "l4rxx photo 48 - WINTER 49",
+                      "original":  "images/originals/winter-sweet.jpg",
+                      "full":  "images/web/048-winter-sweet.jpg",
+                      "thumb":  "images/thumbs/048-winter-sweet.jpg",
+                      "date":  "2026-07-18",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  1280,
+                      "thumbWidth":  480,
+                      "thumbHeight":  320,
+                      "medium":  "images/medium/048-winter-sweet.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  853
+                  },
+                  {
+                      "id":  49,
+                      "title":  "FLASH 50",
+                      "category":  "PORTRAIT",
+                      "caption":  "A high-contrast black-and-white portrait during makeup.",
+                      "alt":  "l4rxx photo 49 - FLASH 50",
+                      "original":  "images/originals/makeup-flash.jpg",
+                      "full":  "images/web/049-makeup-flash.jpg",
+                      "thumb":  "images/thumbs/049-makeup-flash.jpg",
+                      "date":  "2026-07-18",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  1920,
+                      "thumbWidth":  480,
+                      "thumbHeight":  480,
+                      "medium":  "images/medium/049-makeup-flash.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1280
                   }
               ],
     "mediumMax":  1280

@@ -71,7 +71,9 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "R0011529.JPG"; title = "COMPANION 45"; category = "CAT"; caption = "A familiar overhead view of a cat walking beside the path."; noteCn = "之前有个人说我很喜欢拍这个视角的照片，可能是比较亲切吧。"; noteEn = "Someone once pointed out that I really like taking photos from this angle. Maybe it just feels more familiar."; locationCn = "广州 华南植物园"; locationEn = "Guangzhou South China Botanical Garden" },
     @{ original = "luvsicpt4-water.jpg"; title = "WATER 46"; category = "STILL"; caption = "A plastic cup of water held in low light."; noteCn = "一杯水。"; noteEn = "A cup of water." },
     @{ original = "1.1.2_1.1.2.jpg"; title = "CANOPY 47"; category = "PARK"; caption = "A green lawn held beneath a dark tree canopy." },
-    @{ original = "R0011406.jpg"; title = "COURT 48"; category = "NIGHT"; caption = "A night basketball court seen through chain-link fencing." }
+    @{ original = "R0011406.jpg"; title = "COURT 48"; category = "NIGHT"; caption = "A night basketball court seen through chain-link fencing." },
+    @{ original = "winter-sweet.jpg"; title = "WINTER 49"; category = "STILL"; caption = "A hand holding a blue Winter Sweet CD against a pale wall." },
+    @{ original = "makeup-flash.jpg"; title = "FLASH 50"; category = "PORTRAIT"; caption = "A high-contrast black-and-white portrait during makeup." }
 )
 
 function Convert-ToSlug {

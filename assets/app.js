@@ -10,7 +10,7 @@ const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
 const LANGUAGE_SESSION_STORAGE_KEY = "l4rxx-language";
-const PHOTO_MANIFEST_VERSION = "20260716-2";
+const PHOTO_MANIFEST_VERSION = "20260718-1";
 
 const languageCopy = {
   en: {
@@ -69,6 +69,20 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.4.3"],
+    date: "2026-07-18",
+    categories: {
+      optimizations: {
+        cn: ["随记进入与退出恢复更柔和的上一版速率曲线，同时保留同步启动与可打断机制。"],
+        en: ["Notes opening and closing return to the gentler previous motion curve while keeping synchronized, interruptible transitions."]
+      },
+      additions: {
+        cn: ["新增蓝色 Winter Sweet 唱片与黑白化妆人像两张照片，图库增至 49 张。"],
+        en: ["Added a blue Winter Sweet record and a monochrome makeup portrait, bringing the gallery to 49 photos."]
+      }
+    }
+  },
   {
     versions: ["v1.4.2"],
     date: "2026-07-16",

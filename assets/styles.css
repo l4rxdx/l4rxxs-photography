@@ -1776,7 +1776,7 @@ body[data-view="list"] .work-item__meta {
   background-color: var(--apple-music-background-scene, var(--color-light));
   opacity: 0;
   pointer-events: none;
-  transition: opacity .62s var(--ease-notes), background-color .62s var(--ease-notes);
+  transition: opacity .62s var(--ease-soft), background-color .62s var(--ease-soft);
   will-change: opacity;
 }
 
@@ -2250,11 +2250,11 @@ body.is-return-flight-active {
 }
 
 .focus-shell.is-notes-transitioning .focus-main {
-  transition: opacity .48s var(--ease-ui-out), filter .48s var(--ease-ui-out), transform .78s var(--ease-notes);
+  transition: opacity .48s var(--ease-soft), filter .48s var(--ease-soft), transform .78s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-main__button {
-  transition: transform .78s var(--ease-notes), filter .48s var(--ease-ui-out);
+  transition: transform .78s var(--ease-soft), filter .48s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-main img {
@@ -2295,23 +2295,23 @@ body.is-return-flight-active {
 }
 
 .focus-shell.is-notes-transitioning .focus-notes {
-  transition: opacity .42s var(--ease-ui-out), transform .72s var(--ease-notes);
+  transition: opacity .42s var(--ease-soft), transform .72s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-notes__body {
-  transition: opacity .42s var(--ease-ui-out);
+  transition: opacity .42s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-notes__body::before {
-  transition: background-color .45s var(--ease-soft), transform .62s var(--ease-notes);
+  transition: background-color .45s var(--ease-soft), transform .62s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-notes__text {
-  transition: opacity .48s var(--ease-ui-out), transform .58s var(--ease-notes), filter .36s var(--ease-ui-out);
+  transition: opacity .48s var(--ease-soft), transform .58s var(--ease-soft), filter .36s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-notes__location {
-  transition: opacity .48s var(--ease-ui-out), transform .58s var(--ease-notes), filter .36s var(--ease-ui-out), color .46s var(--ease-soft);
+  transition: opacity .48s var(--ease-soft), transform .58s var(--ease-soft), filter .36s var(--ease-soft), color .46s var(--ease-soft);
 }
 
 .focus-shell.is-notes .focus-notes {
