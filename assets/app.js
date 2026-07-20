@@ -9,7 +9,9 @@ const DEFAULT_PHOTO_NOTE_EN = "This space was meant for small notes for each pho
 const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
-const LANGUAGE_SESSION_STORAGE_KEY = "l4rxx-language";
+const LANGUAGE_STORAGE_KEY = "l4rxx-language";
+const THEME_MODE_STORAGE_KEY = "l4rxx-theme-mode";
+const THEME_STORAGE_KEY = "l4rxx-theme";
 const PHOTO_MANIFEST_VERSION = "20260718-1";
 
 const languageCopy = {
@@ -70,6 +72,28 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.4.4"],
+    date: "2026-07-21",
+    categories: {
+      fixes: {
+        cn: [
+          "修复移动端首页照片偶发跳动，并让语言选择在后续访问中保持。",
+          "修复退出索引后立即打开随记时主图过渡丢失。",
+          "修复系统主题变化后站内主题按钮首次点击可能无效，并同步多页面手动主题。"
+        ],
+        en: [
+          "Fixed occasional mobile home-photo jumps and kept language choices across later visits.",
+          "Fixed the main-photo transition disappearing when notes opened immediately after leaving INDEX.",
+          "Fixed the first in-site theme toggle sometimes failing after a system theme change, with manual themes now synchronized across pages."
+        ]
+      },
+      additions: {
+        cn: ["随记照片新增随页面进入和退出平滑变化的主题自适应阴影。"],
+        en: ["Added a theme-aware shadow that transitions smoothly with notes photos as they enter and leave."]
+      }
+    }
+  },
+  {
     versions: ["v1.4.3"],
     date: "2026-07-18",
     categories: {
@@ -78,8 +102,8 @@ const releaseLogEntries = [
         en: ["Notes opening and closing return to the gentler previous motion curve while keeping synchronized, interruptible transitions."]
       },
       additions: {
-        cn: ["新增蓝色 Winter Sweet 唱片与黑白化妆人像两张照片，图库增至 49 张。"],
-        en: ["Added a blue Winter Sweet record and a monochrome makeup portrait, bringing the gallery to 49 photos."]
+        cn: ["新增 2 张照片，图库增至 49 张。"],
+        en: ["Added 2 photos, bringing the gallery to 49 photos."]
       }
     }
   },
@@ -137,12 +161,12 @@ const releaseLogEntries = [
       },
       additions: {
         cn: [
-          "新增索引图库、照片取色随记背景和第 44 张照片，并为 14 张照片补充双语地点与随记。",
-          "新增第 45 张照片 WATER 46 及其双语随记。"
+          "新增索引图库和照片取色随记背景，并为 14 张照片补充双语地点与随记。",
+          "新增 2 张照片，图库增至 45 张。"
         ],
         en: [
-          "Added the INDEX gallery, photo-derived notes backgrounds, and the 44th photo, plus bilingual locations and notes for 14 photos.",
-          "Added the 45th photo, WATER 46, with its bilingual note."
+          "Added the INDEX gallery and photo-derived notes backgrounds, plus bilingual locations and notes for 14 photos.",
+          "Added 2 photos, bringing the gallery to 45 photos."
         ]
       }
     }
@@ -248,8 +272,8 @@ const releaseLogEntries = [
         en: ["Removed one photo that was no longer displayed."]
       },
       additions: {
-        cn: ["上线摄影作品集，并将公开图库扩展到 43 张照片。"],
-        en: ["Launched the photography portfolio and expanded the public gallery to 43 photos."]
+        cn: ["上线摄影作品集，并新增 18 张照片，公开图库由 25 张扩展至 43 张。"],
+        en: ["Launched the photography portfolio and added 18 photos, expanding the public gallery from 25 to 43 photos."]
       }
     }
   }
@@ -629,10 +653,17 @@ function initLanguageSwitch() {
   let languageTransitionTimer = 0;
   let languageTransitionRunId = 0;
   try {
-    saved = sessionStorage.getItem(LANGUAGE_SESSION_STORAGE_KEY) || "en";
+    const persistentLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    const legacySessionLanguage = sessionStorage.getItem(LANGUAGE_STORAGE_KEY);
+    saved = persistentLanguage || legacySessionLanguage || "en";
+    if (!persistentLanguage && (legacySessionLanguage === "cn" || legacySessionLanguage === "en")) {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, legacySessionLanguage);
+    }
+    sessionStorage.removeItem(LANGUAGE_STORAGE_KEY);
   } catch (error) {
     saved = "en";
   }
+  if (saved !== "cn" && saved !== "en") saved = "en";
 
   const clearLanguageTransition = () => {
     document.documentElement.classList.remove("is-language-transitioning");
@@ -674,7 +705,7 @@ function initLanguageSwitch() {
     window.dispatchEvent(new CustomEvent("l4rxx:languagechange", { detail: { language: next } }));
 
     try {
-      sessionStorage.setItem(LANGUAGE_SESSION_STORAGE_KEY, next);
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
     } catch (error) {
       return;
     }
@@ -712,19 +743,21 @@ function initThemeSwitch() {
   const systemTheme = window.matchMedia?.("(prefers-color-scheme: dark)");
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let currentTheme = "light";
-  let savedMode = "auto";
-  let savedTheme = null;
+  let themeMode = "auto";
   let themeTransitionTimer = 0;
-  try {
-    savedMode = localStorage.getItem("l4rxx-theme-mode") || "auto";
-    savedTheme = localStorage.getItem("l4rxx-theme");
-  } catch (error) {
-    savedMode = "auto";
-    savedTheme = null;
-  }
-  if (savedMode !== "light" && savedMode !== "dark" && savedMode !== "auto") savedMode = "auto";
 
   const getSystemTheme = () => systemTheme?.matches ? "dark" : "light";
+  const getAppliedTheme = () => document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  const readThemeMode = () => {
+    try {
+      const storedMode = localStorage.getItem(THEME_MODE_STORAGE_KEY);
+      if (storedMode === "light" || storedMode === "dark" || storedMode === "auto") return storedMode;
+      const legacyTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      return legacyTheme === "light" || legacyTheme === "dark" ? legacyTheme : "auto";
+    } catch (error) {
+      return themeMode;
+    }
+  };
 
   const clearThemeTransition = () => {
     window.clearTimeout(themeTransitionTimer);
@@ -766,35 +799,50 @@ function initThemeSwitch() {
 
   const persistThemeMode = (mode) => {
     try {
-      localStorage.setItem("l4rxx-theme-mode", mode);
-      if (mode === "auto") localStorage.removeItem("l4rxx-theme");
-      else localStorage.setItem("l4rxx-theme", mode);
+      localStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
+      if (mode === "auto") localStorage.removeItem(THEME_STORAGE_KEY);
+      else localStorage.setItem(THEME_STORAGE_KEY, mode);
     } catch (error) {
       return;
     }
   };
 
-  const setTheme = (theme, persist = true, animate = true) => {
-    applyTheme(theme, animate);
-    if (!persist) return;
-    savedMode = currentTheme;
-    persistThemeMode(savedMode);
+  const syncThemeMode = (animate = true) => {
+    themeMode = readThemeMode();
+    if (themeMode === "auto") applySystemTheme(animate);
+    else applyTheme(themeMode, animate);
+  };
+
+  const toggleManualTheme = () => {
+    const baseTheme = getAppliedTheme();
+    const nextTheme = baseTheme === "dark" ? "light" : "dark";
+    themeMode = nextTheme;
+    persistThemeMode(themeMode);
+    applyTheme(nextTheme, true);
   };
 
   if (toggle) {
-    toggle.addEventListener("click", () => setTheme(currentTheme === "dark" ? "light" : "dark", true, true));
+    toggle.addEventListener("click", toggleManualTheme);
   }
 
-  systemTheme?.addEventListener?.("change", (event) => {
-    if (savedMode === "auto") applySystemTheme(true);
+  const handleSystemThemeChange = (event) => {
+    if (themeMode !== "auto") return;
+    applyTheme(event.matches ? "dark" : "light", true);
+  };
+  if (systemTheme?.addEventListener) systemTheme.addEventListener("change", handleSystemThemeChange);
+  else systemTheme?.addListener?.(handleSystemThemeChange);
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== THEME_MODE_STORAGE_KEY && event.key !== THEME_STORAGE_KEY) return;
+    syncThemeMode(true);
+  });
+  window.addEventListener("pageshow", () => syncThemeMode(true));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && themeMode === "auto") applySystemTheme(true);
   });
 
-  if (savedMode === "auto") {
-    applySystemTheme(false);
-    persistThemeMode("auto");
-  } else {
-    applyTheme(savedMode || savedTheme || getSystemTheme(), false);
-  }
+  syncThemeMode(false);
+  persistThemeMode(themeMode);
 }
 
 function getPhotoRel(photo, fallbackIndex = 0) {
@@ -1319,6 +1367,7 @@ function initializeOverviewInteraction(grid) {
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const isMobile = () => window.innerWidth <= 768;
+  const canMoveOverviewPhotos = () => !isMobile() && Boolean(window.matchMedia?.("(hover: hover) and (pointer: fine)").matches);
   const idleAttractionRadius = () => window.innerHeight * (isMobile() ? 0.66 : 0.68);
   const photoAvoidRadius = () => isMobile() ? 10 : 16;
   const getSoftCollisionThreshold = () => isMobile() ? 0.82 : 0.98;
@@ -2102,7 +2151,7 @@ function initializeOverviewInteraction(grid) {
 
     const returningFromRel = document.body.classList.contains("is-returning-from-rel");
     const photoEffectDelay = returningFromRel ? 1180 : 520;
-    photoEffectsReady = time - physicsStartedAt >= photoEffectDelay;
+    photoEffectsReady = canMoveOverviewPhotos() && time - physicsStartedAt >= photoEffectDelay;
 
     const letterPieces = pieces.filter((piece) => piece.type === "letter");
     const reunionDistance = isMobile() ? 11 : 14;
@@ -2124,7 +2173,7 @@ function initializeOverviewInteraction(grid) {
       reunionArmed = false;
       reunionEndsAt = time + 920;
       document.body.classList.add("is-letter-reunion");
-      reunionPhoto = getNearestCollider(colliders) || null;
+      reunionPhoto = canMoveOverviewPhotos() ? getNearestCollider(colliders) || null : null;
       reunionPhoto?.classList.add("is-home-reunion");
     }
     if (reunionEndsAt && time >= reunionEndsAt) {
@@ -2142,7 +2191,7 @@ function initializeOverviewInteraction(grid) {
     }
 
     if (photoEffectsReady) setActiveItem(touchedItem || getNearestCollider(colliders), colliders);
-    else clearStates();
+    else if (activeItem || nearItems.length || photoHitTimers.size) clearStates();
     frame = scheduleFrame(tick);
   };
 
@@ -2274,6 +2323,10 @@ function initializeOverviewInteraction(grid) {
   const handleResize = () => {
     if (!started) return;
     photoColliderCacheAt = 0;
+    if (!canMoveOverviewPhotos()) {
+      clearStates();
+      clearReunionState();
+    }
     syncPieceMetrics();
   };
 
@@ -2934,8 +2987,10 @@ function renderFocus() {
     }
     openFocusIndex(activeIndex);
   });
+  imageToggle.addEventListener("pointerdown", releaseFocusIndexReturnSettleForInteraction, { passive: true });
   imageToggle.addEventListener("click", () => {
     if (Date.now() < focusMainTouchPreventClickUntil) return;
+    releaseFocusIndexReturnSettleForInteraction();
     setNotesOpen(!shell.classList.contains("is-notes"));
   });
   navToggle?.addEventListener("click", (event) => {
@@ -4512,6 +4567,18 @@ function renderFocus() {
         focusIndexReturnSettleTimer = 0;
       }, settleDuration);
     }));
+  }
+
+  function releaseFocusIndexReturnSettleForInteraction() {
+    if (focusIndexState.phase !== "idle" || focusIndexState.mode === "index") return false;
+    const isSettling = shell.classList.contains("is-index-return-settling")
+      || shell.classList.contains("is-index-reparenting");
+    if (!isSettling) return false;
+    window.clearTimeout(focusIndexReturnSettleTimer);
+    focusIndexReturnSettleTimer = 0;
+    shell.classList.remove("is-index-return-settling", "is-index-reparenting");
+    shell.offsetHeight;
+    return true;
   }
 
   function syncFocusIndexSelection(index) {

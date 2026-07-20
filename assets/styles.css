@@ -2245,8 +2245,13 @@ body.is-return-flight-active {
 }
 
 .focus-shell.is-notes .focus-main {
+  filter: drop-shadow(0 .68rem 1.05rem rgba(12, 12, 12, .24));
   transform: translateX(calc(-50% + var(--notes-photo-shift-x, -14vw))) translateY(var(--notes-photo-shift-y, 0px)) scale(var(--notes-photo-scale, .68));
   transition-delay: 0s;
+}
+
+body[data-theme="dark"] .focus-shell.is-notes .focus-main {
+  filter: drop-shadow(0 .72rem 1.12rem rgba(0, 0, 0, .48));
 }
 
 .focus-shell.is-notes-transitioning .focus-main {
