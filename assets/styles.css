@@ -1,11 +1,3 @@
-@font-face {
-  font-family: "L4RXX Notes";
-  src: url("fonts/yozai-notes.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
-
 :root {
   --color-dark: #0c0c0c;
   --color-light: #f5f3f0;
@@ -27,7 +19,7 @@
   --ease-ui-out: cubic-bezier(.23, 1, .32, 1);
   --font-display: "Arial Narrow", "Helvetica Neue Condensed Bold", Impact, sans-serif;
   --font-body: Arial, Helvetica, sans-serif;
-  --font-notes: "L4RXX Notes", "Yozai", "Kaiti SC", KaiTi, cursive;
+  --font-notes: "PingFang SC", "PingFang TC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
   --header-size: 6.4rem;
 }
 
@@ -1777,6 +1769,10 @@ body[data-view="list"] .work-item__meta {
   opacity: 0;
   pointer-events: none;
   transition: opacity .62s var(--ease-soft), background-color .62s var(--ease-soft);
+}
+
+.focus-shell.is-notes .focus-notes-background,
+.focus-shell.is-notes-transitioning .focus-notes-background {
   will-change: opacity;
 }
 
@@ -1819,9 +1815,15 @@ body.is-focus-leaving .focus-notes-background {
   padding-bottom: calc(50vh - var(--last-thumb-height, 8rem) / 2);
   scrollbar-width: none;
   opacity: 1;
-  filter: blur(0);
+  filter: none;
   transform: translateX(0);
   transition: opacity .72s var(--ease-notes), filter .72s var(--ease-soft), transform .82s var(--ease-notes);
+}
+
+body:not(.has-loaded) .focus-rail,
+body.is-focus-leaving .focus-rail,
+.focus-shell.is-notes-transitioning .focus-rail,
+.focus-shell.is-index-transitioning .focus-rail {
   will-change: opacity, filter, transform;
 }
 
@@ -1835,7 +1837,6 @@ body.is-focus-leaving .focus-notes-background {
   filter: blur(8px);
   transform: translateX(var(--focus-shift, 0px));
   transition: opacity .65s var(--ease) var(--delay), filter .65s var(--ease) var(--delay);
-  will-change: transform;
 }
 
 .focus-thumb__media {
@@ -1847,7 +1848,7 @@ body.is-focus-leaving .focus-notes-background {
 
 .has-loaded .focus-thumb {
   opacity: .56;
-  filter: blur(0);
+  filter: none;
   transform: translateX(var(--focus-shift, 0px));
 }
 
@@ -1911,9 +1912,13 @@ body.is-focus-leaving .focus-notes-background {
   -webkit-user-drag: none;
   opacity: 1;
   transform: scale(1);
-  filter: blur(0);
-  will-change: opacity, transform, filter;
+  filter: none;
   transition: opacity .42s var(--ease-soft), transform .58s var(--ease-notes), filter .42s var(--ease-soft);
+}
+
+.focus-shell.is-notes-transitioning .focus-main img,
+.focus-shell.is-switching-image .focus-main img {
+  will-change: opacity, transform, filter;
 }
 
 .focus-swipe-layer {
@@ -2245,17 +2250,21 @@ body.is-return-flight-active {
 }
 
 .focus-shell.is-notes .focus-main {
-  filter: drop-shadow(0 .68rem 1.05rem rgba(12, 12, 12, .24));
+  filter: none;
   transform: translateX(calc(-50% + var(--notes-photo-shift-x, -14vw))) translateY(var(--notes-photo-shift-y, 0px)) scale(var(--notes-photo-scale, .68));
   transition-delay: 0s;
 }
 
-body[data-theme="dark"] .focus-shell.is-notes .focus-main {
+.focus-shell.is-notes .focus-main__button {
+  filter: drop-shadow(0 .68rem 1.05rem rgba(12, 12, 12, .24));
+}
+
+body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
   filter: drop-shadow(0 .72rem 1.12rem rgba(0, 0, 0, .48));
 }
 
 .focus-shell.is-notes-transitioning .focus-main {
-  transition: opacity .48s var(--ease-soft), filter .48s var(--ease-soft), transform .78s var(--ease-soft);
+  transition: opacity .48s var(--ease-soft), transform .78s var(--ease-soft);
 }
 
 .focus-shell.is-notes-transitioning .focus-main__button {
@@ -2435,7 +2444,7 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main {
 
 .focus-shell.is-index .focus-main {
   opacity: 0;
-  filter: blur(12px);
+  filter: none;
   transform: translateX(-50%) scale(.965);
   pointer-events: none;
 }
@@ -2582,6 +2591,25 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main {
   body[data-language="en"] .nav-screen__social {
     flex-wrap: nowrap;
     gap: var(--space-2);
+  }
+
+  body[data-language="cn"] .nav-screen__footer {
+    gap: var(--space-2);
+    font-size: 1.05rem;
+  }
+
+  body[data-language="cn"] .nav-screen__social {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+
+  body[data-language="cn"] .nav-screen__copy-email {
+    min-width: 0;
+  }
+
+  body[data-language="cn"] .nav-screen__copy-email [data-copy-email-label] {
+    max-width: none;
   }
 
   .nav-screen__log-link {
@@ -3102,7 +3130,6 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main {
   contain: layout paint;
   isolation: isolate;
   transition: opacity .42s var(--ease-soft);
-  will-change: opacity;
 }
 
 .focus-index-gallery::-webkit-scrollbar {
@@ -3111,7 +3138,7 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main {
 
 .focus-shell.is-index .focus-index-gallery {
   opacity: 1;
-  filter: blur(0) saturate(1);
+  filter: none;
   transform: translate3d(0, 0, 0) scale(1);
   pointer-events: auto;
 }
@@ -3128,6 +3155,11 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main {
   overflow: hidden;
   touch-action: none;
   pointer-events: none;
+}
+
+.focus-shell.is-index-opening .focus-index-gallery,
+.focus-shell.is-index-closing .focus-index-gallery {
+  will-change: opacity;
 }
 
 .focus-shell.is-index-opening .focus-rail,
@@ -3291,13 +3323,13 @@ body[data-theme="dark"] .focus-index-moving-image {
 
 .focus-shell.is-index-opening .focus-main {
   opacity: 0;
-  filter: blur(8px);
+  filter: none;
   pointer-events: none;
 }
 
 .focus-shell.is-index-closing .focus-main {
   opacity: 0;
-  filter: blur(8px);
+  filter: none;
   pointer-events: none;
 }
 
@@ -3317,7 +3349,14 @@ body[data-theme="dark"] .focus-index-moving-image {
     gap: var(--space-8);
     overflow-x: clip;
     overscroll-behavior: none;
-    touch-action: pinch-zoom;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .focus-shell.is-index::before,
+  .focus-shell.is-index-transitioning::before {
+    background-color: color-mix(in srgb, var(--color-light) 88%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .focus-index-card {

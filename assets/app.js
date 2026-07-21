@@ -2,6 +2,7 @@ let photos = [];
 let overviewPhotos = [];
 let overviewOrder = [];
 let overviewImageObserver = null;
+let overviewBatchSequence = 0;
 let workViewAnimation = null;
 let workViewRunId = 0;
 const DEFAULT_PHOTO_NOTE_CN = "\u8fd9\u5730\u65b9\u672c\u6765\u662f\u7ed9\u6bcf\u4e2a\u7167\u7247\u5199\u70b9\u968f\u8bb0\u7684\uff0c\u4f46\u662f\u53c9\u6ef4\u53c9\u6709\u70b9\u61d2\u6ca1\u5199\u51e0\u4e2a";
@@ -71,6 +72,34 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.4.5"],
+    date: "2026-07-21",
+    categories: {
+      optimizations: {
+        cn: [
+          "\u9996\u9875\u56fe\u5e93\u590d\u7528\u56fa\u5b9a\u6279\u6b21\u5e76\u5728\u6587\u5b57\u505c\u7a33\u540e\u4f11\u7720\uff0c\u51cf\u5c11\u957f\u65f6\u95f4\u6d4f\u89c8\u4e0e\u7a7a\u95f2\u72b6\u6001\u7684\u8ba1\u7b97\u5f00\u9500\u3002",
+          "\u7d22\u5f15\u56fe\u5e93\u6539\u7528\u539f\u751f\u7eb5\u5411\u6eda\u52a8\u3001\u53ef\u89c1\u56fe\u7247\u52a0\u8f7d\u548c\u51e0\u4f55\u7f13\u5b58\uff0c\u968f\u8bb0\u5e03\u5c40\u6d4b\u91cf\u540c\u6b65\u7cbe\u7b80\u3002",
+          "\u968f\u8bb0\u6b63\u6587\u4e0e\u5730\u70b9\u6539\u7528\u7cfb\u7edf\u82f9\u65b9\u5b57\u4f53\uff0c\u5730\u70b9\u4fdd\u7559\u6e05\u6670\u7684\u7c97\u4f53\u5c42\u7ea7\u3002"
+        ],
+        en: [
+          "Home gallery batches are now recycled, and letter physics sleeps when settled to reduce long-session and idle work.",
+          "INDEX now uses native vertical scrolling, visible-image loading, and cached geometry, with leaner notes layout measurement.",
+          "Notes copy and locations now use the system PingFang stack, with locations retaining a clear bold hierarchy."
+        ]
+      },
+      fixes: {
+        cn: [
+          "\u4fee\u590d\u4ece\u968f\u8bb0\u8fdb\u5165\u7d22\u5f15\u518d\u8fd4\u56de\u65f6\u7167\u7247\u53ef\u80fd\u53d8\u6a21\u7cca\u3002",
+          "\u4fee\u590d\u79fb\u52a8\u7aef\u4e2d\u6587\u83dc\u5355\u5de6\u4e0b\u89d2\u94fe\u63a5\u6362\u884c\u3002"
+        ],
+        en: [
+          "Fixed notes photos becoming blurred after opening and closing INDEX.",
+          "Fixed mobile Chinese menu links wrapping in the lower-left footer."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.4.4"],
     date: "2026-07-21",
@@ -901,6 +930,7 @@ function renderOverview() {
 
   const returnState = readOverviewReturnState();
   prepareOverviewPhotos(returnState);
+  overviewBatchSequence = 0;
   overviewImageObserver?.disconnect();
   overviewImageObserver = createDeferredImageObserver("720px");
   appendOverviewBatch(grid, createOverviewBatch(true), true);
@@ -978,6 +1008,8 @@ function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = ""
 
 function appendOverviewBatch(grid, batch, isInitial = false) {
   const fragment = document.createDocumentFragment();
+  const batchId = overviewBatchSequence++;
+  const appendedItems = [];
   batch.forEach((item) => {
     const clone = isInitial ? item : item.cloneNode(true);
     if (!isInitial) {
@@ -986,10 +1018,16 @@ function appendOverviewBatch(grid, batch, isInitial = false) {
       clone.removeAttribute("style");
       clone.querySelectorAll("[style]").forEach((child) => child.removeAttribute("style"));
     }
+    clone.dataset.overviewBatch = String(batchId);
+    appendedItems.push(clone);
     fragment.appendChild(clone);
   });
   grid.appendChild(fragment);
   observeDeferredImages(grid, overviewImageObserver);
+  grid.dispatchEvent(new CustomEvent("overview:batchappend", {
+    detail: { batchId, items: appendedItems }
+  }));
+  return appendedItems;
 }
 
 function storeOverviewReturn(source) {
@@ -1105,12 +1143,41 @@ function initializeInfinityScroll(grid) {
   if (!grid) return;
 
   const batch = createOverviewBatch(false);
+  const maxRecycledBatches = 3;
+
+  const getBatchNodes = (batchId) => [...grid.querySelectorAll(`[data-overview-batch="${batchId}"]`)];
+  const getCloneBatchIds = () => {
+    const ids = [];
+    const seen = new Set();
+    grid.querySelectorAll("[data-overview-batch]").forEach((item) => {
+      const id = Number(item.dataset.overviewBatch);
+      if (!Number.isFinite(id) || id === 0 || seen.has(id)) return;
+      seen.add(id);
+      ids.push(id);
+    });
+    return ids;
+  };
+  const recycleBatchToEnd = (batchId) => {
+    const nodes = getBatchNodes(batchId);
+    const anchor = nodes[nodes.length - 1]?.nextElementSibling;
+    if (!nodes.length || !anchor) return false;
+    const beforeTop = anchor.offsetTop;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const fragment = document.createDocumentFragment();
+    nodes.forEach((node) => fragment.appendChild(node));
+    grid.appendChild(fragment);
+    const scrollDelta = anchor.offsetTop - beforeTop;
+    if (Math.abs(scrollDelta) > 0.5) window.scrollTo({ top: Math.max(0, scrollY + scrollDelta), left: 0, behavior: "auto" });
+    grid.dispatchEvent(new CustomEvent("overview:batchrecycle"));
+    return true;
+  };
 
   overviewScrollHandler = () => {
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    if (grid.offsetTop + grid.scrollHeight - (scrollTop + window.innerHeight) <= 500) {
-      appendOverviewBatch(grid, batch, false);
-    }
+    if (grid.offsetTop + grid.scrollHeight - (scrollTop + window.innerHeight) > 500) return;
+    const cloneBatchIds = getCloneBatchIds();
+    if (cloneBatchIds.length < maxRecycledBatches) appendOverviewBatch(grid, batch, false);
+    else recycleBatchToEnd(cloneBatchIds[0]);
   };
   window.addEventListener("scroll", overviewScrollHandler, { passive: true });
 }
@@ -1340,6 +1407,10 @@ function initializeOverviewInteraction(grid) {
   let lastTime = 0;
   let lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
   let physicsStartedAt = 0;
+  let physicsWakeTimer = 0;
+  let physicsThrottleTimer = 0;
+  let physicsSleeping = false;
+  let physicsFramePending = false;
   let lastScrollMoveAt = 0;
   let scrollLift = 0;
   let motionInfluence = { x: 0, y: 0, twist: 0 };
@@ -1354,6 +1425,7 @@ function initializeOverviewInteraction(grid) {
   let reunionCooldownUntil = 0;
   let reunionPhoto = null;
   let reunionArmed = true;
+  let hasReachedSettleZone = false;
   let restTargetKey = "";
   let cachedRestTargets = new Map();
   let photoColliderCache = [];
@@ -1361,6 +1433,8 @@ function initializeOverviewInteraction(grid) {
   let photoColliderCacheScrollY = NaN;
   let photoColliderCacheWidth = 0;
   let photoColliderCacheHeight = 0;
+  const collisionCandidates = new Set();
+  let collisionObserver = null;
   const ORIENTATION_LOW_PASS_RATE = 0.12;
   const MOTION_LOW_PASS_RATE = 0.08;
   const motionGestureOptions = { passive: true };
@@ -1377,12 +1451,85 @@ function initializeOverviewInteraction(grid) {
   const cancelFrame = (id) => {
     window.cancelAnimationFrame(id);
   };
+  const schedulePhysicsFrame = () => {
+    if (!started || physicsFramePending || document.hidden) return;
+    physicsSleeping = false;
+    physicsFramePending = true;
+    frame = scheduleFrame((time) => {
+      physicsFramePending = false;
+      frame = 0;
+      tick(time);
+    });
+  };
+  const schedulePhysicsAfter = (delay) => {
+    if (!started || physicsFramePending || physicsThrottleTimer || document.hidden) return;
+    physicsSleeping = false;
+    physicsThrottleTimer = window.setTimeout(() => {
+      physicsThrottleTimer = 0;
+      schedulePhysicsFrame();
+    }, Math.max(4, delay));
+  };
+  const wakePhysics = () => {
+    const wasSleeping = physicsSleeping || (!physicsFramePending && !physicsThrottleTimer);
+    window.clearTimeout(physicsWakeTimer);
+    physicsWakeTimer = 0;
+    window.clearTimeout(physicsThrottleTimer);
+    physicsThrottleTimer = 0;
+    physicsSleeping = false;
+    if (wasSleeping) lastTime = 0;
+    schedulePhysicsFrame();
+  };
+  const sleepPhysicsUntil = (wakeAt, now) => {
+    physicsSleeping = true;
+    window.clearTimeout(physicsThrottleTimer);
+    physicsThrottleTimer = 0;
+    window.clearTimeout(physicsWakeTimer);
+    physicsWakeTimer = 0;
+    if (!Number.isFinite(wakeAt) || wakeAt <= now) return;
+    physicsWakeTimer = window.setTimeout(wakePhysics, Math.max(24, wakeAt - now));
+  };
   const blendMotion = (nextX, nextY, nextTwist = 0, rate = 0.18) => {
     motionInfluence.x += (clamp(nextX, -1, 1) - motionInfluence.x) * rate;
     motionInfluence.y += (clamp(nextY, -1, 1) - motionInfluence.y) * rate;
     motionInfluence.twist += (clamp(nextTwist, -1, 1) - motionInfluence.twist) * rate;
   };
   const getMotionWakeStrength = () => Math.abs(motionInfluence.x) + Math.abs(motionInfluence.y) + Math.abs(motionInfluence.twist) * 0.28;
+  const invalidatePhotoColliderCache = () => {
+    photoColliderCacheAt = 0;
+    restTargetKey = "";
+    cachedRestTargets = new Map();
+  };
+  const observeCollisionItems = (items) => {
+    if (!collisionObserver) return;
+    items.forEach((item) => {
+      if (item?.matches?.(".overview-item[href]")) collisionObserver.observe(item);
+    });
+  };
+  const handleOverviewBatchAppend = (event) => {
+    observeCollisionItems(event.detail?.items || []);
+    invalidatePhotoColliderCache();
+  };
+  const handleOverviewBatchRecycle = () => invalidatePhotoColliderCache();
+  const setupCollisionObserver = () => {
+    if (!("IntersectionObserver" in window)) return;
+    collisionObserver = new IntersectionObserver((entries) => {
+      let changed = false;
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (!collisionCandidates.has(entry.target)) {
+            collisionCandidates.add(entry.target);
+            changed = true;
+          }
+        } else if (collisionCandidates.delete(entry.target)) {
+          changed = true;
+        }
+      });
+      if (changed) invalidatePhotoColliderCache();
+    }, { root: null, rootMargin: "180px 180px", threshold: 0.001 });
+    observeCollisionItems([...grid.querySelectorAll(".overview-item[href]")]);
+    grid.addEventListener("overview:batchappend", handleOverviewBatchAppend);
+    grid.addEventListener("overview:batchrecycle", handleOverviewBatchRecycle);
+  };
   const getPieceBox = (piece) => {
     if (piece.type === "figure") {
       const hitbox = piece.hitbox || { left: 0.18, right: 0.18, top: 0.075, bottom: 0.025 };
@@ -1470,6 +1617,7 @@ function initializeOverviewInteraction(grid) {
     const screenX = (mapped.x - motionNeutral.x) / 30;
     const screenY = (mapped.y - motionNeutral.y) / 32;
     blendMotion(screenX, screenY, Math.sin(alpha * Math.PI / 180) * 0.34, ORIENTATION_LOW_PASS_RATE);
+    if (getMotionWakeStrength() > 0.025) wakePhysics();
   };
 
   const handleDeviceMotion = (event) => {
@@ -1479,6 +1627,7 @@ function initializeOverviewInteraction(grid) {
     const x = Number(acceleration.x || 0) / 14;
     const y = Number(acceleration.y || 0) / -18;
     blendMotion(x, y, 0, MOTION_LOW_PASS_RATE);
+    if (getMotionWakeStrength() > 0.025) wakePhysics();
   };
 
   const startMotionListening = () => {
@@ -1631,7 +1780,10 @@ function initializeOverviewInteraction(grid) {
       return photoColliderCache;
     }
     const edgeBuffer = isMobile() ? 110 : 160;
-    photoColliderCache = [...grid.querySelectorAll(".overview-item[href]")].map((item) => {
+    const candidateItems = collisionObserver
+      ? [...collisionCandidates].filter((item) => item.isConnected)
+      : [...grid.querySelectorAll(".overview-item[href]")];
+    photoColliderCache = candidateItems.map((item) => {
       const image = item.querySelector("img");
       const media = item.querySelector(".fs-media");
       const rect = image && image.complete && image.naturalWidth > 0
@@ -1754,25 +1906,33 @@ function initializeOverviewInteraction(grid) {
     const maxX = Math.max(sidePadding, window.innerWidth - sidePadding - totalWidth);
     const emptyBandStep = Math.max(isMobile() ? 20 : 28, totalWidth * 0.14);
     const emptyBandYStep = Math.max(isMobile() ? 24 : 32, maxHeight * 0.28);
-    let best = null;
-    for (let y = lowerTop; y <= lowerBottom + 0.5; y += emptyBandYStep) {
-      for (let x = sidePadding; x <= maxX + 0.5; x += emptyBandStep) {
-        const rect = { left: x, right: x + totalWidth, top: y, bottom: y + maxHeight };
-        if (overlapsPhoto(rect)) continue;
-        const centerX = x + totalWidth / 2;
-        const centerY = y + maxHeight / 2;
-        const score = Math.hypot(centerX - currentGroup.x, centerY - currentGroup.y) * 0.48
-          + Math.abs(y - preferredY) * 0.34
-          + Math.abs(centerX - window.innerWidth / 2) * 0.12;
-        if (!best || score < best.score) best = { x, y, score };
+    const scanBand = (top, bottom, preferredBandY) => {
+      let best = null;
+      for (let y = top; y <= bottom + 0.5; y += emptyBandYStep) {
+        for (let x = sidePadding; x <= maxX + 0.5; x += emptyBandStep) {
+          const rect = { left: x, right: x + totalWidth, top: y, bottom: y + maxHeight };
+          if (overlapsPhoto(rect)) continue;
+          const centerX = x + totalWidth / 2;
+          const centerY = y + maxHeight / 2;
+          const score = Math.hypot(centerX - currentGroup.x, centerY - currentGroup.y) * 0.48
+            + Math.abs(y - preferredBandY) * 0.34
+            + Math.abs(centerX - window.innerWidth / 2) * 0.12;
+          if (!best || score < best.score) best = { x, y, score };
+        }
       }
-    }
-    return best;
+      return best;
+    };
+    const lowerCandidate = scanBand(lowerTop, lowerBottom, preferredY);
+    if (lowerCandidate) return lowerCandidate;
+    const middleTop = Math.max(isMobile() ? 74 : 92, window.innerHeight * 0.18);
+    const middleBottom = Math.max(middleTop, lowerTop - emptyBandYStep * 0.5);
+    const middlePreferredY = clamp(window.innerHeight * 0.42, middleTop, middleBottom);
+    return scanBand(middleTop, middleBottom, middlePreferredY);
   };
 
   const getRestTargets = (floor, sidePadding, colliders) => {
     const settlingPieces = pieces.filter((piece) => piece.settles !== false);
-    const gap = isMobile() ? 9 : 12;
+    const gap = window.innerWidth <= 340 ? 3 : isMobile() ? 9 : 12;
     const totalWidth = settlingPieces.reduce((sum, piece) => sum + piece.width, 0) + gap * Math.max(0, settlingPieces.length - 1);
     const maxHeight = settlingPieces.reduce((height, piece) => Math.max(height, piece.height), 0);
     const currentGroup = settlingPieces.reduce((sum, piece) => ({
@@ -1805,6 +1965,7 @@ function initializeOverviewInteraction(grid) {
   };
 
   const avoidPhotosSoftly = (piece, colliders, dt) => {
+    let avoided = false;
     colliders.forEach((collider) => {
       const padding = photoAvoidRadius();
       const rect = {
@@ -1822,6 +1983,7 @@ function initializeOverviewInteraction(grid) {
       const overlapBottom = rect.bottom - pieceBox.top;
       const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
       const strength = (isMobile() ? 0.34 : 0.42) * dt;
+      avoided = true;
       if (minOverlap === overlapLeft) piece.x -= overlapLeft * strength;
       else if (minOverlap === overlapRight) piece.x += overlapRight * strength;
       else if (minOverlap === overlapTop) piece.y -= overlapTop * strength;
@@ -1830,6 +1992,7 @@ function initializeOverviewInteraction(grid) {
       piece.vy *= 0.78;
       piece.va *= 0.82;
     });
+    return avoided;
   };
 
   const markPhotoHit = (collider, pieceCenterX, pieceCenterY) => {
@@ -1866,14 +2029,42 @@ function initializeOverviewInteraction(grid) {
     const pieceCenterX = pieceBox.left + (pieceBox.right - pieceBox.left) / 2;
     const pieceCenterY = pieceBox.top + (pieceBox.bottom - pieceBox.top) / 2;
     const bounce = (isMobile() ? 0.24 : 0.28) * (piece.rebound || 1);
+    const sideContact = minOverlap === overlapLeft || (minOverlap !== overlapTop && minOverlap !== overlapBottom);
+    if (sideContact) piece.photoSideContacts = (piece.photoSideContacts || 0) + 1;
     piece.sleeping = false;
     piece.floorHits = 0;
 
+    if (
+      piece.type === "figure"
+      && sideContact
+      && piece.photoSideContacts >= 4
+      && pieceBox.top < rect.top
+      && pieceCenterY < rect.top
+      && performance.now() - lastScrollMoveAt > 520
+    ) {
+      piece.y = rect.top - (piece.height - pieceBox.offsetBottom);
+      piece.vx = 0;
+      piece.vy = 0;
+      piece.va = 0;
+      piece.sleeping = true;
+      markPhotoHit(collider, pieceCenterX, pieceCenterY);
+      return true;
+    }
+
     if (minOverlap === overlapTop && piece.vy >= -2) {
+      piece.photoRestContacts = (piece.photoRestContacts || 0) + 1;
       let rollDirection = pieceCenterX < photoCenterX ? -1 : 1;
       if (piece.x < 22) rollDirection = 1;
       if (piece.x + piece.width > window.innerWidth - 22) rollDirection = -1;
       piece.y = rect.top - (piece.height - pieceBox.offsetBottom);
+      if (piece.type === "figure" && piece.photoRestContacts >= 3 && performance.now() - lastScrollMoveAt > 520) {
+        piece.vx = 0;
+        piece.vy = 0;
+        piece.va = 0;
+        piece.sleeping = true;
+        markPhotoHit(collider, pieceCenterX, pieceCenterY);
+        return true;
+      }
       piece.vy = -Math.min(Math.abs(piece.vy) * bounce + (isMobile() ? 0.38 : 0.48), isMobile() ? 1.8 : 2.25);
       piece.vx += (rollDirection * (isMobile() ? 0.92 : 1.12) + (Math.random() - 0.5) * 0.22) * (piece.rebound || 1) * dt;
     } else if (minOverlap === overlapBottom) {
@@ -1897,6 +2088,7 @@ function initializeOverviewInteraction(grid) {
         for (let j = i + 1; j < pieces.length; j++) {
           const first = pieces[i];
           const second = pieces[j];
+          const bothSleeping = first.sleeping && second.sleeping;
           const firstBox = getPieceBox(first);
           const secondBox = getPieceBox(second);
           if (firstBox.right <= secondBox.left || firstBox.left >= secondBox.right || firstBox.bottom <= secondBox.top || firstBox.top >= secondBox.bottom) continue;
@@ -1978,20 +2170,26 @@ function initializeOverviewInteraction(grid) {
           }
           first.va *= 0.9;
           second.va *= 0.9;
-          first.sleeping = false;
-          second.sleeping = false;
+          if (!bothSleeping) {
+            first.sleeping = false;
+            second.sleeping = false;
+          }
         }
       }
     }
   };
 
   const tick = (time) => {
+    if (document.hidden) {
+      physicsSleeping = true;
+      return;
+    }
     const allPiecesSleeping = pieces.length > 0 && pieces.every((piece) => piece.sleeping);
     const frameInterval = isMobile()
       ? allPiecesSleeping ? 56 : 15
       : allPiecesSleeping ? 48 : 14;
     if (lastTime && time - lastTime < frameInterval) {
-      frame = scheduleFrame(tick);
+      schedulePhysicsAfter(frameInterval - (time - lastTime));
       return;
     }
     if (!lastTime) lastTime = time;
@@ -2017,10 +2215,12 @@ function initializeOverviewInteraction(grid) {
     const idleAge = time - lastScrollMoveAt;
     const settlingPieces = pieces.filter((piece) => piece.settles !== false);
     const groupCenterY = settlingPieces.reduce((sum, piece) => sum + piece.y + piece.height / 2, 0) / Math.max(1, settlingPieces.length);
-    const groupHasNaturallyDropped = groupCenterY > idleAttractionRadius() || settlingPieces.some((piece) => piece.floorHits > 0);
+    if (!hasReachedSettleZone && (groupCenterY > idleAttractionRadius() || settlingPieces.some((piece) => piece.floorHits > 0))) {
+      hasReachedSettleZone = true;
+    }
     const shouldSettle = settleAge > 0
       && idleAge > (isMobile() ? 520 : 680)
-      && groupHasNaturallyDropped
+      && hasReachedSettleZone
       && time >= reunionCooldownUntil;
     if (!shouldSettle) {
       restTargetKey = "";
@@ -2032,23 +2232,35 @@ function initializeOverviewInteraction(grid) {
 
     pieces.forEach((piece, index) => {
       piece.onFloor = false;
+      const target = shouldSettle ? restTargets.get(piece) : null;
+      const restingAtTarget = target
+        && Math.abs(target.x - piece.x) < 0.55
+        && Math.abs(target.y - piece.y) < 0.55
+        && Math.abs(target.angle - piece.angle) < 0.22;
       if (piece.sleeping && motionWakeStrength > 0.08 && piece.type === "letter") {
         piece.sleeping = false;
         piece.vx += motionInfluence.x * 0.48;
         piece.vy += motionInfluence.y * 0.42;
         piece.va += (motionInfluence.x + motionInfluence.twist * 0.36) * 0.022;
       }
-      if (piece.sleeping && Math.abs(scrollDelta) < 1.5 && !shouldSettle) {
+      if (piece.sleeping && Math.abs(scrollDelta) < 1.5 && (!shouldSettle || piece.settles === false || restingAtTarget)) {
         piece.vx = 0;
         piece.vy = 0;
         piece.va = 0;
-        piece.angle += (piece.restAngle - piece.angle) * 0.055;
+        if (target) {
+          piece.x = target.x;
+          piece.y = target.y;
+          piece.angle = target.angle;
+        } else {
+          piece.angle += (piece.restAngle - piece.angle) * 0.055;
+        }
         return;
       }
 
       if (Math.abs(scrollDelta) >= 1.5) piece.sleeping = false;
       const passiveGravity = isMobile() && motionListening ? gravity * 0.72 : gravity;
-      piece.vy += (passiveGravity + scrollForce) * dt;
+      const settleForceScale = target ? Math.max(0, 1 - settleEase) : 1;
+      piece.vy += (passiveGravity * settleForceScale + scrollForce) * dt;
       piece.vx += motionInfluence.x * (isMobile() ? 0.068 : 0.034) * dt;
       piece.vy += motionInfluence.y * (isMobile() ? 0.11 : 0.022) * dt;
       piece.va += (motionInfluence.x + motionInfluence.twist * 0.4) * 0.006 * dt;
@@ -2057,7 +2269,10 @@ function initializeOverviewInteraction(grid) {
         piece.vx *= 0.92;
         piece.va *= 0.72;
       }
-      piece.vx += Math.sin(time * 0.001 + (piece.wanderSeed || index * 1.7)) * (piece.type === "figure" ? 0.011 : 0.008) * dt;
+      piece.vx += Math.sin(time * 0.001 + (piece.wanderSeed || index * 1.7))
+        * (piece.type === "figure" ? 0.011 : 0.008)
+        * settleForceScale
+        * dt;
       piece.vx *= 0.965;
       piece.vy *= 0.985;
       piece.va *= 0.93;
@@ -2094,7 +2309,20 @@ function initializeOverviewInteraction(grid) {
       colliders.forEach((collider) => {
         if (collideWithPhoto(piece, collider, dt)) touchedItem = collider.item;
       });
-      avoidPhotosSoftly(piece, colliders, dt);
+      const softlyAvoided = avoidPhotosSoftly(piece, colliders, dt);
+      if (softlyAvoided) piece.softPhotoContacts = (piece.softPhotoContacts || 0) + 1;
+      else piece.softPhotoContacts = 0;
+      if (
+        piece.type === "figure"
+        && piece.softPhotoContacts >= 24
+        && Math.abs(piece.vx) + Math.abs(piece.vy) < 0.65
+        && idleAge > 520
+      ) {
+        piece.vx = 0;
+        piece.vy = 0;
+        piece.va = 0;
+        piece.sleeping = true;
+      }
 
       piece.vx = clamp(piece.vx, -3.6, 3.6);
       piece.vy = clamp(piece.vy, -3.8, 5.8);
@@ -2118,7 +2346,6 @@ function initializeOverviewInteraction(grid) {
         piece.angle += (piece.restAngle - piece.angle) * 0.04;
       }
 
-      const target = shouldSettle ? restTargets.get(piece) : null;
       if (target) {
         const baseSettleRate = Math.abs(scrollDelta) > 1.5 ? 0.008 : 0.014;
         const settleRate = (baseSettleRate + settleEase * 0.018) * dt;
@@ -2166,7 +2393,6 @@ function initializeOverviewInteraction(grid) {
       });
     if (!reunionReady) {
       reunionStableSince = 0;
-      if (time >= reunionCooldownUntil && !reunionEndsAt) reunionArmed = true;
     } else if (!reunionStableSince) {
       reunionStableSince = time;
     } else if (reunionArmed && !reunionEndsAt && time - reunionStableSince > 420) {
@@ -2192,7 +2418,32 @@ function initializeOverviewInteraction(grid) {
 
     if (photoEffectsReady) setActiveItem(touchedItem || getNearestCollider(colliders), colliders);
     else if (activeItem || nearItems.length || photoHitTimers.size) clearStates();
-    frame = scheduleFrame(tick);
+    const allPiecesSleepingNow = pieces.length > 0 && pieces.every((piece) => piece.sleeping);
+    const motionQuiet = motionWakeStrength <= 0.025;
+    if (allPiecesSleepingNow && Math.abs(scrollDelta) < 1.5 && motionQuiet) {
+      let wakeAt = 0;
+      if (reunionEndsAt > time) {
+        wakeAt = reunionEndsAt + 16;
+      } else if (reunionReady && reunionArmed) {
+        wakeAt = (reunionStableSince || time) + 440;
+      } else if (!shouldSettle) {
+        wakeAt = Math.max(
+          physicsStartedAt + settleDelay + 16,
+          lastScrollMoveAt + (isMobile() ? 520 : 680) + 16
+        );
+      } else if (!reunionArmed && reunionCooldownUntil > time) {
+        wakeAt = reunionCooldownUntil + 16;
+      }
+      if (wakeAt > time + 20) {
+        sleepPhysicsUntil(wakeAt, time);
+        return;
+      }
+      if (!wakeAt) {
+        sleepPhysicsUntil(0, time);
+        return;
+      }
+    }
+    schedulePhysicsFrame();
   };
 
   const startPhysics = () => {
@@ -2271,9 +2522,10 @@ function initializeOverviewInteraction(grid) {
     physicsStartedAt = 0;
     photoEffectsReady = false;
     lastScrollMoveAt = 0;
+    hasReachedSettleZone = false;
     scrollLift = 0;
     lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    frame = scheduleFrame(tick);
+    schedulePhysicsFrame();
   };
 
   const waitForBrandIntro = () => {
@@ -2322,12 +2574,13 @@ function initializeOverviewInteraction(grid) {
 
   const handleResize = () => {
     if (!started) return;
-    photoColliderCacheAt = 0;
+    invalidatePhotoColliderCache();
     if (!canMoveOverviewPhotos()) {
       clearStates();
       clearReunionState();
     }
     syncPieceMetrics();
+    wakePhysics();
   };
 
   const handlePhysicsScroll = () => {
@@ -2335,26 +2588,59 @@ function initializeOverviewInteraction(grid) {
     const now = performance.now();
     lastScrollMoveAt = now;
     lastTime = Math.min(lastTime || now - 16.67, now - 16.67);
+    reunionArmed = true;
+    pieces.forEach((piece) => {
+      if (piece.type !== "figure") return;
+      piece.photoRestContacts = 0;
+      piece.photoSideContacts = 0;
+      piece.softPhotoContacts = 0;
+    });
+    wakePhysics();
+  };
+
+  const handlePhysicsVisibility = () => {
+    if (document.hidden) {
+      if (frame) cancelFrame(frame);
+      frame = 0;
+      physicsFramePending = false;
+      window.clearTimeout(physicsThrottleTimer);
+      physicsThrottleTimer = 0;
+      window.clearTimeout(physicsWakeTimer);
+      physicsWakeTimer = 0;
+      physicsSleeping = true;
+      return;
+    }
+    wakePhysics();
   };
 
   window.addEventListener("resize", handleResize);
   window.addEventListener("scroll", handlePhysicsScroll, { passive: true });
+  document.addEventListener("visibilitychange", handlePhysicsVisibility);
+  setupCollisionObserver();
   setupMotionAccess();
   waitForIntro();
 
   overviewInteractionCleanup = () => {
     if (frame) cancelFrame(frame);
+    physicsFramePending = false;
+    window.clearTimeout(physicsThrottleTimer);
+    window.clearTimeout(physicsWakeTimer);
     window.clearTimeout(readyTimer);
     window.clearTimeout(waitTimer);
     introCleanup?.();
     window.removeEventListener("resize", handleResize);
     window.removeEventListener("scroll", handlePhysicsScroll);
+    document.removeEventListener("visibilitychange", handlePhysicsVisibility);
     window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
     window.removeEventListener("devicemotion", handleDeviceMotion, true);
     window.removeEventListener("pointerdown", requestMotionAccess);
     window.removeEventListener("touchstart", requestMotionAccess);
     window.removeEventListener("touchend", requestMotionAccess);
     window.removeEventListener("click", requestMotionAccess);
+    collisionObserver?.disconnect();
+    grid.removeEventListener("overview:batchappend", handleOverviewBatchAppend);
+    grid.removeEventListener("overview:batchrecycle", handleOverviewBatchRecycle);
+    collisionCandidates.clear();
     clearReunionState();
     applyIdleState();
   };
@@ -2769,15 +3055,6 @@ function renderFocus() {
   let focusMainTouchBaseOffset = 0;
   let focusMainTouchContinuationDirection = 0;
   let focusMainTouchGestureDirection = 0;
-  let focusIndexTouchStartX = 0;
-  let focusIndexTouchStartY = 0;
-  let focusIndexTouchLastY = 0;
-  let focusIndexTouchLastMoveAt = 0;
-  let focusIndexTouchVelocityY = 0;
-  let focusIndexTouchMoved = false;
-  let focusIndexTouchPreventClickUntil = 0;
-  let focusIndexTouchMode = "";
-  let focusIndexMomentumFrame = 0;
   let focusLastNavigationDirection = 1;
   const focusMainSwipe = {
     active: false,
@@ -2828,6 +3105,12 @@ function renderFocus() {
   let focusRailThumbMetrics = [];
   let focusIndexPreparedIndex = -1;
   let focusIndexThumbBatchTimer = 0;
+  const focusIndexCards = [];
+  const focusIndexVisibleCards = new Set();
+  let focusIndexCardObserver = null;
+  let focusIndexCardMetrics = [];
+  let focusIndexMetricsViewportWidth = 0;
+  let focusIndexMetricsViewportHeight = 0;
   let focusIndexPreparedRect = null;
   let focusIndexPreparedViewportWidth = 0;
   let focusIndexPreparedViewportHeight = 0;
@@ -2840,6 +3123,13 @@ function renderFocus() {
   let focusMainSwipeLockUntil = 0;
   let focusNoteCopyTransitionTimer = 0;
   let focusNotesTransitionTimer = 0;
+  let notesLayoutFrame = 0;
+  let notesLayoutTimer = 0;
+  let notesLayoutCacheKey = "";
+  let notesLayoutSnapshot = null;
+  let focusMainBaseRectCache = null;
+  let focusMainBaseRectViewportWidth = 0;
+  let focusMainBaseRectViewportHeight = 0;
   let focusIndexReturnSettleTimer = 0;
   let focusNeighborPreloadRun = 0;
   const focusPhotoRatios = new Map();
@@ -2929,14 +3219,33 @@ function renderFocus() {
       indexImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, indexImage), { once: true });
       if (indexImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, indexImage));
       indexButton.addEventListener("click", () => {
-        if (Date.now() < focusIndexTouchPreventClickUntil) return;
         selectFocusIndexCard(index);
       });
+      focusIndexCards.push(indexButton);
       indexFragment.appendChild(indexButton);
     }
   });
   thumbs.appendChild(thumbFragment);
   if (indexGallery && indexFragment) indexGallery.appendChild(indexFragment);
+  if (indexGallery && "IntersectionObserver" in window) {
+    focusIndexCardObserver = new IntersectionObserver((entries) => {
+      let hasVisibleChange = false;
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          if (!focusIndexVisibleCards.has(entry.target)) {
+            focusIndexVisibleCards.add(entry.target);
+            hasVisibleChange = true;
+          }
+        } else if (focusIndexVisibleCards.delete(entry.target)) {
+          hasVisibleChange = true;
+        }
+      });
+      if (hasVisibleChange && (focusIndexState.mode === "index" || focusIndexState.phase === "opening")) {
+        scheduleFocusIndexImageWindow();
+      }
+    }, { root: indexGallery, rootMargin: "30% 0px", threshold: 0.01 });
+    focusIndexCards.forEach((card) => focusIndexCardObserver.observe(card));
+  }
 
   const hydrateFocusThumbRange = (centerIndex, radius = 2) => {
     const start = Math.max(0, centerIndex - radius);
@@ -2963,10 +3272,6 @@ function renderFocus() {
     scheduleFocusIndexImageWindow();
   }, { passive: true });
   indexGallery?.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
-  indexGallery?.addEventListener("touchstart", handleFocusIndexTouchStart, { passive: true });
-  indexGallery?.addEventListener("touchmove", handleFocusIndexTouchMove, { passive: false });
-  indexGallery?.addEventListener("touchend", handleFocusIndexTouchEnd, { passive: true });
-  indexGallery?.addEventListener("touchcancel", handleFocusIndexTouchCancel, { passive: true });
 
   indexToggle?.addEventListener("pointerdown", () => {
     if (focusIndexState.mode === "index" || focusIndexState.phase !== "idle" || shell.classList.contains("is-index")) return;
@@ -3094,6 +3399,8 @@ function renderFocus() {
     scheduleFocusRailSync(720);
   });
   window.addEventListener("resize", () => {
+    invalidateFocusIndexCardMetrics();
+    invalidateFocusLayoutMeasurements();
     updateFocusRailMetrics();
     updateMobileFocusRail();
     scheduleFocusRailSync(420);
@@ -3265,8 +3572,21 @@ function renderFocus() {
     };
   }
 
-  function measureFocusMainBaseRect() {
+  function invalidateFocusLayoutMeasurements() {
+    focusMainBaseRectCache = null;
+    focusMainBaseRectViewportWidth = 0;
+    focusMainBaseRectViewportHeight = 0;
+    notesLayoutCacheKey = "";
+    notesLayoutSnapshot = null;
+  }
+
+  function measureFocusMainBaseRect(force = false) {
     if (!focusMain) return null;
+    const canReuse = !force
+      && focusMainBaseRectCache
+      && focusMainBaseRectViewportWidth === window.innerWidth
+      && focusMainBaseRectViewportHeight === window.innerHeight;
+    if (canReuse) return copyFocusRect(focusMainBaseRectCache);
     const measure = document.createElement(focusMain.tagName?.toLowerCase() || "figure");
     measure.className = "focus-main is-measuring-base";
     measure.setAttribute("aria-hidden", "true");
@@ -3279,11 +3599,14 @@ function renderFocus() {
     (shell || document.body).appendChild(measure);
     const rect = getFocusRect(measure);
     measure.remove();
-    return rect;
+    focusMainBaseRectCache = copyFocusRect(rect);
+    focusMainBaseRectViewportWidth = window.innerWidth;
+    focusMainBaseRectViewportHeight = window.innerHeight;
+    return copyFocusRect(focusMainBaseRectCache);
   }
 
   function getFocusMainTargetRect(options = {}) {
-    if (options.notes) updateNotesLayout();
+    if (options.notes && !options.layoutReady) updateNotesLayout();
     let rect = measureFocusMainBaseRect() || getFocusRect(imageToggle) || getFocusRect(image);
     if (!rect) return null;
     if (options.notes) {
@@ -3301,7 +3624,10 @@ function renderFocus() {
   }
 
   function getFocusImageContentRectForPhoto(photo, index, options = {}) {
-    const box = getFocusMainTargetRect({ notes: Boolean(options.notes) }) || getFocusRect(image) || getFocusRect(imageToggle);
+    const box = getFocusMainTargetRect({
+      notes: Boolean(options.notes),
+      layoutReady: Boolean(options.layoutReady)
+    }) || getFocusRect(image) || getFocusRect(imageToggle);
     const ratio = getFocusPhotoRatio(index, options.sourceRect);
     if (!box || !ratio) return box;
     return getContentRectWithin(box, ratio);
@@ -3317,10 +3643,10 @@ function renderFocus() {
     };
   }
 
-  function measureUnlockedFocusMainTargetRect(notes) {
+  function measureUnlockedFocusMainTargetRect(notes, options = {}) {
     const body = document.body;
     const locked = body.classList.contains("focus-index-scroll-lock");
-    if (!locked) return getFocusMainTargetRect({ notes });
+    if (!locked) return getFocusMainTargetRect({ notes, layoutReady: Boolean(options.layoutReady) });
     const lockedStyles = {
       top: body.style.top,
       position: body.style.position,
@@ -3334,7 +3660,7 @@ function renderFocus() {
     body.style.width = focusIndexState.savedBodyWidth;
     body.style.overflow = focusIndexState.savedBodyOverflow;
     body.style.paddingRight = focusIndexState.savedBodyPaddingRight;
-    const rect = getFocusMainTargetRect({ notes });
+    const rect = getFocusMainTargetRect({ notes, layoutReady: Boolean(options.layoutReady) });
     body.classList.add("focus-index-scroll-lock");
     body.style.top = lockedStyles.top;
     body.style.position = lockedStyles.position;
@@ -3344,7 +3670,7 @@ function renderFocus() {
     return rect;
   }
 
-  function getFocusIndexReturnRect(index, sourceRect, restoreNotes) {
+  function getFocusIndexReturnRect(index, sourceRect, restoreNotes, options = {}) {
     const sameViewport = focusIndexState.returnViewportWidth === window.innerWidth
       && focusIndexState.returnViewportHeight === window.innerHeight;
     if (sameViewport && index === focusIndexState.returnImageIndex && focusIndexState.returnImageRect) {
@@ -3352,17 +3678,54 @@ function renderFocus() {
     }
     const box = sameViewport
       ? focusIndexState.returnBoxRect
-      : measureUnlockedFocusMainTargetRect(restoreNotes);
+      : measureUnlockedFocusMainTargetRect(restoreNotes, options);
     const ratio = getFocusPhotoRatio(index, sourceRect);
     if (box && ratio) return getContentRectWithin(box, ratio);
     return getFocusImageContentRectForPhoto(photos[index], index, {
       notes: restoreNotes,
+      layoutReady: Boolean(options.layoutReady),
       sourceRect
     });
   }
 
   function getFocusIndexCardByIndex(index) {
-    return indexGallery?.querySelector(`.focus-index-card[data-index="${index + 1}"]`) || null;
+    return focusIndexCards[index] || null;
+  }
+
+  function invalidateFocusIndexCardMetrics() {
+    focusIndexCardMetrics = [];
+    focusIndexMetricsViewportWidth = 0;
+    focusIndexMetricsViewportHeight = 0;
+  }
+
+  function refreshFocusIndexCardMetrics(force = false) {
+    if (!indexGallery) return [];
+    const reusable = !force
+      && focusIndexCardMetrics.length === focusIndexCards.length
+      && focusIndexMetricsViewportWidth === window.innerWidth
+      && focusIndexMetricsViewportHeight === window.innerHeight;
+    if (reusable) return focusIndexCardMetrics;
+    focusIndexCardMetrics = focusIndexCards.map((card, index) => ({
+      index,
+      top: card.offsetTop,
+      left: card.offsetLeft,
+      width: card.offsetWidth,
+      height: card.offsetHeight
+    }));
+    focusIndexMetricsViewportWidth = window.innerWidth;
+    focusIndexMetricsViewportHeight = window.innerHeight;
+    return focusIndexCardMetrics;
+  }
+
+  function getFocusIndexLayoutRect(index, galleryRect = getFocusRect(indexGallery)) {
+    const metric = refreshFocusIndexCardMetrics()[index];
+    if (!metric || !galleryRect) return null;
+    return {
+      left: galleryRect.left + metric.left - indexGallery.scrollLeft,
+      top: galleryRect.top + metric.top - indexGallery.scrollTop,
+      width: metric.width,
+      height: metric.height
+    };
   }
 
   function getFocusIndexCardRect(card) {
@@ -3381,7 +3744,7 @@ function renderFocus() {
 
   function setFocusIndexGalleryActive(index) {
     if (!indexGallery) return;
-    indexGallery.querySelectorAll(".focus-index-card").forEach((card, cardIndex) => {
+    focusIndexCards.forEach((card, cardIndex) => {
       const active = cardIndex === index;
       card.classList.toggle("is-active", active);
       card.setAttribute("aria-current", active ? "true" : "false");
@@ -3394,7 +3757,11 @@ function renderFocus() {
     rememberFocusPhotoRatio(index, image);
     const ratio = getFocusPhotoRatio(index);
     if (!ratio) return;
-    card.style.setProperty("--focus-index-ratio", ratio.toFixed(5));
+    const value = ratio.toFixed(5);
+    if (card.style.getPropertyValue("--focus-index-ratio") !== value) {
+      card.style.setProperty("--focus-index-ratio", value);
+      invalidateFocusIndexCardMetrics();
+    }
   }
 
   function positionFocusIndexGalleryOnActive(activeIndex) {
@@ -3403,14 +3770,12 @@ function renderFocus() {
     if (!card) return null;
     lockFocusIndexCardRatio(activeIndex);
     indexGallery.scrollLeft = 0;
-    const align = () => {
-      const targetTop = card.offsetTop + card.offsetHeight / 2 - indexGallery.clientHeight / 2;
-      const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
-      indexGallery.scrollTop = Math.max(0, Math.min(targetTop, maxTop));
-    };
-    align();
-    indexGallery.offsetHeight;
-    align();
+    const metric = refreshFocusIndexCardMetrics()[activeIndex];
+    const targetTop = metric
+      ? metric.top + metric.height / 2 - indexGallery.clientHeight / 2
+      : card.offsetTop + card.offsetHeight / 2 - indexGallery.clientHeight / 2;
+    const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
+    indexGallery.scrollTop = Math.max(0, Math.min(targetTop, maxTop));
     scheduleFocusIndexImageWindow();
     return getFocusIndexCardRect(card);
   }
@@ -3553,21 +3918,30 @@ function renderFocus() {
 
   function hydrateFocusIndexVisibleThumbs(prioritizedIndex = focusIndexState.activeIndex) {
     if (!indexGallery) return;
-    const galleryRect = getFocusRect(indexGallery);
-    if (!galleryRect) return;
-    const buffer = indexGallery.clientHeight * 0.25;
-    const visibleTop = indexGallery.scrollTop - buffer;
-    const visibleBottom = indexGallery.scrollTop + indexGallery.clientHeight + buffer;
-    const candidates = [];
-    indexGallery.querySelectorAll(".focus-index-card img").forEach((node) => {
-      const card = node.closest(".focus-index-card");
-      if (!card) return;
-      const cardTop = card.offsetTop;
-      const cardBottom = cardTop + card.offsetHeight;
-      if (cardBottom < visibleTop || cardTop > visibleBottom) return;
+    const candidateCards = new Map();
+    focusIndexVisibleCards.forEach((card) => {
       const index = Number(card.dataset.index || 1) - 1;
-      candidates.push({ node, index });
+      if (index >= 0) candidateCards.set(index, card);
     });
+    for (let offset = -3; offset <= 3; offset += 1) {
+      const index = getBoundedFocusIndex(prioritizedIndex + offset);
+      const card = getFocusIndexCardByIndex(index);
+      if (card) candidateCards.set(index, card);
+    }
+    if (!candidateCards.size || !focusIndexCardObserver) {
+      const buffer = indexGallery.clientHeight * 0.25;
+      const visibleTop = indexGallery.scrollTop - buffer;
+      const visibleBottom = indexGallery.scrollTop + indexGallery.clientHeight + buffer;
+      refreshFocusIndexCardMetrics().forEach((metric) => {
+        if (metric.top + metric.height < visibleTop || metric.top > visibleBottom) return;
+        const card = getFocusIndexCardByIndex(metric.index);
+        if (card) candidateCards.set(metric.index, card);
+      });
+    }
+    const candidates = [...candidateCards].map(([index, card]) => ({
+      index,
+      node: card.querySelector("img")
+    })).filter(({ node }) => Boolean(node));
     candidates.sort((first, second) => Math.abs(first.index - prioritizedIndex) - Math.abs(second.index - prioritizedIndex));
     const maxStarts = focusIndexState.phase === "opening" ? 6 : 8;
     let starts = 0;
@@ -3594,112 +3968,6 @@ function renderFocus() {
     if (indexGallery && indexGallery.scrollLeft !== 0) indexGallery.scrollLeft = 0;
     if (document.documentElement.scrollLeft !== 0) document.documentElement.scrollLeft = 0;
     if (document.body.scrollLeft !== 0) document.body.scrollLeft = 0;
-  }
-
-  function cancelFocusIndexMomentum() {
-    if (focusIndexMomentumFrame) cancelAnimationFrame(focusIndexMomentumFrame);
-    focusIndexMomentumFrame = 0;
-    focusIndexTouchVelocityY = 0;
-  }
-
-  function resetFocusIndexTouch() {
-    focusIndexTouchStartX = 0;
-    focusIndexTouchStartY = 0;
-    focusIndexTouchLastY = 0;
-    focusIndexTouchLastMoveAt = 0;
-    focusIndexTouchVelocityY = 0;
-    focusIndexTouchMoved = false;
-    focusIndexTouchMode = "";
-    resetFocusIndexHorizontalOffset();
-  }
-
-  function startFocusIndexMomentum(initialVelocity) {
-    cancelFocusIndexMomentum();
-    if (!indexGallery || Math.abs(initialVelocity) < 0.025) return;
-    let velocity = Math.max(-2.2, Math.min(2.2, initialVelocity));
-    let lastTime = performance.now();
-    const step = (now) => {
-      focusIndexMomentumFrame = 0;
-      if (!indexGallery || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
-      const elapsed = Math.max(1, Math.min(32, now - lastTime));
-      lastTime = now;
-      const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
-      const previousTop = indexGallery.scrollTop;
-      const nextTop = Math.max(0, Math.min(maxTop, previousTop + velocity * elapsed));
-      indexGallery.scrollTop = nextTop;
-      resetFocusIndexHorizontalOffset();
-      scheduleFocusIndexImageWindow();
-      if (Math.abs(nextTop - previousTop) < 0.01 || nextTop <= 0 || nextTop >= maxTop) return;
-      velocity *= Math.pow(0.92, elapsed / 16.67);
-      if (Math.abs(velocity) < 0.025) return;
-      focusIndexMomentumFrame = requestAnimationFrame(step);
-    };
-    focusIndexMomentumFrame = requestAnimationFrame(step);
-  }
-
-  function handleFocusIndexTouchStart(event) {
-    if (window.innerWidth > 768 || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
-    if (event.touches.length !== 1) {
-      cancelFocusIndexMomentum();
-      resetFocusIndexTouch();
-      focusIndexTouchMode = "multitouch";
-      return;
-    }
-    cancelFocusIndexMomentum();
-    const touch = event.touches[0];
-    focusIndexTouchStartX = touch.clientX;
-    focusIndexTouchStartY = touch.clientY;
-    focusIndexTouchLastY = touch.clientY;
-    focusIndexTouchLastMoveAt = event.timeStamp || performance.now();
-    focusIndexTouchVelocityY = 0;
-    focusIndexTouchMoved = false;
-    focusIndexTouchMode = "";
-    resetFocusIndexHorizontalOffset();
-  }
-
-  function handleFocusIndexTouchMove(event) {
-    if (window.innerWidth > 768 || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") {
-      resetFocusIndexTouch();
-      return;
-    }
-    if (event.touches.length !== 1 || !focusIndexTouchLastMoveAt) return;
-    const touch = event.touches[0];
-    const deltaX = touch.clientX - focusIndexTouchStartX;
-    const deltaY = touch.clientY - focusIndexTouchStartY;
-    if (!focusIndexTouchMoved && Math.max(Math.abs(deltaX), Math.abs(deltaY)) <= 4) return;
-    if (!focusIndexTouchMode) {
-      focusIndexTouchMode = Math.abs(deltaY) >= Math.abs(deltaX) ? "vertical" : "horizontal";
-    }
-    if (event.cancelable) event.preventDefault();
-    const eventTime = event.timeStamp || performance.now();
-    const elapsed = Math.max(8, Math.min(40, eventTime - focusIndexTouchLastMoveAt || 16));
-    const previousTop = indexGallery.scrollTop;
-    const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
-    const nextTop = Math.max(0, Math.min(maxTop, previousTop - (touch.clientY - focusIndexTouchLastY)));
-    indexGallery.scrollTop = nextTop;
-    const sampledVelocity = (nextTop - previousTop) / elapsed;
-    focusIndexTouchVelocityY = focusIndexTouchVelocityY * 0.68 + sampledVelocity * 0.32;
-    focusIndexTouchLastY = touch.clientY;
-    focusIndexTouchLastMoveAt = eventTime;
-    focusIndexTouchMoved = true;
-    focusIndexTouchPreventClickUntil = Date.now() + 320;
-    resetFocusIndexHorizontalOffset();
-    scheduleFocusIndexImageWindow();
-  }
-
-  function handleFocusIndexTouchEnd() {
-    const velocity = focusIndexTouchVelocityY;
-    const shouldContinue = focusIndexState.mode === "index"
-      && focusIndexState.phase === "idle"
-      && focusIndexTouchMoved
-      && Math.abs(velocity) >= 0.025;
-    resetFocusIndexTouch();
-    if (shouldContinue) startFocusIndexMomentum(velocity);
-  }
-
-  function handleFocusIndexTouchCancel() {
-    cancelFocusIndexMomentum();
-    resetFocusIndexTouch();
   }
 
   function hydrateFocusIndexImageWindow() {
@@ -3799,7 +4067,11 @@ function renderFocus() {
       resetTransforms = true;
     });
     if (resetTransforms) indexGallery?.offsetHeight;
-    const rects = new Map(cards.map((card) => [card, getFocusIndexCardRect(card)]));
+    const galleryRect = getFocusRect(indexGallery);
+    const rects = new Map(cards.map((card) => {
+      const index = Number(card.dataset.index || 1) - 1;
+      return [card, getFocusIndexLayoutRect(index, galleryRect) || getFocusIndexCardRect(card)];
+    }));
     if (resetTransforms) {
       snapshots.forEach(({ card, transform, priority }) => {
         if (transform) card.style.setProperty("transform", transform, priority);
@@ -4099,7 +4371,7 @@ function renderFocus() {
   }
 
   function collectFocusIndexCardMotions(anchorRect, selectedIndex, totalDuration, options = {}) {
-    const cards = [...indexGallery.querySelectorAll(".focus-index-card")];
+    const cards = [...focusIndexCards];
     const canUseCachedRects = Boolean(options.useCachedRects)
       && focusIndexState.cardMotionGalleryRect
       && cards.every((card, visualIndex) => focusIndexState.cardMotionRects.has(visualIndex));
@@ -4608,7 +4880,7 @@ function renderFocus() {
     beginFocusIndexNodeHandoff();
     dockFocusIndexImage(index, finalRect);
     cancelFocusIndexCardAnimations(false);
-    indexGallery?.querySelectorAll(".focus-index-card").forEach(clearFocusIndexCardMotionStyles);
+    focusIndexCards.forEach(clearFocusIndexCardMotionStyles);
     resetFocusIndexHorizontalOffset();
     shell.classList.remove("is-index-opening", "is-index-closing", "is-index-exiting");
     focusIndexState.phase = "idle";
@@ -4625,25 +4897,26 @@ function renderFocus() {
 
   function finishFocusIndexClose(index, options = {}, runId = focusIndexState.runId, arrivedRect = null) {
     if (focusIndexState.runId !== runId || focusIndexState.phase !== "closing") return;
-    cancelFocusIndexMomentum();
     const restoreNotes = Boolean(options.restoreNotes);
     beginFocusIndexNodeHandoff();
     shell.classList.add("is-index-return-settling");
     shell.classList.remove("is-index", "is-index-opening", "is-index-closing", "is-index-exiting");
     indexGallery?.setAttribute("aria-hidden", "true");
-    setNotesOpen(restoreNotes);
+    const restoredNotesLayout = setNotesOpen(restoreNotes);
     unlockFocusIndexPageScroll();
-    if (restoreNotes) updateNotesLayout();
     shell.offsetHeight;
     const finalRect = copyFocusRect(arrivedRect)
-      || getFocusIndexReturnRect(index, getFocusRect(image), restoreNotes)
+      || getFocusIndexReturnRect(index, getFocusRect(image), restoreNotes, {
+        layoutReady: Boolean(restoredNotesLayout)
+      })
       || getFocusImageContentRectForPhoto(photos[index], index, {
         notes: restoreNotes,
+        layoutReady: Boolean(restoredNotesLayout),
         sourceRect: getFocusRect(image)
       })
-      || getFocusMainTargetRect({ notes: restoreNotes });
+      || getFocusMainTargetRect({ notes: restoreNotes, layoutReady: Boolean(restoredNotesLayout) });
     restoreFocusIndexImageToMain(finalRect);
-    indexGallery?.querySelectorAll(".focus-index-card").forEach((card) => {
+    focusIndexCards.forEach((card) => {
       card.classList.remove("is-index-hidden", "is-index-anchor");
       clearFocusIndexCardMotionStyles(card);
     });
@@ -4699,11 +4972,14 @@ function renderFocus() {
           return;
         }
         const restoreNotes = focusIndexState.returnMode === "notes";
-        if (restoreNotes) updateNotesLayout();
+        const returnNotesLayout = restoreNotes ? updateNotesLayout() : null;
         const sourceRect = getFocusRect(image);
-        const targetRect = getFocusIndexReturnRect(index, sourceRect, restoreNotes)
+        const targetRect = getFocusIndexReturnRect(index, sourceRect, restoreNotes, {
+          layoutReady: Boolean(returnNotesLayout)
+        })
           || getFocusImageContentRectForPhoto(photos[index], index, {
             notes: restoreNotes,
+            layoutReady: Boolean(returnNotesLayout),
             sourceRect
           });
         const motionDuration = getFocusIndexImageMotionDuration(
@@ -4743,7 +5019,6 @@ function renderFocus() {
     const resumed = focusIndexState.phase === "closing";
     if (focusIndexState.phase === "opening" || (focusIndexState.phase === "idle" && focusIndexState.mode === "index")) return;
     cancelFocusIndexMotionWarmup();
-    cancelFocusIndexMomentum();
     if (!resumed) {
       cancelFocusImageSwitch({ restoreVisualSelection: true });
       activeIndex = Number(shell.dataset.activeIndex || 0);
@@ -4759,9 +5034,13 @@ function renderFocus() {
     if (!resumed) {
       focusIndexState.returnMode = shell.classList.contains("is-notes") ? "notes" : "rel";
       const restoreNotes = focusIndexState.returnMode === "notes";
+      const returnNotesLayout = restoreNotes ? updateNotesLayout() : null;
       focusIndexState.returnImageRect = copyFocusRect(sourceRect);
       focusIndexState.returnImageIndex = index;
-      focusIndexState.returnBoxRect = copyFocusRect(getFocusMainTargetRect({ notes: restoreNotes }));
+      focusIndexState.returnBoxRect = copyFocusRect(getFocusMainTargetRect({
+        notes: restoreNotes,
+        layoutReady: Boolean(returnNotesLayout)
+      }));
       focusIndexState.returnViewportWidth = window.innerWidth;
       focusIndexState.returnViewportHeight = window.innerHeight;
     }
@@ -4773,7 +5052,7 @@ function renderFocus() {
     focusIndexState.pendingSelection = null;
     clearFocusQueuedSwipe();
     clearFocusMainSwipe();
-    indexGallery.querySelectorAll(".focus-index-card img:not([src])").forEach((node) => {
+    focusIndexCards.map((card) => card.querySelector("img:not([src])")).filter(Boolean).forEach((node) => {
       if (Number(node.dataset.focusIndexThumbAttempts || 0) >= 3) {
         node.dataset.focusIndexThumbAttempts = "0";
       }
@@ -4825,8 +5104,6 @@ function renderFocus() {
     if (!indexEnabled || !indexGallery) return;
     if (focusIndexState.phase === "closing") return;
     if (focusIndexState.phase === "idle" && focusIndexState.mode !== "index") return;
-    cancelFocusIndexMomentum();
-    resetFocusIndexTouch();
     const resumed = focusIndexState.phase === "opening";
     const restoreNotes = options.restoreNotes ?? focusIndexState.returnMode === "notes";
     let sourceRect = null;
@@ -4853,9 +5130,11 @@ function renderFocus() {
     shell.classList.add("is-index-closing", "is-index-exiting");
     shell.classList.remove("is-index-opening", "is-index-reparenting");
     syncFocusIndexSelection(targetIndex);
-    if (restoreNotes) updateNotesLayout();
-    const targetRect = getFocusIndexReturnRect(targetIndex, sourceRect, restoreNotes)
-      || getFocusMainTargetRect({ notes: restoreNotes })
+    const returnNotesLayout = restoreNotes ? updateNotesLayout() : null;
+    const targetRect = getFocusIndexReturnRect(targetIndex, sourceRect, restoreNotes, {
+      layoutReady: Boolean(returnNotesLayout)
+    })
+      || getFocusMainTargetRect({ notes: restoreNotes, layoutReady: Boolean(returnNotesLayout) })
       || getFocusRect(imageToggle);
     if (!sourceRect || !targetRect) {
       finishFocusIndexClose(targetIndex, { restoreNotes }, runId);
@@ -5460,9 +5739,9 @@ function renderFocus() {
     const isOpen = Boolean(open);
     const wasOpen = shell.classList.contains("is-notes");
     if (wasOpen === isOpen) {
-      if (isOpen) updateNotesLayout();
-      return;
+      return isOpen ? updateNotesLayout() : null;
     }
+    let layoutSnapshot = null;
     const refreshIndexMotionPlan = focusIndexState.phase === "idle" && focusIndexState.mode !== "index";
     if (refreshIndexMotionPlan) {
       cancelFocusIndexMotionWarmup();
@@ -5470,7 +5749,7 @@ function renderFocus() {
     }
     if (isOpen) {
       syncFocusNotesBackground(Number(shell.dataset.activeIndex || 0));
-      updateNotesLayout();
+      layoutSnapshot = updateNotesLayout();
     }
     const reduceNotesMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const gestureMotion = Boolean(options.gesture);
@@ -5500,13 +5779,28 @@ function renderFocus() {
     } else if (!isOpen && refreshIndexMotionPlan && !gestureMotion) {
       scheduleFocusIndexMotionWarmup(Number(shell.dataset.activeIndex || 0));
     }
+    return layoutSnapshot;
   }
 
   function scheduleNotesLayoutUpdate() {
-    updateNotesLayout();
-    requestAnimationFrame(() => updateNotesLayout());
-    requestAnimationFrame(() => requestAnimationFrame(() => updateNotesLayout()));
-    window.setTimeout(updateNotesLayout, 180);
+    const shouldMeasure = shell.classList.contains("is-notes") || focusIndexState.returnMode === "notes";
+    if (!shouldMeasure) {
+      notesLayoutCacheKey = "";
+      notesLayoutSnapshot = null;
+      return;
+    }
+    if (!notesLayoutFrame) {
+      updateNotesLayout();
+      notesLayoutFrame = requestAnimationFrame(() => {
+        notesLayoutFrame = 0;
+        updateNotesLayout();
+      });
+    }
+    window.clearTimeout(notesLayoutTimer);
+    notesLayoutTimer = window.setTimeout(() => {
+      notesLayoutTimer = 0;
+      updateNotesLayout();
+    }, 180);
   }
 
   function transitionFocusNoteCopy(update) {
@@ -5567,7 +5861,7 @@ function renderFocus() {
   }
 
   function updateNotesLayout() {
-    if (!noteText) return;
+    if (!noteText) return null;
     const active = Number(shell.dataset.activeIndex || 0);
     const photo = photos[active] || photos[0];
     const note = getPhotoNote(photo);
@@ -5581,6 +5875,22 @@ function renderFocus() {
     const mainHeight = mainRectForNotes?.height || mainBox?.offsetHeight || window.innerHeight * 0.62;
     const cachedRatio = getFocusPhotoRatio(active);
     const imageRatio = cachedRatio || (image.naturalWidth && image.naturalHeight ? image.naturalWidth / image.naturalHeight : mainWidth / Math.max(1, mainHeight));
+    const railRect = railBox?.getBoundingClientRect();
+    const layoutKey = [
+      active,
+      window.innerWidth,
+      window.innerHeight,
+      length,
+      locationReserve,
+      imageRatio.toFixed(5),
+      Math.round(mainRectForNotes?.left || 0),
+      Math.round(mainRectForNotes?.top || 0),
+      Math.round(mainWidth),
+      Math.round(mainHeight),
+      Math.round(railRect?.top || 0),
+      Math.round(railRect?.right || 0)
+    ].join(":");
+    if (layoutKey === notesLayoutCacheKey && notesLayoutSnapshot) return notesLayoutSnapshot;
     const clamp = (min, value, max) => Math.max(min, Math.min(value, max));
     const notesImageLineGap = isMobile
       ? clamp(26, window.innerHeight * 0.04, 42)
@@ -5591,7 +5901,6 @@ function renderFocus() {
 
     if (isMobile) {
       const focusTop = mainRectForNotes ? mainRectForNotes.top : 104;
-      const railRect = railBox?.getBoundingClientRect();
       const notesRailShift = getCssLengthValue(shell, "--space-4", 16);
       const railTop = railRect
         ? railRect.top - getElementTranslateY(railBox) + notesRailShift
@@ -5627,12 +5936,13 @@ function renderFocus() {
       shell.style.setProperty("--notes-copy-gap", `${notesLineCopyGap.toFixed(1)}px`);
       shell.style.setProperty("--notes-panel-width", "auto");
       shell.style.setProperty("--notes-photo-shift-x", "0px");
-      return;
+      notesLayoutCacheKey = layoutKey;
+      notesLayoutSnapshot = { key: layoutKey, mainRect: copyFocusRect(mainRectForNotes) };
+      return notesLayoutSnapshot;
     }
 
     const isCompactWide = window.innerWidth < 940;
     const rightInset = clamp(isCompactWide ? 24 : 40, window.innerWidth * 0.035, isCompactWide ? 44 : 80);
-    const railRect = railBox?.getBoundingClientRect();
     const railRight = railRect && railRect.width > 0 ? railRect.right : 136;
     const railGap = clamp(isCompactWide ? 22 : 56, window.innerWidth * 0.042, isCompactWide ? 40 : 108);
     const minPanel = isCompactWide ? 252 : 340;
@@ -5672,6 +5982,9 @@ function renderFocus() {
     shell.style.setProperty("--notes-copy-gap", `${notesLineCopyGap.toFixed(1)}px`);
     shell.style.removeProperty("--notes-line-top");
     shell.style.removeProperty("--notes-line-bottom");
+    notesLayoutCacheKey = layoutKey;
+    notesLayoutSnapshot = { key: layoutKey, mainRect: copyFocusRect(mainRectForNotes) };
+    return notesLayoutSnapshot;
   }
   function waitForImageReady(img, timeout = 900) {
     return new Promise((resolve) => {
