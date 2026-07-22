@@ -73,6 +73,28 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.4.7"],
+    date: "2026-07-23",
+    categories: {
+      fixes: {
+        cn: [
+          "\u4fee\u590d\u79fb\u52a8\u7aef\u4ece INDEX \u9009\u56fe\u8fd4\u56de\u540e\uff0crel \u4e0e\u968f\u8bb0\u9875\u9762\u7684\u5e95\u90e8\u7f29\u7565\u56fe\u8f68\u9053\u65e0\u6cd5\u7ee7\u7eed\u6ed1\u52a8\u9009\u56fe\u3002"
+        ],
+        en: [
+          "Fixed mobile thumbnail selection stopping after choosing an INDEX photo and returning to rel or notes."
+        ]
+      },
+      removals: {
+        cn: [
+          "\u79fb\u9664 INDEX \u9875\u9762\u5e95\u90e8\u591a\u4f59\u7684\u6a21\u7cca\u5c42\u3002"
+        ],
+        en: [
+          "Removed the redundant blurred footer layer from INDEX."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.4.6"],
     date: "2026-07-22",
     categories: {
@@ -5054,8 +5076,7 @@ function renderFocus() {
     focusIndexState.returnMode = focusIndexState.mode;
     focusIndexState.activeIndex = index;
     focusIndexState.pendingSelection = null;
-    focusSyncHoldUntil = Date.now() + 900;
-    scrollToFocusIndex(index, false);
+    releaseFocusRailAfterIndexReturn(index);
     requestFocusIndexFullImage(image, index, true);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
     if (!restoreNotes) scheduleFocusIndexMotionWarmup(index);
@@ -6667,6 +6688,17 @@ function renderFocus() {
     focusSyncHoldUntil = 0;
   }
 
+  function releaseFocusRailAfterIndexReturn(index) {
+    updateFocusRailMetrics();
+    updateMobileFocusRail();
+    scrollToFocusIndex(index, false);
+    clearFocusManualSelection();
+    releaseFocusRailUserControl();
+    focusRailPendingSelection = null;
+    focusRailSelectionLastAt = 0;
+    focusSyncHoldUntil = Date.now() + 260;
+  }
+
   function holdFocusRailForMainSwipeGesture(duration = 420) {
     cancelFocusRailScroll();
     window.clearTimeout(focusSwipeSyncTimer);
@@ -7051,11 +7083,15 @@ function renderFocus() {
     cancelFocusRailScroll();
     clearFocusManualSelection();
     releaseFocusRailUserControl();
+    updateFocusRailMetrics();
+    updateMobileFocusRail();
   }
 
   function handleFocusWheel(event) {
     clearFocusManualSelection();
     releaseFocusRailUserControl();
+    updateFocusRailMetrics();
+    updateMobileFocusRail();
     if (window.innerWidth > 768 || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
     cancelFocusRailScroll();
     event.preventDefault();
@@ -7072,7 +7108,10 @@ function renderFocus() {
     focusRailSyncFrame = 0;
     if (!document.body.contains(shell)) return;
     const isMobile = window.innerWidth <= 768;
-    if (!shell.classList.contains("is-index") && !shell.classList.contains("is-notes")) {
+    const isIndex = shell.classList.contains("is-index");
+    const isNotes = shell.classList.contains("is-notes");
+    const canSyncRail = !isIndex && (!isNotes || isMobile);
+    if (canSyncRail) {
       const allThumbs = focusThumbButtons;
       const viewportCenter = isMobile ? window.innerWidth / 2 : window.innerHeight / 2;
       const range = isMobile ? 220 : 280;

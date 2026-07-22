@@ -10,6 +10,30 @@
 - `PATCH`：线上修复、文案调整、部署配置修正或低风险细节优化。
 - 每个正式上线版本必须记录版本号、上线日期、对应提交、上线分支和缓存标识。
 
+## v1.4.7 - Rail Return Recovery / 缩略图轨道返回修复版
+
+- 上线日期：2026-07-23
+- 对比基准：`v1.4.6 - Rel Motion And Index Handoff`
+- Git commit：本次发布提交，推送后以 GitHub `main` 历史和 Cloudflare Pages 部署记录为准。
+- 上线分支：`main`
+- 缓存标识：`v147-rail-return1`
+- 发布策略：修复上一版本中 INDEX 返回后的移动端缩略图轨道状态，并删去 INDEX 底部多余视觉层；不改变图库内容、动画路径和页面入口。
+
+### 修复
+
+- 修复移动端从 INDEX 选择照片返回后，rel 与随记页面底部缩略图轨道无法继续滑动选图；返回时会重建轨道几何并释放动画锁。
+
+### 删除
+
+- 移除 INDEX 页面底部多余的固定模糊层。
+
+### 部署验证
+
+- `390×844` 视口中，rel 进入 INDEX 选择 `rel=40` 返回后保持正确照片，轨道可继续切至 `rel=44`；随记进入 INDEX 选择 `rel=42` 返回后保持随记，轨道可继续切至 `rel=45`。
+- INDEX 底部伪元素计算结果为 `content: none`、`backdrop-filter: none`，页面横向溢出为 `0px`。
+- JavaScript 语法检查、`tests/site-check.ps1`、Cloudflare 静态构建和 `git diff --check` 通过。
+- 发布前未跟踪任何 `.env` 文件，本地敏感模式扫描无高风险项；公开联系邮箱经人工确认；当前环境未安装 `ggshield`。
+
 ## v1.4.6 - Rel Motion And Index Handoff / rel 动效与索引交接版
 
 - 上线日期：2026-07-22

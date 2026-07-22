@@ -1729,29 +1729,6 @@ body[data-view="list"] .work-item__meta {
   padding: 0 var(--space-4);
 }
 
-.focus-shell::after {
-  content: "";
-  position: fixed;
-  inset: auto 0 0;
-  z-index: 900;
-  height: clamp(7.6rem, 10vh, 9.6rem);
-  background-color: color-mix(in srgb, var(--color-light) 38%, transparent);
-  backdrop-filter: blur(6px) saturate(1.02);
-  -webkit-backdrop-filter: blur(6px) saturate(1.02);
-  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .9) 38%, rgba(0, 0, 0, .34) 74%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .9) 38%, rgba(0, 0, 0, .34) 74%, transparent 100%);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity .42s var(--ease-soft), visibility 0s linear .42s, background-color .72s var(--ease-soft);
-}
-
-.focus-shell.is-index::after {
-  opacity: 1;
-  visibility: visible;
-  transition-delay: 0s;
-}
-
 .focus-shell.is-index {
   position: fixed;
   inset: 0;
@@ -3020,6 +2997,7 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
     opacity: .22;
     filter: blur(2px) saturate(.72);
     transform: translateY(var(--space-4));
+    pointer-events: auto;
     transition-duration: .78s;
   }
   .focus-shell.is-notes .focus-main {
@@ -3697,7 +3675,6 @@ body[data-theme="dark"] .focus-index-moving-image {
   .focus-rail,
   .focus-index-gallery,
   .focus-shell::before,
-  .focus-shell::after,
   .focus-swipe-layer {
     transition-property: opacity, color, background-color, border-color !important;
     transition-duration: 180ms !important;
@@ -3720,7 +3697,6 @@ body[data-theme="dark"] .focus-index-moving-image {
 
 @media (prefers-reduced-transparency: reduce) {
   body::after,
-  .focus-shell::after,
   .focus-shell::before,
   .nav-screen {
     background-color: var(--color-light);
@@ -3728,8 +3704,7 @@ body[data-theme="dark"] .focus-index-moving-image {
     -webkit-backdrop-filter: none;
   }
 
-  body::after,
-  .focus-shell::after {
+  body::after {
     mask-image: none;
     -webkit-mask-image: none;
   }
@@ -3737,7 +3712,6 @@ body[data-theme="dark"] .focus-index-moving-image {
 
 @media (prefers-contrast: more) {
   body::after,
-  .focus-shell::after,
   .focus-shell::before,
   .nav-screen {
     background-color: var(--color-light);
@@ -3748,10 +3722,6 @@ body[data-theme="dark"] .focus-index-moving-image {
   body::after,
   .nav-screen {
     border-bottom: .1rem solid currentColor;
-  }
-
-  .focus-shell::after {
-    border-top: .1rem solid currentColor;
   }
 
   .focus-notes__location,
