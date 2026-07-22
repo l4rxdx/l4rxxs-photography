@@ -534,6 +534,14 @@ body[data-theme="dark"] .theme-ray-d {
   transition-timing-function: var(--ease-notes);
 }
 
+body.focus-notes-index-handoff .nav-toggle span:first-child {
+  transform: translate(-50%, -50%);
+}
+
+body.focus-notes-index-handoff .nav-toggle span:last-child {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
 .nav-screen {
   position: fixed;
   inset: 0;
@@ -1780,11 +1788,24 @@ body.focus-notes-palette-active[data-apple-music-background-ready="true"] {
   --color-dark: var(--apple-music-background-foreground);
 }
 
+body.focus-notes-index-handoff[data-apple-music-background-ready="true"] {
+  --color-dark: var(--apple-music-background-foreground);
+}
+
 body.focus-notes-open[data-apple-music-background-ready="true"] .focus-notes-background {
   opacity: 1;
 }
 
+body.focus-notes-index-handoff[data-apple-music-background-ready="true"] .focus-notes-background {
+  opacity: 1;
+  will-change: opacity;
+}
+
 body.focus-notes-open[data-apple-music-background-ready="true"]::after {
+  background-color: color-mix(in srgb, var(--apple-music-background-scene) 38%, transparent);
+}
+
+body.focus-notes-index-handoff[data-apple-music-background-ready="true"]::after {
   background-color: color-mix(in srgb, var(--apple-music-background-scene) 38%, transparent);
 }
 
@@ -2164,6 +2185,13 @@ body.is-return-flight-active {
   gap: var(--space-6);
   transform: translateX(-50%);
   white-space: nowrap;
+  transition: opacity .48s cubic-bezier(.24, .64, .34, 1), transform .58s cubic-bezier(.24, .64, .34, 1);
+}
+
+.focus-shell.is-index .focus-actions {
+  opacity: 0;
+  transform: translateX(-50%) translateY(calc(100% + var(--space-4)));
+  pointer-events: none;
 }
 
 .focus-notes {
@@ -2449,8 +2477,7 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
   pointer-events: none;
 }
 
-.focus-shell.is-index::before,
-.focus-shell.is-index-transitioning::before {
+.focus-shell::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -2458,13 +2485,31 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
   opacity: 0;
   pointer-events: none;
   background-color: color-mix(in srgb, var(--color-light) 70%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: opacity .62s var(--ease-soft), backdrop-filter .72s var(--ease-soft);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: opacity .72s var(--ease-soft), background-color .82s var(--ease-soft), backdrop-filter .72s var(--ease-soft);
 }
 
 .focus-shell.is-index::before {
   opacity: 1;
+}
+
+.focus-shell.is-index::before,
+.focus-shell.is-index-transitioning::before {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.focus-shell.is-index-from-notes::before {
+  background-color: color-mix(in srgb, var(--apple-music-background-scene, var(--color-light)) 70%, transparent);
+}
+
+.focus-shell.is-index-from-notes.is-index-background-releasing::before {
+  background-color: color-mix(in srgb, var(--color-light) 70%, transparent);
+}
+
+.focus-shell.is-index-to-notes::before {
+  background-color: color-mix(in srgb, var(--apple-music-background-scene, var(--color-light)) 70%, transparent);
 }
 
 .focus-shell.is-index .focus-rail {
@@ -2937,6 +2982,8 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
     transform: translateY(0);
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pinch-zoom;
   }
 
   .focus-thumb {
@@ -3162,7 +3209,6 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
   will-change: opacity;
 }
 
-.focus-shell.is-index-opening .focus-rail,
 .focus-shell.is-index-closing .focus-rail {
   visibility: hidden;
   opacity: 0 !important;
@@ -3352,11 +3398,22 @@ body[data-theme="dark"] .focus-index-moving-image {
     touch-action: pan-y pinch-zoom;
   }
 
-  .focus-shell.is-index::before,
-  .focus-shell.is-index-transitioning::before {
+  .focus-shell::before {
     background-color: color-mix(in srgb, var(--color-light) 88%, transparent);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+
+  .focus-shell.is-index-from-notes::before {
+    background-color: color-mix(in srgb, var(--apple-music-background-scene, var(--color-light)) 88%, transparent);
+  }
+
+  .focus-shell.is-index-from-notes.is-index-background-releasing::before {
+    background-color: color-mix(in srgb, var(--color-light) 88%, transparent);
+  }
+
+  .focus-shell.is-index-to-notes::before {
+    background-color: color-mix(in srgb, var(--apple-music-background-scene, var(--color-light)) 88%, transparent);
   }
 
   .focus-index-card {
@@ -3495,6 +3552,73 @@ body[data-theme="dark"] .focus-index-moving-image {
   }
 }
 
+.focus-shell.is-index-opening .focus-rail {
+  position: fixed !important;
+  top: var(--focus-rail-exit-top, 0px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: var(--focus-rail-exit-left, 0px) !important;
+  width: var(--focus-rail-exit-width, 12rem) !important;
+  height: var(--focus-rail-exit-height, auto) !important;
+  max-height: none !important;
+  padding: var(--focus-rail-exit-padding, 0px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-start !important;
+  gap: var(--space-3) !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: var(--focus-rail-exit-opacity, 1) !important;
+  filter: var(--focus-rail-exit-filter, none) !important;
+  transform: translate3d(0, 0, 0) !important;
+  pointer-events: none !important;
+  transition: opacity .54s cubic-bezier(.24, .64, .34, 1), transform .68s cubic-bezier(.24, .64, .34, 1) !important;
+  will-change: opacity, transform;
+}
+
+.focus-shell.is-index-opening.is-index-opening-active .focus-rail {
+  opacity: 0 !important;
+  transform: translate3d(calc(-1 * var(--space-4)), 0, 0) !important;
+}
+
+.focus-shell.is-index-opening.is-index-from-notes .focus-rail {
+  opacity: .22 !important;
+  filter: blur(2px) saturate(.72) !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.focus-shell.is-index-opening.is-index-from-notes.is-index-opening-active .focus-rail {
+  opacity: 0 !important;
+  transform: translate3d(calc(-1 * var(--space-4)), 0, 0) !important;
+}
+
+@media (max-width: 768px) {
+  .focus-shell.is-index-opening .focus-rail {
+    top: var(--focus-rail-exit-top, auto) !important;
+    left: var(--focus-rail-exit-left, 0px) !important;
+    width: var(--focus-rail-exit-width, 100vw) !important;
+    height: var(--focus-rail-exit-height, calc(var(--mobile-thumb-height) + var(--mobile-thumb-lift))) !important;
+    padding: var(--focus-rail-exit-padding, var(--mobile-thumb-lift) 0 0) !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    overscroll-behavior-x: contain;
+    touch-action: none;
+  }
+
+  .focus-shell.is-index-opening.is-index-opening-active .focus-rail,
+  .focus-shell.is-index-opening.is-index-from-notes.is-index-opening-active .focus-rail {
+    transform: translate3d(0, var(--space-8), 0) !important;
+  }
+
+  .focus-shell.is-index-opening.is-index-from-notes .focus-rail {
+    transform: translate3d(0, 0, 0) !important;
+  }
+}
+
 .focus-shell.is-index-return-settling .focus-main,
 .focus-shell.is-index-return-settling .focus-main__button,
 .focus-shell.is-index-return-settling .focus-main img {
@@ -3597,8 +3721,7 @@ body[data-theme="dark"] .focus-index-moving-image {
 @media (prefers-reduced-transparency: reduce) {
   body::after,
   .focus-shell::after,
-  .focus-shell.is-index::before,
-  .focus-shell.is-index-transitioning::before,
+  .focus-shell::before,
   .nav-screen {
     background-color: var(--color-light);
     backdrop-filter: none;
@@ -3615,8 +3738,7 @@ body[data-theme="dark"] .focus-index-moving-image {
 @media (prefers-contrast: more) {
   body::after,
   .focus-shell::after,
-  .focus-shell.is-index::before,
-  .focus-shell.is-index-transitioning::before,
+  .focus-shell::before,
   .nav-screen {
     background-color: var(--color-light);
     backdrop-filter: none;
