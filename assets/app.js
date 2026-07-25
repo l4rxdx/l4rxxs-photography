@@ -75,6 +75,40 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.5.1"],
+    date: "2026-07-25",
+    categories: {
+      optimizations: {
+        cn: [
+          "INDEX \u589e\u52a0 260 \u6beb\u79d2\u54cd\u5e94\u95f4\u9694\uff0c\u9650\u5236\u8fde\u7eed\u5feb\u901f\u91cd\u5f00\u4e0e\u5207\u56fe\u3002"
+        ],
+        en: [
+          "INDEX now uses a 260ms response interval to limit immediate reopen and cross-photo taps."
+        ]
+      },
+      fixes: {
+        cn: [
+          "\u4fee\u590d\u4ece\u83dc\u5355\u70b9\u51fb\u603b\u89c8\u8fd4\u56de\u4e3b\u9875\u65f6\u8fc7\u6e21\u906e\u7f69\u672a\u9000\u51fa\u5bfc\u81f4\u767d\u5c4f\u3002",
+          "\u4fee\u590d INDEX \u5feb\u901f\u8de8\u7167\u7247\u5207\u6362\u540e\u56fe\u5e93\u5361\u7247\u4e22\u5931\u7684\u95ee\u9898\u3002",
+          "\u4fee\u590d\u4e0d\u540c\u5c3a\u5bf8\u7167\u7247\u5feb\u901f\u5207\u6362\u65f6\uff0c\u79fb\u52a8\u56fe\u7247\u6bd4\u4f8b\u7a81\u53d8\u548c\u9014\u4e2d\u62c9\u4f38\u3002"
+        ],
+        en: [
+          "Fixed the transition veil remaining over home after choosing OVERVIEW from the menu.",
+          "Fixed INDEX cards disappearing after rapid cross-photo switching.",
+          "Fixed moving photos changing ratio or stretching while rapidly switching between different image sizes."
+        ]
+      },
+      removals: {
+        cn: [
+          "WORK \u5c1a\u672a\u5b9a\u7a3f\uff0c\u6682\u65f6\u4ece\u83dc\u5355\u79fb\u9664\u5e76\u6e05\u7a7a\u9875\u9762\u5185\u5bb9\u3002"
+        ],
+        en: [
+          "Temporarily removed unfinished WORK content and its menu entry."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.5.0"],
     date: "2026-07-25",
     categories: {
@@ -431,6 +465,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     photos = await loadPhotos();
     const openingImagesReady = page === "home" ? renderOverview() : null;
+    if (page === "home" && hasIncomingTransition) {
+      Promise.resolve(openingImagesReady).then(finishIncomingPageTransition);
+    }
     if (page === "focus") {
       renderFocus();
       if (hasIncomingTransition) waitForFocusOpeningImage().then(finishIncomingPageTransition);
@@ -3567,6 +3604,7 @@ function renderFocus() {
   let focusMainBaseRectViewportHeight = 0;
   let focusIndexReturnSettleTimer = 0;
   let focusNotesIndexHandoffTimer = 0;
+  let focusIndexInteractionLockUntil = 0;
   let focusNeighborPreloadRun = 0;
   const focusPhotoRatios = new Map();
   const focusImagePreloadCache = new Map();
@@ -3730,6 +3768,7 @@ function renderFocus() {
     if (!indexEnabled
       || focusIndexState.mode === "index"
       || focusIndexState.phase !== "idle"
+      || isFocusIndexInteractionCoolingDown()
       || shell.classList.contains("is-index")) return;
     const activeIndex = Number(shell.dataset.activeIndex || 0);
     openFocusIndex(activeIndex);
@@ -5224,13 +5263,14 @@ function renderFocus() {
       options.onArrive?.(targetRect);
       return null;
     }
-    const fromRect = getFocusRect(image);
-    if (!fromRect) {
+    const measuredFromRect = getFocusRect(image);
+    if (!measuredFromRect) {
       setFocusIndexMovingRect(image, targetRect);
       options.onArrive?.(targetRect);
       return null;
     }
-    const ratio = getFocusPhotoRatio(index, fromRect);
+    const ratio = getFocusPhotoRatio(index, measuredFromRect);
+    const fromRect = normalizeFocusTravelRect(measuredFromRect, ratio) || measuredFromRect;
     const finalRect = normalizeFocusTravelRect(targetRect, ratio) || targetRect;
     setFocusIndexMovingRect(image, fromRect);
     const motionDuration = Number.isFinite(options.motionDuration)
@@ -5292,6 +5332,12 @@ function renderFocus() {
     return node;
   }
 
+  function restoreMissingFocusIndexCardImages() {
+    focusIndexCards.forEach((card, index) => {
+      if (!card.querySelector("img")) getOrCreateFocusIndexCardImage(index);
+    });
+  }
+
   function promoteFocusIndexCardImage(index) {
     const nextImage = getOrCreateFocusIndexCardImage(index);
     if (!nextImage) return image;
@@ -5341,6 +5387,8 @@ function renderFocus() {
     const photo = photos[index];
     const source = getFocusPhotoSource(photo);
     if (!image || !photo || !source) return Promise.resolve(false);
+    const ratio = getFocusPhotoRatio(index, sourceRect);
+    const travelSourceRect = normalizeFocusTravelRect(sourceRect, ratio) || sourceRect;
     const expectedSource = getFocusImageAbsoluteUrl(source);
     const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
     image.loading = "eager";
@@ -5355,19 +5403,21 @@ function renderFocus() {
         image.style.removeProperty("background-image");
         rememberFocusPhotoRatio(index, image);
       }
-      if (sourceRect) setFocusIndexMovingRect(image, sourceRect);
+      if (travelSourceRect) setFocusIndexMovingRect(image, travelSourceRect);
       return matches;
     };
 
     if (currentSource === expectedSource) {
+      if (travelSourceRect) setFocusIndexMovingRect(image, travelSourceRect);
       return waitForImageDecoded(image, 3200).then(finish);
     }
 
     return preloadFocusImageDecoded(source).then((ready) => {
       if (!ready || focusIndexState.runId !== runId || focusIndexState.phase !== "closing") return false;
+      if (travelSourceRect) setFocusIndexMovingRect(image, travelSourceRect);
       image.style.backgroundImage = photo.thumb ? `url("${photo.thumb}")` : "none";
       image.src = source;
-      if (sourceRect) setFocusIndexMovingRect(image, sourceRect);
+      if (travelSourceRect) setFocusIndexMovingRect(image, travelSourceRect);
       return waitForImageDecoded(image, 1600).then(finish);
     });
   }
@@ -5569,6 +5619,7 @@ function renderFocus() {
       })
       || getFocusMainTargetRect({ notes: restoreNotes, layoutReady: Boolean(restoredNotesLayout) });
     restoreFocusIndexImageToMain(finalRect);
+    restoreMissingFocusIndexCardImages();
     focusIndexCards.forEach((card) => {
       card.classList.remove("is-index-hidden", "is-index-anchor");
       clearFocusIndexCardMotionStyles(card);
@@ -5580,6 +5631,7 @@ function renderFocus() {
     focusIndexState.activeIndex = index;
     focusIndexState.pendingSelection = null;
     focusIndexState.returnImagePreparing = false;
+    holdFocusIndexInteraction();
     releaseFocusRailAfterIndexReturn(index);
     requestFocusIndexFullImage(image, index, true);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
@@ -5660,12 +5712,24 @@ function renderFocus() {
   }
 
   function selectFocusIndexCard(index) {
+    if (isFocusIndexInteractionCoolingDown()) return;
     if (focusIndexState.phase === "opening") {
       closeFocusIndex(getBoundedFocusIndex(index), { restoreNotes: focusIndexState.returnMode === "notes" });
       return;
     }
     if (focusIndexState.phase !== "idle" || focusIndexState.mode !== "index") return;
     closeFocusIndex(index, { restoreNotes: focusIndexState.returnMode === "notes" });
+  }
+
+  function holdFocusIndexInteraction(duration = 260) {
+    focusIndexInteractionLockUntil = Math.max(
+      focusIndexInteractionLockUntil,
+      performance.now() + Math.max(0, duration)
+    );
+  }
+
+  function isFocusIndexInteractionCoolingDown() {
+    return performance.now() < focusIndexInteractionLockUntil;
   }
 
   function openFocusIndex(activeIndex) {
@@ -5706,8 +5770,10 @@ function renderFocus() {
     focusIndexState.activeIndex = index;
     focusIndexState.pendingSelection = null;
     focusIndexState.returnImagePreparing = false;
+    holdFocusIndexInteraction();
     clearFocusQueuedSwipe();
     clearFocusMainSwipe();
+    restoreMissingFocusIndexCardImages();
     focusIndexCards.map((card) => card.querySelector("img:not([src])")).filter(Boolean).forEach((node) => {
       if (Number(node.dataset.focusIndexThumbAttempts || 0) >= 3) {
         node.dataset.focusIndexThumbAttempts = "0";
@@ -5774,6 +5840,7 @@ function renderFocus() {
     if (focusIndexState.phase === "closing") return;
     if (focusIndexState.phase === "idle" && focusIndexState.mode !== "index") return;
     const resumed = focusIndexState.phase === "opening";
+    holdFocusIndexInteraction();
     const restoreNotes = options.restoreNotes ?? focusIndexState.returnMode === "notes";
     if (restoreNotes) beginFocusNotesIndexReturnHandoff(targetIndex);
     else clearFocusNotesIndexHandoff();
