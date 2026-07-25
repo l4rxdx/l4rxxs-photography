@@ -3,17 +3,25 @@ let overviewPhotos = [];
 let overviewOrder = [];
 let overviewImageObserver = null;
 let overviewBatchSequence = 0;
-let workViewAnimation = null;
-let workViewRunId = 0;
 const DEFAULT_PHOTO_NOTE_CN = "\u8fd9\u5730\u65b9\u672c\u6765\u662f\u7ed9\u6bcf\u4e2a\u7167\u7247\u5199\u70b9\u968f\u8bb0\u7684\uff0c\u4f46\u662f\u53c9\u6ef4\u53c9\u6709\u70b9\u61d2\u6ca1\u5199\u51e0\u4e2a";
 const DEFAULT_PHOTO_NOTE_EN = "This space was meant for small notes for each photo, but XDX got lazy and only wrote a few.";
 const DEFAULT_PHOTO_NOTE = DEFAULT_PHOTO_NOTE_CN;
 const overviewSkipCells = new Set([2, 7]);
 const OVERVIEW_RETURN_STORAGE_KEY = "l4rxx-overview-return";
+const PAGE_TRANSITION_STORAGE_KEY = "l4rxx-page-transition";
 const LANGUAGE_STORAGE_KEY = "l4rxx-language";
 const THEME_MODE_STORAGE_KEY = "l4rxx-theme-mode";
 const THEME_STORAGE_KEY = "l4rxx-theme";
 const PHOTO_MANIFEST_VERSION = "20260718-1";
+const OVERVIEW_OPENING_RETRY_DELAY = 1000;
+const OVERVIEW_OPENING_RETRY_MAX_DELAY = 4000;
+const OVERVIEW_OPENING_REVEAL_DELAY = 720;
+const OVERVIEW_MAX_RECYCLED_BATCHES = 3;
+const PHOTO_PLACEHOLDER_FALLBACK = "#D8D6D1";
+const photoPlaceholderCleanups = new WeakMap();
+let photoPlaceholderRun = 0;
+let navTransitionTimer = 0;
+let pageTransitionTimer = 0;
 
 const languageCopy = {
   en: {
@@ -25,9 +33,6 @@ const languageCopy = {
     "logs.intro": "Visible site changes, organized by date and category.",
     "home.about": "l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.",
     "work.menuAbout": "l4rxx works with available light, found color, and scenes that feel almost still.",
-    "work.photographs": "PHOTOGRAPHS",
-    "work.grid": "GRID",
-    "work.list": "LIST",
     contact: "CONTACT ME",
     "contact.copied": "EMAIL COPIED",
     "contact.copyStatus": "Email address copied to clipboard.",
@@ -48,9 +53,6 @@ const languageCopy = {
     "logs.intro": "\u53ef\u89c1\u7684\u7f51\u7ad9\u66f4\u65b0\uff0c\u6309\u65e5\u671f\u4e0e\u7c7b\u522b\u6574\u7406\u3002",
     "home.about": "l4rxx \u662f\u4e00\u4f4d\u89c6\u89c9\u521b\u4f5c\u8005\uff0c\u6536\u96c6\u9759\u6b62\u77ac\u95f4\u3001\u98ce\u5316\u8868\u9762\u3001\u8096\u50cf\u3001\u5c4f\u5e55\u4e0e\u5b89\u9759\u788e\u7247\u3002",
     "work.menuAbout": "l4rxx \u7528\u81ea\u7136\u5149\u3001\u88ab\u770b\u89c1\u7684\u989c\u8272\uff0c\u548c\u90a3\u4e9b\u5dee\u4e00\u70b9\u5c31\u9759\u6b62\u7684\u573a\u666f\u5de5\u4f5c\u3002",
-    "work.photographs": "\u5f20\u7167\u7247",
-    "work.grid": "\u7f51\u683c",
-    "work.list": "\u5217\u8868",
     contact: "\u8054\u7cfb\u6211",
     "contact.copied": "\u90ae\u7bb1\u5df2\u590d\u5236",
     "contact.copyStatus": "\u90ae\u7bb1\u5730\u5740\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\u3002",
@@ -72,6 +74,42 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.5.0"],
+    date: "2026-07-25",
+    categories: {
+      optimizations: {
+        cn: [
+          "\u9996\u9875\u4f1a\u5728\u9996\u5c4f\u7167\u7247\u5168\u90e8\u89e3\u7801\u540e\u518d\u64ad\u653e\u6563\u5f00\u52a8\u753b\uff0c\u52a0\u8f7d\u671f\u95f4\u4f7f\u7528\u7167\u7247\u53d6\u8272\u7684\u7eaf\u8272\u5360\u4f4d\u3002",
+          "\u4e3b\u9875\u3001rel \u548c\u83dc\u5355\u6539\u7528\u66f4\u8fde\u7eed\u7684\u9875\u9762\u8fc7\u6e21\uff1bINDEX \u8fd4\u56de\u524d\u4f1a\u63d0\u524d\u89e3\u7801\u6240\u9009\u7167\u7247\u3002",
+          "\u4f18\u5316\u9996\u9875\u5934\u50cf\u4e0e\u6587\u5b57\u3001\u7167\u7247\u7684\u78b0\u649e\uff0c\u5934\u50cf\u843d\u5730\u540e\u4fdd\u7559\u81ea\u7136\u503e\u659c\u3002"
+        ],
+        en: [
+          "Home now waits for every first-screen photo to decode before scattering the opening composition, using sampled solid-color placeholders while loading.",
+          "Home, rel, and menu navigation now share smoother page transitions; INDEX decodes the selected photo before returning.",
+          "Improved home avatar collisions with letters and photos, while preserving its natural landed tilt."
+        ]
+      },
+      fixes: {
+        cn: [
+          "\u4fee\u590d\u4ece\u4e00\u5f20\u7167\u7247\u7684\u968f\u8bb0\u8fdb\u5165 INDEX\uff0c\u518d\u9009\u62e9\u53e6\u4e00\u5f20\u7167\u7247\u8fd4\u56de\u65f6\u7684\u672b\u6bb5\u6362\u56fe\u4e0e\u89c6\u89c9\u4f4d\u79fb\u3002",
+          "\u4fee\u590d\u4e3b\u9875\u8fd4\u56de\u540e\u7167\u7247\u91cd\u65b0\u53d8\u4e3a\u52a0\u8f7d\u5360\u4f4d\u7684\u95ee\u9898\u3002"
+        ],
+        en: [
+          "Fixed the final image swap and visual shift when returning from one photo's notes through INDEX to another photo.",
+          "Fixed home photos reverting to loading placeholders after returning from rel."
+        ]
+      },
+      additions: {
+        cn: [
+          "WORK \u9875\u9762\u65b0\u589e 2 \u5f20\u56fe\u7247\uff0c\u5e76\u5efa\u7acb\u9996\u5c4f\u62fc\u8d34\u7248\u5f0f\u3002"
+        ],
+        en: [
+          "Added 2 images to WORK and introduced its opening collage layout."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.4.7"],
     date: "2026-07-23",
@@ -377,6 +415,7 @@ const languageLabels = {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const hasIncomingTransition = beginIncomingPageTransition();
   initChrome();
   initLanguageSwitch();
   initEmailCopy();
@@ -384,18 +423,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   initReleaseLogs();
   initNavLogsMode();
   const page = document.body.dataset.page;
-  if (page === "logs") {
+  if (page === "logs" || page === "work") {
     startLoadingSequence();
+    if (hasIncomingTransition) requestAnimationFrame(finishIncomingPageTransition);
     return;
   }
   try {
     photos = await loadPhotos();
-    if (page === "home") renderOverview();
-    if (page === "work") renderWork();
-    if (page === "focus") renderFocus();
-    startLoadingSequence();
+    const openingImagesReady = page === "home" ? renderOverview() : null;
+    if (page === "focus") {
+      renderFocus();
+      if (hasIncomingTransition) waitForFocusOpeningImage().then(finishIncomingPageTransition);
+    }
+    startLoadingSequence(openingImagesReady);
   } catch (error) {
     showGalleryLoadError(error);
+    finishIncomingPageTransition();
   }
 });
 
@@ -445,14 +488,97 @@ function normalizePhoto(photo, index) {
     mediumHeight: Math.max(0, Number(photo.mediumHeight) || Number(photo.height) || 0),
     thumbWidth: Math.max(0, Number(photo.thumbWidth) || Number(photo.width) || 0),
     thumbHeight: Math.max(0, Number(photo.thumbHeight) || Number(photo.height) || 0),
+    placeholderColor: normalizePhotoPlaceholderColor(photo.placeholderColor),
     date: photo.date || ""
   };
+}
+
+function normalizePhotoPlaceholderColor(value) {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : PHOTO_PLACEHOLDER_FALLBACK;
 }
 
 function getPhotoImageSizeAttributes(photo, useThumb = false) {
   const width = useThumb ? photo?.thumbWidth : photo?.width;
   const height = useThumb ? photo?.thumbHeight : photo?.height;
   return width > 0 && height > 0 ? ` width="${width}" height="${height}"` : "";
+}
+
+function getPhotoAspectRatio(photo, useThumb = false) {
+  const width = useThumb ? photo?.thumbWidth : photo?.width;
+  const height = useThumb ? photo?.thumbHeight : photo?.height;
+  return width > 0 && height > 0 ? width / height : 1;
+}
+
+function getPhotoPlaceholderStyle(photo, useThumb = false) {
+  return `--photo-placeholder-color:${normalizePhotoPlaceholderColor(photo?.placeholderColor)};--photo-placeholder-ratio:${getPhotoAspectRatio(photo, useThumb).toFixed(6)}`;
+}
+
+function applyPhotoPlaceholder(host, photo, useThumb = false) {
+  if (!host) return;
+  host.classList.add("photo-placeholder", "is-photo-loading");
+  host.classList.remove("is-photo-ready");
+  host.style.setProperty("--photo-placeholder-color", normalizePhotoPlaceholderColor(photo?.placeholderColor));
+  host.style.setProperty("--photo-placeholder-ratio", getPhotoAspectRatio(photo, useThumb).toFixed(6));
+}
+
+function getPhotoSourceUrl(source) {
+  if (!source) return "";
+  try {
+    return new URL(source, window.location.href).href;
+  } catch (error) {
+    return source;
+  }
+}
+
+function watchPhotoPlaceholderImage(image, host, expectedSource = "") {
+  if (!image || !host) return;
+  photoPlaceholderCleanups.get(image)?.();
+  const runId = String(++photoPlaceholderRun);
+  const expectedUrl = getPhotoSourceUrl(expectedSource || image.dataset.src || image.getAttribute("src") || "");
+  let settled = false;
+
+  const cleanup = () => {
+    image.removeEventListener("load", handleLoad);
+    image.removeEventListener("error", handleError);
+    if (photoPlaceholderCleanups.get(image) === cleanup) photoPlaceholderCleanups.delete(image);
+  };
+  const isCurrentSource = () => {
+    if (image.dataset.photoPlaceholderRun !== runId) return false;
+    if (!expectedUrl) return true;
+    const currentUrl = getPhotoSourceUrl(image.currentSrc || image.getAttribute("src") || "");
+    return currentUrl === expectedUrl;
+  };
+  const reveal = () => {
+    if (settled || !isCurrentSource() || image.naturalWidth <= 0) return;
+    settled = true;
+    cleanup();
+    host.classList.remove("is-photo-loading");
+    host.classList.add("is-photo-ready");
+  };
+  const handleLoad = () => {
+    if (!isCurrentSource() || image.naturalWidth <= 0) return;
+    if (typeof image.decode === "function") image.decode().then(reveal).catch(reveal);
+    else reveal();
+  };
+  const handleError = () => {
+    if (!isCurrentSource()) return;
+    settled = true;
+    cleanup();
+  };
+
+  image.dataset.photoPlaceholderRun = runId;
+  host.classList.add("is-photo-loading");
+  host.classList.remove("is-photo-ready");
+  image.addEventListener("load", handleLoad);
+  image.addEventListener("error", handleError);
+  photoPlaceholderCleanups.set(image, cleanup);
+  if (image.complete && image.naturalWidth > 0) handleLoad();
+}
+
+function initializePhotoPlaceholder(host, image, expectedSource = "") {
+  if (!host || !image) return;
+  watchPhotoPlaceholderImage(image, host, expectedSource || image.dataset.src || image.getAttribute("src") || "");
 }
 
 function hydrateDeferredImage(image) {
@@ -466,6 +592,10 @@ function hydrateDeferredImage(image) {
   if (src) {
     image.removeAttribute("data-src");
     image.src = src;
+  }
+  const placeholder = image?.closest?.(".photo-placeholder");
+  if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
+    watchPhotoPlaceholderImage(image, placeholder, src || image.getAttribute("src") || "");
   }
 }
 
@@ -521,30 +651,149 @@ function showGalleryLoadError(error) {
   console.error(error);
 }
 
+function ensurePageTransitionVeil() {
+  let veil = document.querySelector(".page-transition-veil");
+  if (veil) return veil;
+  veil = document.createElement("div");
+  veil.className = "page-transition-veil";
+  veil.setAttribute("aria-hidden", "true");
+  document.body.appendChild(veil);
+  return veil;
+}
+
+function getPageTransitionDuration() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 180 : 490;
+}
+
+function beginIncomingPageTransition() {
+  let state = null;
+  try {
+    state = JSON.parse(sessionStorage.getItem(PAGE_TRANSITION_STORAGE_KEY) || "null");
+    sessionStorage.removeItem(PAGE_TRANSITION_STORAGE_KEY);
+  } catch (error) {
+    state = null;
+  }
+  if (!state || Date.now() - Number(state.createdAt || 0) > 10000) return false;
+  ensurePageTransitionVeil();
+  document.body.classList.add("is-page-transitioning", "is-page-entering");
+  return true;
+}
+
+function finishIncomingPageTransition() {
+  if (!document.body.classList.contains("is-page-entering")) return;
+  window.clearTimeout(pageTransitionTimer);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.body.classList.remove("is-page-entering");
+      pageTransitionTimer = window.setTimeout(() => {
+        document.body.classList.remove("is-page-transitioning");
+        pageTransitionTimer = 0;
+      }, getPageTransitionDuration());
+    });
+  });
+}
+
+function navigateWithPageTransition(url) {
+  if (!url || document.body.classList.contains("is-page-leaving")) return;
+  try {
+    sessionStorage.setItem(PAGE_TRANSITION_STORAGE_KEY, JSON.stringify({ createdAt: Date.now() }));
+  } catch (error) {
+    // Navigation still works when session storage is unavailable.
+  }
+  ensurePageTransitionVeil();
+  window.clearTimeout(pageTransitionTimer);
+  document.body.classList.add("is-page-transitioning", "is-page-leaving");
+  pageTransitionTimer = window.setTimeout(() => {
+    window.location.href = url;
+  }, getPageTransitionDuration());
+}
+
+function waitForFocusOpeningImage() {
+  const image = document.querySelector("[data-focus-image]");
+  if (!image) return Promise.resolve();
+  hydrateDeferredImage(image);
+  image.loading = "eager";
+  image.fetchPriority = "high";
+  return new Promise((resolve) => {
+    let timer = 0;
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      image.removeEventListener("load", settle);
+      image.removeEventListener("error", settle);
+    };
+    const settle = () => {
+      if (image.complete && image.naturalWidth > 0 && typeof image.decode === "function") {
+        image.decode().catch(() => {}).then(() => {
+          cleanup();
+          resolve();
+        });
+        return;
+      }
+      cleanup();
+      resolve();
+    };
+    image.addEventListener("load", settle, { once: true });
+    image.addEventListener("error", settle, { once: true });
+    timer = window.setTimeout(settle, 5000);
+    if (image.complete) settle();
+  });
+}
+
+function setNavigationOpen(open, screen = document.querySelector(".js-nav-screen"), toggle = document.querySelector(".js-nav-toggle")) {
+  const isOpen = Boolean(open);
+  window.clearTimeout(navTransitionTimer);
+  ensurePageTransitionVeil();
+  document.body.classList.add("is-nav-transitioning");
+  screen?.setAttribute("aria-hidden", String(!isOpen));
+  toggle?.setAttribute("aria-label", isOpen ? "Close navigation" : "Open navigation");
+  toggle?.setAttribute("aria-expanded", String(isOpen));
+  if (isOpen) {
+    document.body.classList.remove("nav-closing");
+    document.body.classList.add("nav-open", "nav-opening");
+  } else {
+    document.body.classList.remove("nav-opening");
+    document.body.classList.add("nav-closing");
+  }
+  navTransitionTimer = window.setTimeout(() => {
+    if (isOpen) {
+      document.body.classList.remove("nav-opening", "is-nav-transitioning");
+    } else {
+      document.body.classList.remove("nav-open", "nav-closing", "is-nav-transitioning");
+    }
+    navTransitionTimer = 0;
+  }, isOpen ? 620 : 460);
+  return isOpen;
+}
+
 function initChrome() {
   const toggle = document.querySelector(".js-nav-toggle");
   const screen = document.querySelector(".js-nav-screen");
   if (!toggle || !screen) return;
+  ensurePageTransitionVeil();
   toggle.addEventListener("click", () => {
     if (document.body.classList.contains("is-nav-logs")) {
-      document.body.classList.remove("nav-open", "is-nav-logs");
       setNavLogsOpen(false);
-      screen.setAttribute("aria-hidden", "true");
-      toggle.setAttribute("aria-label", "Open navigation");
+      setNavigationOpen(false, screen, toggle);
       return;
     }
-    const open = document.body.classList.toggle("nav-open");
+    const open = document.body.classList.contains("nav-closing")
+      || !document.body.classList.contains("nav-open");
     if (!open) setNavLogsOpen(false);
-    toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
-    screen.setAttribute("aria-hidden", String(!open));
+    setNavigationOpen(open, screen, toggle);
   });
   screen.addEventListener("click", (event) => {
     if (event.target === screen) {
-      document.body.classList.remove("nav-open", "is-nav-logs");
       setNavLogsOpen(false);
-      screen.setAttribute("aria-hidden", "true");
-      toggle.setAttribute("aria-label", "Open navigation");
+      setNavigationOpen(false, screen, toggle);
     }
+  });
+  screen.addEventListener("click", (event) => {
+    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const targetUrl = new URL(link.href, window.location.href);
+    if (targetUrl.origin !== window.location.origin || targetUrl.href === window.location.href) return;
+    event.preventDefault();
+    navigateWithPageTransition(targetUrl.href);
   });
 }
 
@@ -698,9 +947,7 @@ function initNavLogsMode() {
   if (!screen || !buttons.length) return;
 
   const setMenuOpen = () => {
-    document.body.classList.add("nav-open");
-    screen.setAttribute("aria-hidden", "false");
-    if (navToggle) navToggle.setAttribute("aria-label", "Close navigation");
+    setNavigationOpen(true, screen, navToggle);
   };
 
   buttons.forEach((button) => {
@@ -970,7 +1217,7 @@ function getOverviewOrder() {
 }
 function renderOverview() {
   const grid = document.querySelector("[data-overview-grid]");
-  if (!grid) return;
+  if (!grid) return Promise.resolve();
   grid.innerHTML = "";
   grid.style.minHeight = "";
 
@@ -979,7 +1226,7 @@ function renderOverview() {
   overviewBatchSequence = 0;
   overviewImageObserver?.disconnect();
   overviewImageObserver = createDeferredImageObserver("720px");
-  appendOverviewBatch(grid, createOverviewBatch(true), true);
+  const openingItems = appendOverviewBatch(grid, createOverviewBatch(true), true);
   const isReturning = handleOverviewReturn(grid, returnState);
   if (!isReturning) initializeOverviewItems();
   initializeInfinityScroll(grid);
@@ -990,9 +1237,118 @@ function renderOverview() {
     const link = target?.closest("a[href*='focus.html?rel=']");
     if (!link || !grid.contains(link)) return;
     storeOverviewReturn(link);
+    if (event.type !== "click"
+      || event.defaultPrevented
+      || event.button !== 0
+      || event.metaKey
+      || event.ctrlKey
+      || event.shiftKey
+      || event.altKey) return;
+    event.preventDefault();
+    navigateWithPageTransition(link.href);
   };
   grid.addEventListener("pointerdown", captureOverviewReturn, { capture: true, passive: true });
   grid.addEventListener("click", captureOverviewReturn, { capture: true });
+  return isReturning ? Promise.resolve() : waitForOverviewOpeningImages(openingItems);
+}
+
+function waitForOverviewOpeningImages(items) {
+  const images = items
+    .filter((item) => item.classList.contains("is-visible"))
+    .map((item) => item.querySelector("img"))
+    .filter(Boolean);
+  if (!images.length) return Promise.resolve();
+
+  return Promise.all(images.map(waitForOverviewOpeningImage)).then(() => {
+    prepaintOverviewOpeningImages(images);
+  });
+}
+
+function prepaintOverviewOpeningImages(images) {
+  images.forEach((image) => {
+    if (!(image.complete && image.naturalWidth > 0)) return;
+    const host = image.closest(".fs-media");
+    if (!host || host.querySelector(".overview-opening-raster")) return;
+    const width = Math.max(1, image.offsetWidth || image.naturalWidth);
+    const height = Math.max(1, image.offsetHeight || image.naturalHeight);
+    const pixelRatio = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    const canvas = document.createElement("canvas");
+    canvas.className = "overview-opening-raster";
+    canvas.width = Math.min(image.naturalWidth, Math.ceil(width * pixelRatio));
+    canvas.height = Math.min(image.naturalHeight, Math.ceil(height * pixelRatio));
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) return;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    host.appendChild(canvas);
+  });
+}
+
+function releaseOverviewOpeningRasters() {
+  const rasters = [...document.querySelectorAll(".overview-opening-raster")];
+  if (!rasters.length) return;
+  rasters.forEach((raster) => raster.classList.add("is-releasing"));
+  window.setTimeout(() => rasters.forEach((raster) => raster.remove()), 280);
+}
+
+function waitForOverviewOpeningImage(image) {
+  return new Promise((resolve) => {
+    const source = image.dataset.src || image.getAttribute("src") || "";
+    const host = image.closest(".photo-placeholder");
+    let retryCount = 0;
+    let retryTimer = 0;
+    let finished = false;
+
+    const cleanup = () => {
+      window.clearTimeout(retryTimer);
+      image.removeEventListener("load", decode);
+      image.removeEventListener("error", retry);
+    };
+    const finish = () => {
+      if (finished || image.naturalWidth <= 0) return;
+      finished = true;
+      cleanup();
+      if (host) {
+        host.classList.remove("is-photo-loading");
+        host.classList.add("is-photo-ready");
+      }
+      resolve();
+    };
+    const retry = () => {
+      if (finished) return;
+      cleanup();
+      const delay = Math.min(
+        OVERVIEW_OPENING_RETRY_MAX_DELAY,
+        OVERVIEW_OPENING_RETRY_DELAY * (2 ** retryCount)
+      );
+      retryCount++;
+      retryTimer = window.setTimeout(() => {
+        const retryUrl = new URL(source, window.location.href);
+        retryUrl.searchParams.set("overview-retry", String(retryCount));
+        image.addEventListener("load", decode);
+        image.addEventListener("error", retry);
+        image.src = retryUrl.href;
+        if (host) watchPhotoPlaceholderImage(image, host, retryUrl.href);
+      }, delay);
+    };
+    const decode = () => {
+      if (finished) return;
+      if (image.naturalWidth <= 0) {
+        retry();
+        return;
+      }
+      if (typeof image.decode === "function") image.decode().then(finish).catch(retry);
+      else finish();
+    };
+
+    image.loading = "eager";
+    image.fetchPriority = "high";
+    image.addEventListener("load", decode);
+    image.addEventListener("error", retry);
+    hydrateDeferredImage(image);
+    if (image.complete) decode();
+  });
 }
 
 function createOverviewBatch(isOriginal = false) {
@@ -1047,9 +1403,51 @@ function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = ""
   const prioritize = isOriginal && cellIndex < 5;
   link.href = `focus.html?rel=${photoRel}`;
   link.dataset.rel = String(photoRel);
+  link.dataset.overviewSlot = String(cellIndex);
   const thumbSource = prioritize ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
-  link.innerHTML = `<span class="fs-media"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritize ? "eager" : "lazy"}" fetchpriority="${prioritize ? "high" : "low"}" decoding="async"></span>`;
+  link.innerHTML = `<span class="fs-media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritize ? "eager" : "lazy"}" fetchpriority="${prioritize ? "high" : "low"}" decoding="async"></span>`;
   return link;
+}
+
+function getOverviewReturnAnchor(link, rel, scrollY) {
+  const image = link?.querySelector("img");
+  const rect = image?.getBoundingClientRect?.() || link?.getBoundingClientRect?.();
+  if (!rect || !(rect.width > 0 && rect.height > 0)) return null;
+  const batch = Number(link.dataset.overviewBatch);
+  const slot = Number(link.dataset.overviewSlot);
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  return {
+    rel,
+    batch: Number.isInteger(batch) && batch >= 0 ? batch : null,
+    slot: Number.isInteger(slot) && slot >= 0 ? slot : null,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    centerXRatio: window.innerWidth > 0 ? centerX / window.innerWidth : 0.5,
+    centerYRatio: window.innerHeight > 0 ? centerY / window.innerHeight : 0.5,
+    documentCenterY: scrollY + centerY,
+    width: rect.width,
+    height: rect.height
+  };
+}
+
+function updateOverviewPhotoPlaceholderGeometry(items = null) {
+  const mediaNodes = (items ? [...items] : [...document.querySelectorAll(".overview-item .fs-media.photo-placeholder")])
+    .map((item) => item?.matches?.(".fs-media") ? item : item?.querySelector?.(".fs-media.photo-placeholder"))
+    .filter(Boolean);
+  const measurements = mediaNodes.map((media) => {
+    const image = media.querySelector("img");
+    const width = Math.max(1, Number(image?.getAttribute("width")) || image?.naturalWidth || 1);
+    const height = Math.max(1, Number(image?.getAttribute("height")) || image?.naturalHeight || 1);
+    const availableWidth = media.clientWidth;
+    const availableHeight = media.clientHeight;
+    const fit = Math.min(1, availableWidth / width, availableHeight / height);
+    return { media, width: width * fit, height: height * fit };
+  });
+  measurements.forEach(({ media, width, height }) => {
+    media.style.setProperty("--photo-placeholder-width", `${width.toFixed(2)}px`);
+    media.style.setProperty("--photo-placeholder-height", `${height.toFixed(2)}px`);
+  });
 }
 
 function appendOverviewBatch(grid, batch, isInitial = false) {
@@ -1069,6 +1467,12 @@ function appendOverviewBatch(grid, batch, isInitial = false) {
     fragment.appendChild(clone);
   });
   grid.appendChild(fragment);
+  appendedItems.forEach((item) => {
+    const media = item.querySelector?.(".fs-media.photo-placeholder");
+    const image = media?.querySelector("img");
+    if (media && image) initializePhotoPlaceholder(media, image, image.dataset.src || image.getAttribute("src") || "");
+  });
+  updateOverviewPhotoPlaceholderGeometry(appendedItems);
   observeDeferredImages(grid, overviewImageObserver);
   grid.dispatchEvent(new CustomEvent("overview:batchappend", {
     detail: { batchId, items: appendedItems }
@@ -1087,11 +1491,13 @@ function storeOverviewReturn(source) {
       rel = 0;
     }
   }
+  const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
   const state = {
     rel: rel || 1,
-    scrollY: window.scrollY || document.documentElement.scrollTop || 0,
+    scrollY,
     createdAt: Date.now(),
-    order: getOverviewOrder()
+    order: getOverviewOrder(),
+    anchor: getOverviewReturnAnchor(link, rel || 1, scrollY)
   };
   try {
     sessionStorage.setItem(OVERVIEW_RETURN_STORAGE_KEY, JSON.stringify(state));
@@ -1112,18 +1518,32 @@ function handleOverviewReturn(grid, returnState = null) {
   document.documentElement.classList.add("has-landed");
 
   const rel = Number(params.get("rel") || state?.rel || 1);
-  const targetY = Math.max(0, Number(state?.scrollY || 0));
-  while (grid.offsetTop + grid.scrollHeight - (targetY + window.innerHeight) <= 700) {
+  const requestedTargetY = Math.max(0, Number(state?.scrollY || 0));
+  const anchorBatch = Number(state?.anchor?.batch);
+  const requiredBatch = Number.isInteger(anchorBatch)
+    ? Math.max(0, Math.min(OVERVIEW_MAX_RECYCLED_BATCHES, anchorBatch))
+    : 0;
+  while (overviewBatchSequence <= requiredBatch && overviewBatchSequence <= OVERVIEW_MAX_RECYCLED_BATCHES) {
     appendOverviewBatch(grid, createOverviewBatch(false), false);
   }
+  while (
+    overviewBatchSequence <= OVERVIEW_MAX_RECYCLED_BATCHES
+    && grid.offsetTop + grid.scrollHeight - (requestedTargetY + window.innerHeight) <= 700
+  ) {
+    appendOverviewBatch(grid, createOverviewBatch(false), false);
+  }
+  const maxReturnScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const targetY = Math.min(requestedTargetY, maxReturnScrollY);
 
   requestAnimationFrame(() => {
     window.scrollTo({ top: targetY, left: 0, behavior: "auto" });
-    const target = findReturnTarget(grid, rel, targetY);
-    if (target) {
-      target.classList.add("is-return-target");
-      runOverviewReturnFlight(target, state);
-    }
+    requestAnimationFrame(() => {
+      const target = findReturnTarget(grid, rel, targetY, state?.anchor);
+      if (target) alignOverviewReturnTarget(target, state?.anchor);
+      requestAnimationFrame(() => {
+        finishIncomingPageTransition();
+      });
+    });
   });
 
   if (params.has("from")) {
@@ -1140,14 +1560,84 @@ function handleOverviewReturn(grid, returnState = null) {
   return true;
 }
 
-function findReturnTarget(grid, rel, targetY) {
+function getOverviewReturnTargetImage(target) {
+  return target?.querySelector?.("img") || null;
+}
+
+function getOverviewReturnRect(target) {
+  const image = getOverviewReturnTargetImage(target);
+  const rect = image?.getBoundingClientRect?.();
+  return rect
+    && [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)
+    && rect.width > 8
+    && rect.height > 8
+    ? rect
+    : null;
+}
+
+function getOverviewReturnRatio(value, fallback = 0.5) {
+  const ratio = Number(value);
+  return Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : fallback;
+}
+
+function alignOverviewReturnTarget(target, anchor = null) {
+  const rect = getOverviewReturnRect(target);
+  if (!rect) return false;
+  const viewportHeight = Math.max(1, window.innerHeight);
+  const margin = Math.max(8, Math.min(24, viewportHeight * 0.025));
+  const maxHalfHeight = Math.max(0, (viewportHeight - margin * 2) / 2);
+  const halfHeight = Math.min(rect.height / 2, maxHalfHeight);
+  const minCenterY = margin + halfHeight;
+  const maxCenterY = viewportHeight - margin - halfHeight;
+  const desiredRatio = getOverviewReturnRatio(anchor?.centerYRatio);
+  const desiredCenterY = maxCenterY >= minCenterY
+    ? Math.max(minCenterY, Math.min(maxCenterY, desiredRatio * viewportHeight))
+    : viewportHeight / 2;
+  const currentCenterY = rect.top + rect.height / 2;
+  const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  const maxScrollY = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
+  const nextScrollY = Math.max(0, Math.min(maxScrollY, currentScrollY + currentCenterY - desiredCenterY));
+  if (Math.abs(nextScrollY - currentScrollY) > 0.5) {
+    window.scrollTo({ top: nextScrollY, left: 0, behavior: "auto" });
+  }
+  const alignedRect = getOverviewReturnRect(target);
+  if (!alignedRect) return false;
+  const centerX = alignedRect.left + alignedRect.width / 2;
+  const centerY = alignedRect.top + alignedRect.height / 2;
+  return centerX >= 0 && centerX <= window.innerWidth && centerY >= 0 && centerY <= viewportHeight;
+}
+
+function findReturnTarget(grid, rel, targetY, anchor = null) {
   const candidates = [...grid.querySelectorAll(`a[data-rel="${rel}"]`)];
   if (!candidates.length) return null;
-  const viewportCenter = targetY + window.innerHeight / 2;
+  const anchorRel = Number(anchor?.rel);
+  const anchorBatch = Number(anchor?.batch);
+  const anchorSlot = Number(anchor?.slot);
+  if (
+    anchorRel === rel
+    && Number.isInteger(anchorBatch)
+    && Number.isInteger(anchorSlot)
+  ) {
+    const exactTarget = candidates.find((candidate) => {
+      return Number(candidate.dataset.overviewBatch) === anchorBatch
+        && Number(candidate.dataset.overviewSlot) === anchorSlot;
+    });
+    if (exactTarget) return exactTarget;
+  }
+  const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  const fallbackDocumentCenterY = targetY + getOverviewReturnRatio(anchor?.centerYRatio) * window.innerHeight;
+  const desiredDocumentCenterY = Number.isFinite(Number(anchor?.documentCenterY))
+    ? Number(anchor.documentCenterY)
+    : fallbackDocumentCenterY;
+  const desiredCenterX = getOverviewReturnRatio(anchor?.centerXRatio) * window.innerWidth;
+  const getCandidateScore = (candidate) => {
+    const rect = getOverviewReturnRect(candidate) || candidate.getBoundingClientRect();
+    const documentCenterY = currentScrollY + rect.top + rect.height / 2;
+    const centerX = rect.left + rect.width / 2;
+    return Math.abs(documentCenterY - desiredDocumentCenterY) + Math.abs(centerX - desiredCenterX) * 0.35;
+  };
   return candidates.reduce((best, candidate) => {
-    const candidateDistance = Math.abs(candidate.offsetTop + candidate.offsetHeight / 2 - viewportCenter);
-    const bestDistance = Math.abs(best.offsetTop + best.offsetHeight / 2 - viewportCenter);
-    return candidateDistance < bestDistance ? candidate : best;
+    return getCandidateScore(candidate) < getCandidateScore(best) ? candidate : best;
   }, candidates[0]);
 }
 
@@ -1189,7 +1679,6 @@ function initializeInfinityScroll(grid) {
   if (!grid) return;
 
   const batch = createOverviewBatch(false);
-  const maxRecycledBatches = 3;
 
   const getBatchNodes = (batchId) => [...grid.querySelectorAll(`[data-overview-batch="${batchId}"]`)];
   const getCloneBatchIds = () => {
@@ -1222,7 +1711,7 @@ function initializeInfinityScroll(grid) {
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     if (grid.offsetTop + grid.scrollHeight - (scrollTop + window.innerHeight) > 500) return;
     const cloneBatchIds = getCloneBatchIds();
-    if (cloneBatchIds.length < maxRecycledBatches) appendOverviewBatch(grid, batch, false);
+    if (cloneBatchIds.length < OVERVIEW_MAX_RECYCLED_BATCHES) appendOverviewBatch(grid, batch, false);
     else recycleBatchToEnd(cloneBatchIds[0]);
   };
   window.addEventListener("scroll", overviewScrollHandler, { passive: true });
@@ -1449,6 +1938,8 @@ function initializeOverviewInteraction(grid) {
   let activeItem = null;
   let nearItems = [];
   let pieces = [];
+  let letterPieces = [];
+  let figurePiece = null;
   const photoHitTimers = new Map();
   let lastTime = 0;
   let lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -1578,16 +2069,20 @@ function initializeOverviewInteraction(grid) {
   };
   const getPieceBox = (piece) => {
     if (piece.type === "figure") {
-      const hitbox = piece.hitbox || { left: 0.18, right: 0.18, top: 0.075, bottom: 0.025 };
+      const collider = piece.collider || { centerX: 0.51, centerY: 0.51, radiusX: 0.425, radiusY: 0.476 };
+      const left = clamp(collider.centerX - collider.radiusX, 0, 1);
+      const right = clamp(collider.centerX + collider.radiusX, 0, 1);
+      const top = clamp(collider.centerY - collider.radiusY, 0, 1);
+      const bottom = clamp(collider.centerY + collider.radiusY, 0, 1);
       return {
-        left: piece.x + piece.width * hitbox.left,
-        right: piece.x + piece.width * (1 - hitbox.right),
-        top: piece.y + piece.height * hitbox.top,
-        bottom: piece.y + piece.height * (1 - hitbox.bottom),
-        offsetLeft: piece.width * hitbox.left,
-        offsetRight: piece.width * hitbox.right,
-        offsetTop: piece.height * hitbox.top,
-        offsetBottom: piece.height * hitbox.bottom
+        left: piece.x + piece.width * left,
+        right: piece.x + piece.width * right,
+        top: piece.y + piece.height * top,
+        bottom: piece.y + piece.height * bottom,
+        offsetLeft: piece.width * left,
+        offsetRight: piece.width * (1 - right),
+        offsetTop: piece.height * top,
+        offsetBottom: piece.height * (1 - bottom)
       };
     }
 
@@ -1604,6 +2099,41 @@ function initializeOverviewInteraction(grid) {
       offsetRight: piece.width * narrowInset,
       offsetTop: piece.height * topInset,
       offsetBottom: piece.height * bottomInset
+    };
+  };
+
+  const getFigureCollisionEllipse = (piece) => {
+    const collider = piece.collider || { centerX: 0.51, centerY: 0.51, radiusX: 0.425, radiusY: 0.476 };
+    return {
+      centerX: piece.x + piece.width * collider.centerX,
+      centerY: piece.y + piece.height * collider.centerY,
+      radiusX: Math.max(1, piece.width * collider.radiusX),
+      radiusY: Math.max(1, piece.height * collider.radiusY)
+    };
+  };
+
+  const getPieceRectContact = (piece, rect) => {
+    const box = getPieceBox(piece);
+    if (box.right <= rect.left || box.left >= rect.right || box.bottom <= rect.top || box.top >= rect.bottom) return null;
+    if (piece.type === "figure") {
+      const ellipse = getFigureCollisionEllipse(piece);
+      const closestX = clamp(ellipse.centerX, rect.left, rect.right);
+      const closestY = clamp(ellipse.centerY, rect.top, rect.bottom);
+      const normalizedX = (ellipse.centerX - closestX) / ellipse.radiusX;
+      const normalizedY = (ellipse.centerY - closestY) / ellipse.radiusY;
+      if (normalizedX * normalizedX + normalizedY * normalizedY > 1) return null;
+    }
+    const overlapLeft = box.right - rect.left;
+    const overlapRight = rect.right - box.left;
+    const overlapTop = box.bottom - rect.top;
+    const overlapBottom = rect.bottom - box.top;
+    return {
+      box,
+      overlapLeft,
+      overlapRight,
+      overlapTop,
+      overlapBottom,
+      minOverlap: Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom)
     };
   };
 
@@ -1852,9 +2382,11 @@ function initializeOverviewInteraction(grid) {
     return photoColliderCache;
   };
 
-  const getTopDropX = (pieceWidth, sidePadding, hitbox = { left: 0.18, right: 0.18 }) => {
-    const hitLeft = pieceWidth * hitbox.left;
-    const hitRight = pieceWidth * (1 - hitbox.right);
+  const getTopDropX = (pieceWidth, sidePadding, collider = { left: 0.18, right: 0.18 }) => {
+    const colliderLeft = "centerX" in collider ? collider.centerX - collider.radiusX : collider.left;
+    const colliderRight = "centerX" in collider ? collider.centerX + collider.radiusX : 1 - collider.right;
+    const hitLeft = pieceWidth * colliderLeft;
+    const hitRight = pieceWidth * colliderRight;
     const maxStart = Math.max(sidePadding, window.innerWidth - sidePadding - pieceWidth);
     const corridorLimit = Math.min(window.innerHeight * (isMobile() ? 0.34 : 0.3), isMobile() ? 286 : 330);
     const clearMargin = isMobile() ? 1.5 : 4;
@@ -1977,7 +2509,7 @@ function initializeOverviewInteraction(grid) {
   };
 
   const getRestTargets = (floor, sidePadding, colliders) => {
-    const settlingPieces = pieces.filter((piece) => piece.settles !== false);
+    const settlingPieces = letterPieces;
     const gap = window.innerWidth <= 340 ? 3 : isMobile() ? 9 : 12;
     const totalWidth = settlingPieces.reduce((sum, piece) => sum + piece.width, 0) + gap * Math.max(0, settlingPieces.length - 1);
     const maxHeight = settlingPieces.reduce((height, piece) => Math.max(height, piece.height), 0);
@@ -2041,6 +2573,51 @@ function initializeOverviewInteraction(grid) {
     return avoided;
   };
 
+  const releaseStuckFigure = (piece, colliders, time, sidePadding) => {
+    if (piece.type !== "figure" || piece.y < -piece.height * 0.25) return false;
+    const progressStep = Math.max(3, piece.height * 0.07);
+    if (!Number.isFinite(piece.fallProgressY) || piece.y > piece.fallProgressY + progressStep) {
+      piece.fallProgressY = piece.y;
+      piece.fallProgressAt = time;
+      piece.escapeAttempts = 0;
+      return false;
+    }
+    if (!piece.fallProgressAt) {
+      piece.fallProgressAt = time;
+      return false;
+    }
+    if (time - piece.fallProgressAt < (isMobile() ? 720 : 860)) return false;
+
+    const pieceBox = getPieceBox(piece);
+    const pieceCenterX = pieceBox.left + (pieceBox.right - pieceBox.left) / 2;
+    const blockers = colliders.filter(({ rect }) => {
+      return rect.right > pieceBox.left - 8
+        && rect.left < pieceBox.right + 8
+        && rect.bottom > pieceBox.top - 8
+        && rect.top < pieceBox.bottom + 12;
+    });
+    const nearest = blockers.reduce((best, blocker) => {
+      const rect = blocker.rect;
+      const distance = Math.abs(rect.top - pieceBox.bottom) + Math.abs((rect.left + rect.width / 2) - pieceCenterX) * 0.18;
+      return !best || distance < best.distance ? { rect, distance } : best;
+    }, null)?.rect;
+    let direction = nearest && pieceCenterX < nearest.left + nearest.width / 2 ? -1 : 1;
+    if (!nearest) direction = piece.escapeDirection || (Math.random() < 0.5 ? -1 : 1);
+    if (piece.x <= sidePadding + piece.width * 0.5) direction = 1;
+    if (piece.x + piece.width >= window.innerWidth - sidePadding - piece.width * 0.5) direction = -1;
+
+    piece.escapeDirection = direction;
+    piece.escapeAttempts = (piece.escapeAttempts || 0) + 1;
+    piece.vx = direction * (isMobile() ? 1.45 : 1.65);
+    piece.vy = Math.max(piece.vy, isMobile() ? 0.9 : 1.05);
+    piece.va *= 0.25;
+    piece.sleeping = false;
+    piece.photoPassThroughUntil = time + (isMobile() ? 720 : 820);
+    piece.fallProgressY = piece.y;
+    piece.fallProgressAt = time;
+    return true;
+  };
+
   const markPhotoHit = (collider, pieceCenterX, pieceCenterY) => {
     if (!photoEffectsReady) return;
     const rect = collider.rect;
@@ -2061,79 +2638,103 @@ function initializeOverviewInteraction(grid) {
     }, 720));
   };
 
-  const collideWithPhoto = (piece, collider, dt) => {
-    const rect = collider.rect;
-    const pieceBox = getPieceBox(piece);
-    if (pieceBox.right <= rect.left || pieceBox.left >= rect.right || pieceBox.bottom <= rect.top || pieceBox.top >= rect.bottom) return false;
+  const getNearbyPhotoColliders = (piece, colliders) => {
+    if (!colliders.length) return colliders;
+    const box = getPieceBox(piece);
+    const padding = (piece.type === "figure" ? 14 : photoAvoidRadius() + 8)
+      + Math.min(18, Math.abs(piece.vx || 0) * 3 + Math.abs(piece.vy || 0) * 2);
+    const centerX = (box.left + box.right) / 2;
+    const centerY = (box.top + box.bottom) / 2;
+    return colliders.filter(({ rect }) => {
+      return rect.right > box.left - padding
+        && rect.left < box.right + padding
+        && rect.bottom > box.top - padding
+        && rect.top < box.bottom + padding;
+    }).sort((first, second) => {
+      const firstDistance = Math.hypot(first.rect.left + first.rect.width / 2 - centerX, first.rect.top + first.rect.height / 2 - centerY);
+      const secondDistance = Math.hypot(second.rect.left + second.rect.width / 2 - centerX, second.rect.top + second.rect.height / 2 - centerY);
+      return firstDistance - secondDistance;
+    }).slice(0, 4);
+  };
 
-    const overlapLeft = pieceBox.right - rect.left;
-    const overlapRight = rect.right - pieceBox.left;
-    const overlapTop = pieceBox.bottom - rect.top;
-    const overlapBottom = rect.bottom - pieceBox.top;
-    const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+  const updateFigurePhotoContact = (piece, collider, pieceBox, time) => {
+    const continuing = time - (piece.photoLastContactAt || 0) <= 180;
+    if (!continuing) {
+      const leftDistance = Math.max(0, pieceBox.right - collider.rect.left);
+      const rightDistance = Math.max(0, collider.rect.right - pieceBox.left);
+      let direction = Math.abs(piece.vx) > 0.72 ? Math.sign(piece.vx) : leftDistance <= rightDistance ? -1 : 1;
+      if (piece.x <= 8) direction = 1;
+      if (piece.x + piece.width >= window.innerWidth - 8) direction = -1;
+      piece.photoContactItem = collider.item;
+      piece.photoContactStartedAt = time;
+      piece.photoEscapeDirection = direction;
+    }
+    piece.photoContactItem = collider.item;
+    piece.photoLastContactAt = time;
+    return {
+      age: Math.max(0, time - (piece.photoContactStartedAt || time)),
+      direction: piece.photoEscapeDirection || 1
+    };
+  };
+
+  const collideWithPhoto = (piece, collider, dt, time) => {
+    const rect = collider.rect;
+    const contact = getPieceRectContact(piece, rect);
+    if (!contact) return false;
+    const { box: pieceBox, overlapLeft, overlapRight, overlapTop, overlapBottom, minOverlap } = contact;
     const photoCenterX = rect.left + rect.width / 2;
     const pieceCenterX = pieceBox.left + (pieceBox.right - pieceBox.left) / 2;
     const pieceCenterY = pieceBox.top + (pieceBox.bottom - pieceBox.top) / 2;
+    const impactSpeed = Math.abs(piece.vx) + Math.abs(piece.vy);
     const bounce = (isMobile() ? 0.24 : 0.28) * (piece.rebound || 1);
-    const sideContact = minOverlap === overlapLeft || (minOverlap !== overlapTop && minOverlap !== overlapBottom);
-    if (sideContact) piece.photoSideContacts = (piece.photoSideContacts || 0) + 1;
+    const figureContact = piece.type === "figure" ? updateFigurePhotoContact(piece, collider, pieceBox, time) : null;
     piece.sleeping = false;
     piece.floorHits = 0;
 
-    if (
-      piece.type === "figure"
-      && sideContact
-      && piece.photoSideContacts >= 4
-      && pieceBox.top < rect.top
-      && pieceCenterY < rect.top
-      && performance.now() - lastScrollMoveAt > 520
-    ) {
-      piece.y = rect.top - (piece.height - pieceBox.offsetBottom);
-      piece.vx = 0;
-      piece.vy = 0;
-      piece.va = 0;
-      piece.sleeping = true;
-      markPhotoHit(collider, pieceCenterX, pieceCenterY);
-      return true;
-    }
-
     if (minOverlap === overlapTop && piece.vy >= -2) {
-      piece.photoRestContacts = (piece.photoRestContacts || 0) + 1;
-      let rollDirection = pieceCenterX < photoCenterX ? -1 : 1;
+      let rollDirection = Math.abs(piece.vx) > 0.72 ? Math.sign(piece.vx) : pieceCenterX < photoCenterX ? -1 : 1;
       if (piece.x < 22) rollDirection = 1;
       if (piece.x + piece.width > window.innerWidth - 22) rollDirection = -1;
       piece.y = rect.top - (piece.height - pieceBox.offsetBottom);
-      if (piece.type === "figure" && piece.photoRestContacts >= 3 && performance.now() - lastScrollMoveAt > 520) {
-        piece.vx = 0;
-        piece.vy = 0;
-        piece.va = 0;
-        piece.sleeping = true;
-        markPhotoHit(collider, pieceCenterX, pieceCenterY);
-        return true;
+      if (piece.type === "figure") {
+        rollDirection = figureContact.direction;
+        const escapeBoost = clamp(figureContact.age / 820, 0, 1) * (isMobile() ? 0.72 : 0.9);
+        const targetVx = rollDirection * ((isMobile() ? 1.02 : 1.18) + escapeBoost);
+        piece.vy = Math.max(0.12, piece.vy * 0.08);
+        piece.vx += (targetVx - piece.vx) * 0.34 * dt;
+        piece.va = piece.va * 0.7 + rollDirection * 0.008 * dt;
+      } else {
+        piece.vy = -Math.min(Math.abs(piece.vy) * bounce + (isMobile() ? 0.38 : 0.48), isMobile() ? 1.8 : 2.25);
+        piece.vx += rollDirection * (isMobile() ? 0.92 : 1.12) * (piece.rebound || 1) * dt;
       }
-      piece.vy = -Math.min(Math.abs(piece.vy) * bounce + (isMobile() ? 0.38 : 0.48), isMobile() ? 1.8 : 2.25);
-      piece.vx += (rollDirection * (isMobile() ? 0.92 : 1.12) + (Math.random() - 0.5) * 0.22) * (piece.rebound || 1) * dt;
     } else if (minOverlap === overlapBottom) {
       piece.y = rect.bottom - pieceBox.offsetTop;
       piece.vy = Math.abs(piece.vy) * 0.18 + 0.32;
+      if (figureContact) piece.vx += figureContact.direction * 0.12 * dt;
     } else if (minOverlap === overlapLeft) {
       piece.x = rect.left - (piece.width - pieceBox.offsetRight);
-      piece.vx = -Math.abs(piece.vx) * bounce - (0.54 + Math.random() * 0.16);
+      piece.vx = -Math.abs(piece.vx) * bounce - (piece.type === "figure" ? 0.62 : 0.54);
     } else {
       piece.x = rect.right - pieceBox.offsetLeft;
-      piece.vx = Math.abs(piece.vx) * bounce + (0.54 + Math.random() * 0.16);
+      piece.vx = Math.abs(piece.vx) * bounce + (piece.type === "figure" ? 0.62 : 0.54);
     }
     piece.va += clamp((pieceCenterX - photoCenterX) * 0.0035, -0.45, 0.45);
-    markPhotoHit(collider, pieceCenterX, pieceCenterY);
+    const shouldMarkImpact = collider.item !== piece.lastPhotoImpactItem
+      || time - (piece.lastPhotoImpactAt || 0) > 260;
+    if (shouldMarkImpact && impactSpeed > 0.42) {
+      piece.lastPhotoImpactItem = collider.item;
+      piece.lastPhotoImpactAt = time;
+      markPhotoHit(collider, pieceCenterX, pieceCenterY);
+    }
     return true;
   };
 
-  const collideLetters = (dt, restTargets = null) => {
+  const collideLetterPairs = (dt, restTargets = null) => {
     for (let pass = 0; pass < 2; pass++) {
-      for (let i = 0; i < pieces.length; i++) {
-        for (let j = i + 1; j < pieces.length; j++) {
-          const first = pieces[i];
-          const second = pieces[j];
+      for (let i = 0; i < letterPieces.length; i++) {
+        for (let j = i + 1; j < letterPieces.length; j++) {
+          const first = letterPieces[i];
+          const second = letterPieces[j];
           const bothSleeping = first.sleeping && second.sleeping;
           const firstBox = getPieceBox(first);
           const secondBox = getPieceBox(second);
@@ -2225,6 +2826,111 @@ function initializeOverviewInteraction(grid) {
     }
   };
 
+  const getFigureTextEscapeDirection = (figureBox, letterBoxes, sidePadding) => {
+    const passageWidth = figureBox.right - figureBox.left + (isMobile() ? 2 : 4);
+    const verticalMatches = letterBoxes.filter(({ box }) => {
+      return box.bottom > figureBox.top - 2 && box.top < figureBox.bottom + 2;
+    });
+    const contacts = verticalMatches.filter(({ box }) => {
+      return box.right > figureBox.left && box.left < figureBox.right;
+    });
+    if (!contacts.length) return figurePiece?.textEscapeDirection || 1;
+
+    let groupLeft = Math.min(...contacts.map(({ box }) => box.left));
+    let groupRight = Math.max(...contacts.map(({ box }) => box.right));
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      verticalMatches.forEach(({ box }) => {
+        const joinsLeft = box.right <= groupLeft && groupLeft - box.right <= passageWidth;
+        const joinsRight = box.left >= groupRight && box.left - groupRight <= passageWidth;
+        if (!joinsLeft && !joinsRight) return;
+        const nextLeft = Math.min(groupLeft, box.left);
+        const nextRight = Math.max(groupRight, box.right);
+        if (nextLeft === groupLeft && nextRight === groupRight) return;
+        groupLeft = nextLeft;
+        groupRight = nextRight;
+        expanded = true;
+      });
+    }
+
+    const canEscapeLeft = figurePiece.x > sidePadding + 1;
+    const canEscapeRight = figurePiece.x + figurePiece.width < window.innerWidth - sidePadding - 1;
+    if (!canEscapeLeft) return 1;
+    if (!canEscapeRight) return -1;
+    if (Math.abs(figurePiece.vx) > 0.82) return Math.sign(figurePiece.vx);
+    const leftDistance = Math.max(0, figureBox.right - groupLeft);
+    const rightDistance = Math.max(0, groupRight - figureBox.left);
+    return leftDistance <= rightDistance ? -1 : 1;
+  };
+
+  const collideFigureWithLetters = (dt, time, sidePadding) => {
+    if (!figurePiece || !letterPieces.length) return false;
+    const letterBoxes = letterPieces.map((piece) => ({ piece, box: getPieceBox(piece) }));
+    const initialBox = getPieceBox(figurePiece);
+    const hasContact = letterBoxes.some(({ box }) => getPieceRectContact(figurePiece, box));
+    if (!hasContact) {
+      if (time - (figurePiece.textLastContactAt || 0) > 180) figurePiece.textContactStartedAt = 0;
+      return false;
+    }
+
+    const continuing = time - (figurePiece.textLastContactAt || 0) <= 180;
+    if (!continuing) {
+      figurePiece.textContactStartedAt = time;
+      figurePiece.textEscapeDirection = getFigureTextEscapeDirection(initialBox, letterBoxes, sidePadding);
+    }
+    figurePiece.textLastContactAt = time;
+    const contactAge = Math.max(0, time - (figurePiece.textContactStartedAt || time));
+    const escapeBoost = clamp(contactAge / 900, 0, 1) * (isMobile() ? 0.72 : 0.88);
+    const escapeSpeed = (isMobile() ? 1.02 : 1.18) + escapeBoost;
+    let collided = false;
+
+    for (let pass = 0; pass < 2; pass++) {
+      letterBoxes.forEach(({ box }) => {
+        const contact = getPieceRectContact(figurePiece, box);
+        if (!contact) return;
+        const figureBox = contact.box;
+        collided = true;
+
+        const overlapX = Math.min(contact.overlapLeft, contact.overlapRight);
+        const overlapY = Math.min(contact.overlapTop, contact.overlapBottom);
+        const figureCenterX = (figureBox.left + figureBox.right) / 2;
+        const figureCenterY = (figureBox.top + figureBox.bottom) / 2;
+        const letterCenterX = (box.left + box.right) / 2;
+        const letterCenterY = (box.top + box.bottom) / 2;
+        const separation = isMobile() ? 0.7 : 0.9;
+
+        if (overlapX + 0.5 < overlapY) {
+          const direction = figureCenterX < letterCenterX ? -1 : 1;
+          figurePiece.x += direction * (overlapX + separation);
+          figurePiece.vx = direction * Math.max(0.46, Math.abs(figurePiece.vx) * 0.24);
+          figurePiece.vy = Math.max(0.18, figurePiece.vy * 0.74);
+        } else if (figureCenterY <= letterCenterY) {
+          figurePiece.y = box.top - (figurePiece.height - figureBox.offsetBottom) - separation;
+          figurePiece.vy = clamp(figurePiece.vy * 0.08, 0.06, 0.24);
+          const targetVx = figurePiece.textEscapeDirection * escapeSpeed;
+          figurePiece.vx += (targetVx - figurePiece.vx) * 0.32 * dt;
+        } else {
+          figurePiece.y = box.bottom - figureBox.offsetTop + separation;
+          figurePiece.vy = Math.max(0.3, Math.abs(figurePiece.vy) * 0.22);
+          figurePiece.vx += figurePiece.textEscapeDirection * 0.08 * dt;
+        }
+      });
+    }
+
+    if (!collided) return false;
+    figurePiece.sleeping = false;
+    figurePiece.floorHits = 0;
+    figurePiece.va = figurePiece.va * (isMobile() ? 0.64 : 0.68)
+      + figurePiece.textEscapeDirection * 0.006 * dt;
+    return true;
+  };
+
+  const relaxLetterRotation = (piece, strength) => {
+    if (piece.type !== "letter") return;
+    piece.angle += (piece.restAngle - piece.angle) * strength;
+  };
+
   const tick = (time) => {
     if (document.hidden) {
       physicsSleeping = true;
@@ -2259,7 +2965,7 @@ function initializeOverviewInteraction(grid) {
     const settleAge = Math.max(0, time - physicsStartedAt - settleDelay);
     const settleEase = clamp(settleAge / 3600, 0, 1);
     const idleAge = time - lastScrollMoveAt;
-    const settlingPieces = pieces.filter((piece) => piece.settles !== false);
+    const settlingPieces = letterPieces;
     const groupCenterY = settlingPieces.reduce((sum, piece) => sum + piece.y + piece.height / 2, 0) / Math.max(1, settlingPieces.length);
     if (!hasReachedSettleZone && (groupCenterY > idleAttractionRadius() || settlingPieces.some((piece) => piece.floorHits > 0))) {
       hasReachedSettleZone = true;
@@ -2298,7 +3004,7 @@ function initializeOverviewInteraction(grid) {
           piece.y = target.y;
           piece.angle = target.angle;
         } else {
-          piece.angle += (piece.restAngle - piece.angle) * 0.055;
+          relaxLetterRotation(piece, 0.055);
         }
         return;
       }
@@ -2352,23 +3058,17 @@ function initializeOverviewInteraction(grid) {
         piece.va -= 0.06;
       }
 
-      colliders.forEach((collider) => {
-        if (collideWithPhoto(piece, collider, dt)) touchedItem = collider.item;
-      });
-      const softlyAvoided = avoidPhotosSoftly(piece, colliders, dt);
-      if (softlyAvoided) piece.softPhotoContacts = (piece.softPhotoContacts || 0) + 1;
-      else piece.softPhotoContacts = 0;
-      if (
-        piece.type === "figure"
-        && piece.softPhotoContacts >= 24
-        && Math.abs(piece.vx) + Math.abs(piece.vy) < 0.65
-        && idleAge > 520
-      ) {
-        piece.vx = 0;
-        piece.vy = 0;
-        piece.va = 0;
-        piece.sleeping = true;
+      const nearbyColliders = getNearbyPhotoColliders(piece, colliders);
+      releaseStuckFigure(piece, nearbyColliders, time, sidePadding);
+      const passesThroughPhotos = piece.type === "figure" && time < (piece.photoPassThroughUntil || 0);
+      if (!passesThroughPhotos) {
+        for (const collider of nearbyColliders) {
+          if (!collideWithPhoto(piece, collider, dt, time)) continue;
+          touchedItem = collider.item;
+          break;
+        }
       }
+      if (!passesThroughPhotos && piece.type !== "figure") avoidPhotosSoftly(piece, nearbyColliders, dt);
 
       piece.vx = clamp(piece.vx, -3.6, 3.6);
       piece.vy = clamp(piece.vy, -3.8, 5.8);
@@ -2389,7 +3089,7 @@ function initializeOverviewInteraction(grid) {
           piece.va = piece.va * 0.42 + (Math.random() - 0.5) * 0.035;
         }
         piece.vx *= 0.58;
-        piece.angle += (piece.restAngle - piece.angle) * 0.04;
+        relaxLetterRotation(piece, 0.04);
       }
 
       if (target) {
@@ -2414,7 +3114,8 @@ function initializeOverviewInteraction(grid) {
 
     });
 
-    collideLetters(dt, restTargets);
+    collideLetterPairs(dt, restTargets);
+    collideFigureWithLetters(dt, time, sidePadding);
     pieces.forEach((piece) => {
       const minY = piece.type === "figure" ? -piece.height * 1.35 : 0;
       piece.x = clamp(piece.x, sidePadding, Math.max(sidePadding, window.innerWidth - sidePadding - piece.width));
@@ -2426,7 +3127,6 @@ function initializeOverviewInteraction(grid) {
     const photoEffectDelay = returningFromRel ? 1180 : 520;
     photoEffectsReady = canMoveOverviewPhotos() && time - physicsStartedAt >= photoEffectDelay;
 
-    const letterPieces = pieces.filter((piece) => piece.type === "letter");
     const reunionDistance = isMobile() ? 11 : 14;
     const reunionSpeed = isMobile() ? 0.48 : 0.56;
     const reunionReady = shouldSettle
@@ -2496,7 +3196,7 @@ function initializeOverviewInteraction(grid) {
     if (started || !letters.length) return;
     started = true;
     const midpoint = (letters.length - 1) / 2;
-    const letterPieces = letters.map((letter, index) => {
+    letterPieces = letters.map((letter, index) => {
       const rect = letter.getBoundingClientRect();
       const offset = index - midpoint;
       return {
@@ -2523,22 +3223,23 @@ function initializeOverviewInteraction(grid) {
     });
 
     pieces = [...letterPieces];
+    figurePiece = null;
     if (figure) {
       const rect = figure.getBoundingClientRect();
       const width = rect.width || Math.min(window.innerWidth * 0.28, 150);
-      const height = rect.height || width * 1.57;
+      const height = rect.height || width * (248 / 202);
       const sidePadding = isMobile() ? 8 : 16;
-      const figureHitbox = { left: 0.18, right: 0.18, top: 0.075, bottom: 0.025 };
-      pieces.push({
+      const figureCollider = { centerX: 0.51, centerY: 0.51, radiusX: 0.425, radiusY: 0.476 };
+      figurePiece = {
         type: "figure",
         settles: false,
         mass: 1.18 + Math.random() * 0.22,
         rebound: 1.02 + Math.random() * 0.24,
         wanderSeed: Math.random() * Math.PI * 2,
-        hitbox: figureHitbox,
+        collider: figureCollider,
         glyph: "figure",
         el: figure,
-        x: getTopDropX(width, sidePadding, figureHitbox),
+        x: getTopDropX(width, sidePadding, figureCollider),
         y: -height - 32 - Math.random() * (isMobile() ? 96 : 150),
         width,
         height,
@@ -2549,8 +3250,21 @@ function initializeOverviewInteraction(grid) {
         restAngle: 0,
         floorHits: 0,
         onFloor: false,
-        sleeping: false
-      });
+        sleeping: false,
+        fallProgressY: null,
+        fallProgressAt: 0,
+        photoPassThroughUntil: 0,
+        escapeAttempts: 0,
+        escapeDirection: Math.random() < 0.5 ? -1 : 1,
+        textContactStartedAt: 0,
+        textLastContactAt: 0,
+        textEscapeDirection: Math.random() < 0.5 ? -1 : 1,
+        photoContactItem: null,
+        photoContactStartedAt: 0,
+        photoLastContactAt: 0,
+        photoEscapeDirection: Math.random() < 0.5 ? -1 : 1
+      };
+      pieces.push(figurePiece);
     }
 
     title.style.setProperty("--brand-shift-x", "0px");
@@ -2619,6 +3333,7 @@ function initializeOverviewInteraction(grid) {
   };
 
   const handleResize = () => {
+    updateOverviewPhotoPlaceholderGeometry();
     if (!started) return;
     invalidatePhotoColliderCache();
     if (!canMoveOverviewPhotos()) {
@@ -2637,9 +3352,9 @@ function initializeOverviewInteraction(grid) {
     reunionArmed = true;
     pieces.forEach((piece) => {
       if (piece.type !== "figure") return;
-      piece.photoRestContacts = 0;
-      piece.photoSideContacts = 0;
-      piece.softPhotoContacts = 0;
+      piece.fallProgressY = piece.y;
+      piece.fallProgressAt = now;
+      piece.photoPassThroughUntil = 0;
     });
     wakePhysics();
   };
@@ -2692,375 +3407,31 @@ function initializeOverviewInteraction(grid) {
   };
 }
 
-function isValidOverviewFlightRect(rect) {
-  return rect
-    && [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)
-    && rect.width > 8
-    && rect.height > 8;
-}
-
-function finishOverviewReturnTarget(target, overlay = null, onComplete = null) {
-  if (!overlay) {
-    target.classList.remove("is-return-flight-target", "is-return-target");
-    onComplete?.();
-    return;
-  }
-  target.classList.add("is-return-flight-handoff");
-  target.classList.remove("is-return-flight-target", "is-return-target");
-  requestAnimationFrame(() => {
-    overlay.remove();
-    requestAnimationFrame(() => {
-      target.classList.remove("is-return-flight-handoff");
-      onComplete?.();
-    });
-  });
-}
-
-function runOverviewReturnFlight(target, state) {
-  const flight = state?.flight;
-  const targetImage = target.querySelector("img");
-  const sourceRect = flight?.sourceRect;
-  const photoSrc = typeof flight?.photoSrc === "string" ? flight.photoSrc : "";
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (!targetImage || !photoSrc || !isValidOverviewFlightRect(sourceRect) || reducedMotion) {
-    window.setTimeout(() => finishOverviewReturnTarget(target), reducedMotion ? 40 : 900);
-    return;
-  }
-
-  const overlay = document.createElement("img");
-  overlay.className = "overview-return-flight";
-  overlay.alt = "";
-  overlay.decoding = "async";
-  overlay.src = photoSrc;
-  overlay.setAttribute("aria-hidden", "true");
-  document.body.appendChild(overlay);
-
-  let finished = false;
-  let started = false;
-  let safetyTimer = 0;
-  let loadTimer = 0;
-  let interruptTimer = 0;
-  let scrollLocked = false;
-  let interrupted = false;
-  const lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-  const preventScrollInput = (event) => event.preventDefault();
-  const keepReturnScrollPosition = () => {
-    const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    if (Math.abs(currentScrollY - lockedScrollY) > 0.5) {
-      window.scrollTo({ top: lockedScrollY, left: 0, behavior: "auto" });
-    }
-  };
-  const lockReturnScroll = () => {
-    if (scrollLocked) return;
-    scrollLocked = true;
-    document.body.classList.add("is-return-flight-active");
-    window.addEventListener("wheel", interruptReturnFlight, { passive: true, capture: true });
-    window.addEventListener("touchstart", interruptReturnFlight, { passive: true, capture: true });
-    window.addEventListener("touchmove", preventScrollInput, { passive: false, capture: true });
-    window.addEventListener("scroll", keepReturnScrollPosition, { passive: true });
-  };
-  const unlockReturnScroll = () => {
-    if (!scrollLocked) return;
-    scrollLocked = false;
-    document.body.classList.remove("is-return-flight-active");
-    window.removeEventListener("wheel", interruptReturnFlight, true);
-    window.removeEventListener("touchstart", interruptReturnFlight, true);
-    window.removeEventListener("touchmove", preventScrollInput, true);
-    window.removeEventListener("scroll", keepReturnScrollPosition);
-  };
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    window.clearTimeout(safetyTimer);
-    window.clearTimeout(loadTimer);
-    window.clearTimeout(interruptTimer);
-    finishOverviewReturnTarget(target, overlay, unlockReturnScroll);
-  };
-  const finishInterrupted = () => {
-    if (finished) return;
-    finished = true;
-    window.clearTimeout(safetyTimer);
-    window.clearTimeout(loadTimer);
-    window.clearTimeout(interruptTimer);
-    unlockReturnScroll();
-    overlay.remove();
-    target.classList.remove("is-return-flight-handoff", "is-return-flight-target", "is-return-target");
-  };
-  function interruptReturnFlight() {
-    if (!started || finished || interrupted) return;
-    interrupted = true;
-    window.clearTimeout(safetyTimer);
-    const presentation = getComputedStyle(overlay);
-    overlay.style.transform = presentation.transform;
-    overlay.style.opacity = presentation.opacity;
-    overlay.style.boxShadow = presentation.boxShadow;
-    overlay.style.animation = "none";
-    overlay.classList.add("is-interrupted");
-    target.classList.add("is-return-flight-handoff");
-    target.classList.remove("is-return-flight-target", "is-return-target");
-    unlockReturnScroll();
-    overlay.offsetHeight;
-    overlay.style.transition = "opacity 150ms cubic-bezier(.2, .8, .2, 1)";
-    overlay.style.opacity = "0";
-    interruptTimer = window.setTimeout(finishInterrupted, 160);
-  }
-  const start = () => {
-    if (started || finished) return;
-    started = true;
-    window.clearTimeout(loadTimer);
-    const destination = targetImage.getBoundingClientRect();
-    if (!isValidOverviewFlightRect(destination)) {
-      finish();
-      return;
-    }
-    const perspective = 1200;
-    const depth = 540;
-    const perspectiveCompensation = (perspective - depth) / perspective;
-    const dx = (sourceRect.left - destination.left) * perspectiveCompensation;
-    const dy = (sourceRect.top - destination.top) * perspectiveCompensation;
-    const scaleX = sourceRect.width / destination.width * perspectiveCompensation;
-    const scaleY = sourceRect.height / destination.height * perspectiveCompensation;
-    overlay.style.left = `${destination.left}px`;
-    overlay.style.top = `${destination.top}px`;
-    overlay.style.width = `${destination.width}px`;
-    overlay.style.height = `${destination.height}px`;
-    overlay.style.setProperty("--return-flight-perspective", `${perspective}px`);
-    overlay.style.setProperty("--return-flight-depth", `${depth}px`);
-    overlay.style.setProperty("--return-flight-x", `${dx}px`);
-    overlay.style.setProperty("--return-flight-y", `${dy}px`);
-    overlay.style.setProperty("--return-flight-scale-x", scaleX.toFixed(5));
-    overlay.style.setProperty("--return-flight-scale-y", scaleY.toFixed(5));
-    lockReturnScroll();
-    target.classList.add("is-return-flight-target");
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (finished) return;
-        overlay.classList.add("is-active");
-        safetyTimer = window.setTimeout(finish, 1700);
-      });
-    });
-  };
-  overlay.addEventListener("animationend", () => {
-    if (!interrupted) finish();
-  }, { once: true });
-  overlay.addEventListener("animationcancel", () => {
-    if (!interrupted) finish();
-  }, { once: true });
-  const waitForImage = (image) => new Promise((resolve, reject) => {
-    if (image.complete) {
-      if (image.naturalWidth <= 0) {
-        reject(new Error("image unavailable"));
-        return;
-      }
-      if (typeof image.decode === "function") image.decode().then(resolve).catch(resolve);
-      else resolve();
-      return;
-    }
-    image.addEventListener("load", resolve, { once: true });
-    image.addEventListener("error", reject, { once: true });
-  });
-  hydrateDeferredImage(targetImage);
-  targetImage.loading = "eager";
-  targetImage.fetchPriority = "high";
-  target.classList.remove("is-return-target");
-  Promise.all([waitForImage(overlay), waitForImage(targetImage)]).then(start).catch(finish);
-  loadTimer = window.setTimeout(finish, 2400);
-}
-function startLoadingSequence() {
+function startLoadingSequence(readiness = null) {
   if (document.body.classList.contains("is-returning-from-rel")) {
-    document.body.classList.add("has-loaded", "has-finished");
+    document.body.classList.add("has-loaded", "has-opening-images-ready", "has-finished");
     document.documentElement.classList.add("has-landed");
     return;
   }
+  const hasOpeningReadiness = Boolean(readiness);
+  const finishLoadingSequence = () => {
+    document.body.classList.add("has-finished");
+    document.documentElement.classList.add("has-landed");
+    window.setTimeout(releaseOverviewOpeningRasters, 1800);
+  };
   requestAnimationFrame(() => {
     document.body.classList.add("has-loaded");
-    window.setTimeout(() => {
-      document.body.classList.add("has-finished");
-      document.documentElement.classList.add("has-landed");
-    }, 180);
-  });
-}
-
-function renderWork() {
-  const board = document.querySelector("[data-work-items]");
-  if (!board) return;
-  const count = document.querySelector("[data-work-count]");
-  if (count) count.textContent = String(photos.length);
-  const years = photos
-    .map((photo) => String(photo.date || "").slice(0, 4))
-    .filter((year) => /^\d{4}$/.test(year))
-    .map(Number);
-  const yearRange = document.querySelector("[data-work-years]");
-  if (yearRange && years.length) {
-    const firstYear = Math.min(...years);
-    const lastYear = Math.max(...years);
-    yearRange.textContent = firstYear === lastYear ? String(firstYear) : `${firstYear}-${lastYear}`;
-  }
-  const desktopSizes = ["42vw", "34vw", "26vw", "34vw", "42vw", "26vw", "58vw", "34vw", "26vw", "42vw", "26vw", "82vw"];
-  const mobileSizes = ["calc(100vw - 3.2rem)", "calc(50vw - 2.2rem)", "calc(50vw - 2.2rem)", "82vw", "calc(50vw - 2.2rem)", "calc(50vw - 2.2rem)"];
-  const tabletSizes = ["66vw", "32vw", "32vw", "66vw", "100vw", "50vw", "50vw", "82vw"];
-  photos.forEach((photo, index) => {
-    const item = document.createElement("a");
-    item.className = "work-item";
-    const photoRatio = Number(photo.width) > 0 && Number(photo.height) > 0
-      ? Number(photo.width) / Number(photo.height)
-      : 1.5;
-    const isPanorama = photoRatio >= 2;
-    if (isPanorama) item.classList.add("work-item--panorama");
-    const rel = getPhotoRel(photo, index);
-    item.href = `focus.html?rel=${rel}`;
-    item.dataset.workRel = String(rel);
-    item.style.setProperty("--delay", `${(index % 10) * 0.03}s`);
-    const itemNumber = String(rel).padStart(2, "0");
-    const category = String(photo.category || "ARCHIVE").trim() || "ARCHIVE";
-    const year = String(photo.date || "2026").slice(0, 4) || "2026";
-    const thumbSource = index < 4 ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
-    const mediumWidth = Math.max(480, Number(photo.mediumWidth) || Number(photo.width) || 1280);
-    const fullWidth = Math.max(mediumWidth, Number(photo.width) || 1920);
-    const responsiveSource = photo.medium && photo.medium !== photo.full
-      ? `${photo.thumb} 480w, ${photo.medium} ${mediumWidth}w, ${photo.full} ${fullWidth}w`
-      : `${photo.thumb} 480w, ${photo.full} ${fullWidth}w`;
-    const sourceSet = index < 4 ? `srcset="${responsiveSource}"` : `data-srcset="${responsiveSource}"`;
-    const mobileSize = mobileSizes[index % mobileSizes.length];
-    const tabletSize = isPanorama ? "100vw" : tabletSizes[index % tabletSizes.length];
-    const desktopSize = isPanorama ? "82vw" : desktopSizes[index % desktopSizes.length];
-    const gridSizes = `(min-width: 600px) and (max-width: 768px) ${tabletSize}, (max-width: 768px) ${mobileSize}, ${desktopSize}`;
-    item.innerHTML = `
-      <span class="work-item__image"><img ${thumbSource} ${sourceSet} sizes="${gridSizes}" data-grid-sizes="${gridSizes}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${index < 4 ? "eager" : "lazy"}" fetchpriority="${index < 2 ? "high" : "low"}" decoding="async"></span>
-      <span class="work-item__text">
-        <span class="work-item__index">${itemNumber}</span>
-        <span class="work-item__name">${photo.title}</span>
-        <span class="work-item__meta"><span>${category}</span><span>${year}</span></span>
-      </span>
-    `;
-    board.appendChild(item);
-  });
-  const deferredObserver = createDeferredImageObserver("720px");
-  observeDeferredImages(board, deferredObserver);
-
-  document.querySelectorAll("[data-work-view]").forEach((button) => {
-    button.addEventListener("click", () => setWorkView(button.dataset.workView));
-  });
-  setWorkView(new URLSearchParams(window.location.search).get("view") || "grid", { animate: false });
-}
-
-function setWorkView(view, options = {}) {
-  const next = view === "list" ? "list" : "grid";
-  const current = document.body.dataset.view === "list" ? "list" : "grid";
-  const board = document.querySelector("[data-work-items]");
-  const syncControls = () => {
-    document.querySelectorAll("[data-work-view]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.workView === next);
-      button.setAttribute("aria-pressed", String(button.dataset.workView === next));
+    Promise.resolve(readiness).catch(() => {}).then(() => {
+      if (!hasOpeningReadiness) {
+        window.setTimeout(finishLoadingSequence, 180);
+        return;
+      }
+      document.body.classList.add("has-opening-images-ready");
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        window.setTimeout(finishLoadingSequence, OVERVIEW_OPENING_REVEAL_DELAY);
+      }));
     });
-    const url = new URL(window.location.href);
-    if (next === "list") url.searchParams.set("view", "list");
-    else url.searchParams.delete("view");
-    window.history.replaceState({}, "", url.pathname + url.search);
-  };
-  const applyLayout = () => {
-    document.body.setAttribute("data-view", next);
-    document.querySelectorAll(".work-item img").forEach((image) => {
-      image.sizes = next === "list"
-        ? "(max-width: 768px) 7.2rem, min(36vw, 52rem)"
-        : image.dataset.gridSizes || "100vw";
-    });
-  };
-  const clearBoardStyles = () => {
-    if (!board) return;
-    board.style.removeProperty("opacity");
-    board.style.removeProperty("transform");
-    board.style.removeProperty("will-change");
-  };
-  const freezeBoard = () => {
-    if (!board || !workViewAnimation) return null;
-    const computed = getComputedStyle(board);
-    const snapshot = {
-      opacity: computed.opacity,
-      transform: computed.transform === "none" ? "none" : computed.transform
-    };
-    workViewAnimation.cancel();
-    workViewAnimation = null;
-    board.style.opacity = snapshot.opacity;
-    board.style.transform = snapshot.transform;
-    return snapshot;
-  };
-
-  syncControls();
-  const canAnimate = options.animate !== false
-    && board
-    && typeof board.animate === "function"
-    && document.body.classList.contains("has-loaded")
-    && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const runId = ++workViewRunId;
-
-  if (!canAnimate) {
-    if (workViewAnimation) workViewAnimation.cancel();
-    workViewAnimation = null;
-    applyLayout();
-    clearBoardStyles();
-    return;
-  }
-
-  const frozen = freezeBoard();
-  const computed = frozen || {
-    opacity: getComputedStyle(board).opacity,
-    transform: getComputedStyle(board).transform === "none" ? "none" : getComputedStyle(board).transform
-  };
-  board.style.willChange = "transform, opacity";
-
-  if (next === current) {
-    workViewAnimation = board.animate([
-      { opacity: computed.opacity, transform: computed.transform },
-      { opacity: 1, transform: "translate3d(0, 0, 0)" }
-    ], {
-      duration: 180,
-      easing: "cubic-bezier(.23, 1, .32, 1)",
-      fill: "both"
-    });
-    const restoreAnimation = workViewAnimation;
-    restoreAnimation.finished.then(() => {
-      if (workViewRunId !== runId || workViewAnimation !== restoreAnimation) return;
-      workViewAnimation = null;
-      restoreAnimation.cancel();
-      clearBoardStyles();
-    }).catch(() => {});
-    return;
-  }
-
-  workViewAnimation = board.animate([
-    { opacity: computed.opacity, transform: computed.transform },
-    { opacity: 0, transform: "translate3d(0, .6rem, 0)" }
-  ], {
-    duration: 110,
-    easing: "cubic-bezier(.23, 1, .32, 1)",
-    fill: "both"
   });
-  const exitAnimation = workViewAnimation;
-  exitAnimation.finished.then(() => {
-    if (workViewRunId !== runId || workViewAnimation !== exitAnimation) return;
-    exitAnimation.cancel();
-    workViewAnimation = null;
-    applyLayout();
-    board.style.opacity = "0";
-    board.style.transform = "translate3d(0, .6rem, 0)";
-    board.offsetHeight;
-    workViewAnimation = board.animate([
-      { opacity: 0, transform: "translate3d(0, .6rem, 0)" },
-      { opacity: 1, transform: "translate3d(0, 0, 0)" }
-    ], {
-      duration: 260,
-      easing: "cubic-bezier(.23, 1, .32, 1)",
-      fill: "both"
-    });
-    const enterAnimation = workViewAnimation;
-    enterAnimation.finished.then(() => {
-      if (workViewRunId !== runId || workViewAnimation !== enterAnimation) return;
-      workViewAnimation = null;
-      enterAnimation.cancel();
-      clearBoardStyles();
-    }).catch(() => {});
-  }).catch(() => {});
 }
 
 function renderFocus() {
@@ -3082,6 +3453,21 @@ function renderFocus() {
   const getFocusPhotoSource = (photo) => window.innerWidth <= 768
     ? photo?.medium || photo?.full || photo?.thumb || ""
     : photo?.full || photo?.medium || photo?.thumb || "";
+  const updateFocusMainPlaceholderGeometry = (photo = photos[Number(shell.dataset.activeIndex || 0)]) => {
+    if (!photo || !imageToggle) return;
+    const availableWidth = imageToggle.clientWidth;
+    const availableHeight = imageToggle.clientHeight;
+    const ratio = getPhotoAspectRatio(photo);
+    if (!(availableWidth > 0 && availableHeight > 0 && ratio > 0)) return;
+    let placeholderWidth = availableWidth;
+    let placeholderHeight = placeholderWidth / ratio;
+    if (placeholderHeight > availableHeight) {
+      placeholderHeight = availableHeight;
+      placeholderWidth = placeholderHeight * ratio;
+    }
+    imageToggle.style.setProperty("--photo-placeholder-width", `${placeholderWidth.toFixed(2)}px`);
+    imageToggle.style.setProperty("--photo-placeholder-height", `${placeholderHeight.toFixed(2)}px`);
+  };
   let mobileRailMaxOffset = 0;
   let focusSyncHoldUntil = 0;
   let focusMainTouchStartX = 0;
@@ -3208,6 +3594,7 @@ function renderFocus() {
     returnViewportWidth: 0,
     returnViewportHeight: 0,
     pendingSelection: null,
+    returnImagePreparing: false,
     resizeFrame: 0,
     loadFrame: 0,
     savedScrollY: 0,
@@ -3240,8 +3627,10 @@ function renderFocus() {
     button.style.setProperty("--delay", `${Math.min(index, 24) * 0.018}s`);
     const prioritizeThumb = Math.abs(index - initial) <= 2;
     const thumbSource = prioritizeThumb ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
-    button.innerHTML = `<span class="focus-thumb__media"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritizeThumb ? "eager" : "lazy"}" fetchpriority="${index === initial ? "high" : "low"}" decoding="async"></span>`;
+    button.innerHTML = `<span class="focus-thumb__media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritizeThumb ? "eager" : "lazy"}" fetchpriority="${index === initial ? "high" : "low"}" decoding="async"></span>`;
     const thumbImage = button.querySelector("img");
+    const thumbMedia = button.querySelector(".focus-thumb__media");
+    initializePhotoPlaceholder(thumbMedia, thumbImage, photo.thumb);
     thumbImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, thumbImage), { once: true });
     if (thumbImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, thumbImage));
     button.addEventListener("click", () => {
@@ -3266,10 +3655,16 @@ function renderFocus() {
       }
       const prewarmIndexThumb = false;
       const indexThumbSource = prewarmIndexThumb ? `src="${photo.thumb}"` : "";
-      indexButton.innerHTML = `<span class="focus-index-card__media"><img ${indexThumbSource} data-focus-index-full="${getFocusPhotoSource(photo)}" data-focus-index-thumb="${photo.thumb}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo)} loading="${prewarmIndexThumb ? "eager" : "lazy"}" fetchpriority="low" decoding="async"></span>`;
+      indexButton.innerHTML = `<span class="focus-index-card__media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo)}"><img ${indexThumbSource} data-focus-index-full="${getFocusPhotoSource(photo)}" data-focus-index-thumb="${photo.thumb}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo)} loading="${prewarmIndexThumb ? "eager" : "lazy"}" fetchpriority="low" decoding="async"></span>`;
       const indexImage = indexButton.querySelector("img");
+      const indexMedia = indexButton.querySelector(".focus-index-card__media");
+      initializePhotoPlaceholder(indexMedia, indexImage, photo.thumb);
       indexImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, indexImage), { once: true });
       if (indexImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, indexImage));
+      indexButton.addEventListener("pointerdown", () => {
+        if (focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
+        preloadFocusImageDecoded(getFocusPhotoSource(photo));
+      }, { passive: true });
       indexButton.addEventListener("click", () => {
         selectFocusIndexCard(index);
       });
@@ -3363,26 +3758,18 @@ function renderFocus() {
     }
     try {
       const existing = JSON.parse(sessionStorage.getItem(OVERVIEW_RETURN_STORAGE_KEY) || "null") || {};
-      const activePhoto = photos[activeIndex] || photos[0];
-      const sourceRect = getFocusImageContentRect();
       sessionStorage.setItem(OVERVIEW_RETURN_STORAGE_KEY, JSON.stringify({
         rel: activeRel,
         scrollY: Number(existing.scrollY || 0),
         createdAt: Date.now(),
         order: Array.isArray(existing.order) ? existing.order : undefined,
-        flight: activePhoto && sourceRect ? {
-          photoSrc: activePhoto.full,
-          sourceRect,
-          axis: window.innerWidth <= 768 ? "x" : "y",
-          direction: focusLastNavigationDirection
-        } : undefined
+        anchor: existing.anchor
       }));
     } catch (error) {
       returnFocusToOverview(activeRel, true);
       return;
     }
-    document.body.classList.add("is-focus-leaving");
-    window.setTimeout(() => returnFocusToOverview(activeRel, true), 360);
+    returnFocusToOverview(activeRel, true);
   });
   window.addEventListener("wheel", () => {
     clearFocusManualSelection();
@@ -3449,6 +3836,7 @@ function renderFocus() {
     invalidateFocusLayoutMeasurements();
     updateFocusRailMetrics();
     updateMobileFocusRail();
+    updateFocusMainPlaceholderGeometry();
     scheduleFocusRailSync(420);
     scheduleNotesLayoutUpdate();
     if (focusIndexState.mode === "index" || focusIndexState.phase !== "idle") {
@@ -3689,6 +4077,13 @@ function renderFocus() {
     };
   }
 
+  function focusRectsNearlyEqual(first, second, tolerance = .75) {
+    if (!first || !second) return false;
+    return ["left", "top", "width", "height"].every((property) => {
+      return Math.abs(first[property] - second[property]) <= tolerance;
+    });
+  }
+
   function measureUnlockedFocusMainTargetRect(notes, options = {}) {
     const body = document.body;
     const locked = body.classList.contains("focus-index-scroll-lock");
@@ -3716,7 +4111,65 @@ function renderFocus() {
     return rect;
   }
 
+  function measureFocusIndexFinalNotesRect(index, sourceRect) {
+    const body = document.body;
+    const shellClassName = shell.className;
+    const locked = body.classList.contains("focus-index-scroll-lock");
+    const lockedStyles = locked ? {
+      top: body.style.top,
+      position: body.style.position,
+      width: body.style.width,
+      overflow: body.style.overflow,
+      paddingRight: body.style.paddingRight
+    } : null;
+
+    if (locked) {
+      body.classList.remove("focus-index-scroll-lock");
+      body.style.top = focusIndexState.savedBodyTop;
+      body.style.position = focusIndexState.savedBodyPosition;
+      body.style.width = focusIndexState.savedBodyWidth;
+      body.style.overflow = focusIndexState.savedBodyOverflow;
+      body.style.paddingRight = focusIndexState.savedBodyPaddingRight;
+    }
+
+    shell.classList.remove(
+      "is-index",
+      "is-index-opening",
+      "is-index-closing",
+      "is-index-exiting",
+      "is-index-opening-active",
+      "is-index-transitioning",
+      "is-index-reparenting",
+      "is-index-return-settling"
+    );
+    shell.classList.add("is-notes");
+    notesLayoutCacheKey = "";
+    notesLayoutSnapshot = null;
+    const layoutSnapshot = updateNotesLayout();
+    shell.offsetHeight;
+    const rect = getFocusImageContentRectForPhoto(photos[index], index, {
+      notes: true,
+      layoutReady: Boolean(layoutSnapshot),
+      sourceRect
+    });
+
+    shell.className = shellClassName;
+    if (locked && lockedStyles) {
+      body.classList.add("focus-index-scroll-lock");
+      body.style.top = lockedStyles.top;
+      body.style.position = lockedStyles.position;
+      body.style.width = lockedStyles.width;
+      body.style.overflow = lockedStyles.overflow;
+      body.style.paddingRight = lockedStyles.paddingRight;
+    }
+    return rect;
+  }
+
   function getFocusIndexReturnRect(index, sourceRect, restoreNotes, options = {}) {
+    if (restoreNotes) {
+      const finalNotesRect = measureFocusIndexFinalNotesRect(index, sourceRect);
+      if (finalNotesRect) return finalNotesRect;
+    }
     const sameViewport = focusIndexState.returnViewportWidth === window.innerWidth
       && focusIndexState.returnViewportHeight === window.innerHeight;
     if (sameViewport && index === focusIndexState.returnImageIndex && focusIndexState.returnImageRect) {
@@ -3903,6 +4356,10 @@ function renderFocus() {
     watchThumbAttempt();
     if (node.getAttribute("src")) node.removeAttribute("src");
     node.src = photo.thumb;
+    const placeholder = node.closest(".focus-index-card__media.photo-placeholder");
+    if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
+      watchPhotoPlaceholderImage(node, placeholder, photo.thumb);
+    }
     return false;
   }
 
@@ -3933,6 +4390,10 @@ function renderFocus() {
       return;
     }
     if (current === full && node.complete && node.naturalWidth > 0) {
+      const placeholder = node.closest(".focus-index-card__media.photo-placeholder");
+      if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
+        watchPhotoPlaceholderImage(node, placeholder, source);
+      }
       if (node.decode) node.decode().catch(() => {}).then(() => node.style.removeProperty("background-image"));
       else node.style.removeProperty("background-image");
       return;
@@ -3959,6 +4420,10 @@ function renderFocus() {
     node.addEventListener("load", finish, { once: true });
     node.addEventListener("error", fail, { once: true });
     node.src = source;
+    const placeholder = node.closest(".focus-index-card__media.photo-placeholder");
+    if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
+      watchPhotoPlaceholderImage(node, placeholder, source);
+    }
     if (node.complete && node.naturalWidth > 0) finish();
   }
 
@@ -4818,7 +5283,10 @@ function renderFocus() {
     let node = media.querySelector("img");
     if (!node) {
       node = createFocusIndexCardImage(index);
-      if (node) media.appendChild(node);
+      if (node) {
+        media.appendChild(node);
+        initializePhotoPlaceholder(media, node, photos[index]?.thumb || "");
+      }
     }
     prepareFocusIndexImage(node, index);
     return node;
@@ -4867,6 +5335,41 @@ function renderFocus() {
     imageToggle.insertBefore(image, swipeLayer || null);
     image.setAttribute("data-focus-image", "");
     clearFocusIndexMovingStyles(image);
+  }
+
+  function prepareFocusIndexReturnImage(index, sourceRect, runId) {
+    const photo = photos[index];
+    const source = getFocusPhotoSource(photo);
+    if (!image || !photo || !source) return Promise.resolve(false);
+    const expectedSource = getFocusImageAbsoluteUrl(source);
+    const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
+    image.loading = "eager";
+    image.fetchPriority = "high";
+    if (sourceRect) setFocusIndexMovingRect(image, sourceRect);
+
+    const finish = (ready) => {
+      if (focusIndexState.runId !== runId || focusIndexState.phase !== "closing") return false;
+      const decodedSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
+      const matches = ready && decodedSource === expectedSource;
+      if (matches) {
+        image.style.removeProperty("background-image");
+        rememberFocusPhotoRatio(index, image);
+      }
+      if (sourceRect) setFocusIndexMovingRect(image, sourceRect);
+      return matches;
+    };
+
+    if (currentSource === expectedSource) {
+      return waitForImageDecoded(image, 3200).then(finish);
+    }
+
+    return preloadFocusImageDecoded(source).then((ready) => {
+      if (!ready || focusIndexState.runId !== runId || focusIndexState.phase !== "closing") return false;
+      image.style.backgroundImage = photo.thumb ? `url("${photo.thumb}")` : "none";
+      image.src = source;
+      if (sourceRect) setFocusIndexMovingRect(image, sourceRect);
+      return waitForImageDecoded(image, 1600).then(finish);
+    });
   }
 
   function beginFocusIndexNodeHandoff() {
@@ -5076,6 +5579,7 @@ function renderFocus() {
     focusIndexState.returnMode = focusIndexState.mode;
     focusIndexState.activeIndex = index;
     focusIndexState.pendingSelection = null;
+    focusIndexState.returnImagePreparing = false;
     releaseFocusRailAfterIndexReturn(index);
     requestFocusIndexFullImage(image, index, true);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
@@ -5093,6 +5597,7 @@ function renderFocus() {
           return;
         }
         if (focusIndexState.phase !== "opening" && focusIndexState.phase !== "closing") return;
+        if (focusIndexState.returnImagePreparing) return;
         const phase = focusIndexState.phase;
         const index = focusIndexState.activeIndex;
         const runId = ++focusIndexState.runId;
@@ -5200,6 +5705,7 @@ function renderFocus() {
     focusIndexState.phase = "opening";
     focusIndexState.activeIndex = index;
     focusIndexState.pendingSelection = null;
+    focusIndexState.returnImagePreparing = false;
     clearFocusQueuedSwipe();
     clearFocusMainSwipe();
     focusIndexCards.map((card) => card.querySelector("img:not([src])")).filter(Boolean).forEach((node) => {
@@ -5231,9 +5737,12 @@ function renderFocus() {
       && focusIndexPreparedViewportWidth === window.innerWidth
       && focusIndexPreparedViewportHeight === window.innerHeight
       && focusIndexPreparedRect;
-    const targetRect = canUsePreparedRect
-      ? copyFocusRect(focusIndexPreparedRect)
-      : positionFocusIndexGalleryOnActive(index);
+    const preparedTargetRect = canUsePreparedRect ? copyFocusRect(focusIndexPreparedRect) : null;
+    const liveTargetRect = positionFocusIndexGalleryOnActive(index);
+    if (preparedTargetRect && liveTargetRect && !focusRectsNearlyEqual(preparedTargetRect, liveTargetRect)) {
+      invalidateFocusIndexMotionPlan();
+    }
+    const targetRect = liveTargetRect || preparedTargetRect;
     requestFocusIndexFullImage(image, index, true);
     scheduleFocusIndexImageWindow();
     const cardAnchor = targetRect || getFocusIndexCardRect(getFocusIndexCardByIndex(index));
@@ -5285,6 +5794,7 @@ function renderFocus() {
     focusIndexState.returnMode = restoreNotes ? "notes" : "rel";
     focusIndexState.activeIndex = targetIndex;
     focusIndexState.pendingSelection = null;
+    focusIndexState.returnImagePreparing = true;
     setFocusManualSelection(targetIndex, 1800);
     const sourceCard = getFocusIndexCardByIndex(targetIndex);
     sourceCard?.classList.add("is-index-hidden", "is-index-anchor");
@@ -5293,39 +5803,44 @@ function renderFocus() {
     shell.classList.add("is-index-closing", "is-index-exiting");
     shell.classList.remove("is-index-opening", "is-index-reparenting", "is-index-opening-active");
     syncFocusIndexSelection(targetIndex);
-    const returnNotesLayout = restoreNotes ? updateNotesLayout() : null;
-    const targetRect = getFocusIndexReturnRect(targetIndex, sourceRect, restoreNotes, {
-      layoutReady: Boolean(returnNotesLayout)
-    })
-      || getFocusMainTargetRect({ notes: restoreNotes, layoutReady: Boolean(returnNotesLayout) })
-      || getFocusRect(imageToggle);
-    if (!sourceRect || !targetRect) {
-      finishFocusIndexClose(targetIndex, { restoreNotes }, runId);
-      return;
-    }
-    const motionDuration = getFocusIndexImageMotionDuration(
-      targetIndex,
-      sourceRect,
-      targetRect,
-      getFocusIndexPrimaryDuration(),
-      resumed
-    );
-    const cardAnchor = getFocusIndexCardRect(sourceCard) || sourceRect;
-    const cardTimeline = playFocusIndexCardMotion("close", cardAnchor, targetIndex, resumed, {
-      totalDuration: motionDuration,
-      mainFromRect: sourceRect,
-      mainToRect: targetRect
-    });
-    const totalDuration = Math.max(motionDuration, cardTimeline);
-    setIndexTransitioning(totalDuration + 180);
-    focusSyncHoldUntil = Date.now() + totalDuration + 220;
-    animateFocusIndexImageTo(targetIndex, targetRect, {
-      motionDuration: totalDuration,
-      resumed,
-      direction: "close",
-      onArrive: (arrivedRect) => {
-        finishFocusIndexClose(targetIndex, { restoreNotes }, runId, arrivedRect);
+    prepareFocusIndexReturnImage(targetIndex, sourceRect, runId).then(() => {
+      if (focusIndexState.runId !== runId || focusIndexState.phase !== "closing") return;
+      focusIndexState.returnImagePreparing = false;
+      sourceRect = getFocusRect(image) || sourceRect;
+      const returnNotesLayout = restoreNotes ? updateNotesLayout() : null;
+      const targetRect = getFocusIndexReturnRect(targetIndex, sourceRect, restoreNotes, {
+        layoutReady: Boolean(returnNotesLayout)
+      })
+        || getFocusMainTargetRect({ notes: restoreNotes, layoutReady: Boolean(returnNotesLayout) })
+        || getFocusRect(imageToggle);
+      if (!sourceRect || !targetRect) {
+        finishFocusIndexClose(targetIndex, { restoreNotes }, runId);
+        return;
       }
+      const motionDuration = getFocusIndexImageMotionDuration(
+        targetIndex,
+        sourceRect,
+        targetRect,
+        getFocusIndexPrimaryDuration(),
+        resumed
+      );
+      const cardAnchor = getFocusIndexCardRect(sourceCard) || sourceRect;
+      const cardTimeline = playFocusIndexCardMotion("close", cardAnchor, targetIndex, resumed, {
+        totalDuration: motionDuration,
+        mainFromRect: sourceRect,
+        mainToRect: targetRect
+      });
+      const totalDuration = Math.max(motionDuration, cardTimeline);
+      setIndexTransitioning(totalDuration + 180);
+      focusSyncHoldUntil = Date.now() + totalDuration + 220;
+      animateFocusIndexImageTo(targetIndex, targetRect, {
+        motionDuration: totalDuration,
+        resumed,
+        direction: "close",
+        onArrive: (arrivedRect) => {
+          finishFocusIndexClose(targetIndex, { restoreNotes }, runId, arrivedRect);
+        }
+      });
     });
   }
 
@@ -6490,6 +7005,8 @@ function renderFocus() {
     const photoSource = getFocusPhotoSource(photo);
     image.dataset.focusSource = photoSource;
     delete image.dataset.focusFallback;
+    applyPhotoPlaceholder(imageToggle, photo);
+    updateFocusMainPlaceholderGeometry(photo);
     image.addEventListener("error", () => {
       if (image.dataset.focusSource !== photoSource) return;
       const fallbackSource = photo.thumb || "";
@@ -6497,8 +7014,10 @@ function renderFocus() {
       image.dataset.focusFallback = "true";
       image.fetchPriority = "high";
       image.src = fallbackSource;
+      watchPhotoPlaceholderImage(image, imageToggle, fallbackSource);
     }, { once: true });
     image.src = photoSource;
+    watchPhotoPlaceholderImage(image, imageToggle, photoSource);
     image.alt = photo.alt;
     caption.textContent = "";
     updateFocusNoteContent(photo);
@@ -7172,8 +7691,5 @@ function renderFocus() {
 }
 
 function returnFocusToOverview(rel, immediate) {
-  const delay = immediate || window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 360;
-  window.setTimeout(() => {
-    window.location.href = `index.html?from=rel&rel=${rel}`;
-  }, delay);
+  navigateWithPageTransition(`index.html?from=rel&rel=${rel}`);
 }

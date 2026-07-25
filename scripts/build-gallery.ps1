@@ -155,6 +155,58 @@ function Get-ImageDimensions {
     }
 }
 
+function Get-ImagePlaceholderColor {
+    param([string]$Path)
+
+    $Source = [System.Drawing.Image]::FromFile($Path)
+    try {
+        $Sample = New-Object System.Drawing.Bitmap 24, 24
+        try {
+            $Graphics = [System.Drawing.Graphics]::FromImage($Sample)
+            try {
+                $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
+                $Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                $Graphics.DrawImage($Source, 0, 0, $Sample.Width, $Sample.Height)
+            } finally {
+                $Graphics.Dispose()
+            }
+
+            $Buckets = @{}
+            for ($Y = 0; $Y -lt $Sample.Height; $Y++) {
+                for ($X = 0; $X -lt $Sample.Width; $X++) {
+                    $Pixel = $Sample.GetPixel($X, $Y)
+                    if ($Pixel.A -lt 32) { continue }
+                    $BucketKey = (($Pixel.R -shr 5) -shl 6) -bor (($Pixel.G -shr 5) -shl 3) -bor ($Pixel.B -shr 5)
+                    if (-not $Buckets.ContainsKey($BucketKey)) {
+                        $Buckets[$BucketKey] = @{
+                            Weight = [long]0
+                            Red = [long]0
+                            Green = [long]0
+                            Blue = [long]0
+                        }
+                    }
+                    $Bucket = $Buckets[$BucketKey]
+                    $Bucket.Weight += $Pixel.A
+                    $Bucket.Red += $Pixel.R * $Pixel.A
+                    $Bucket.Green += $Pixel.G * $Pixel.A
+                    $Bucket.Blue += $Pixel.B * $Pixel.A
+                }
+            }
+
+            $Dominant = $Buckets.Values | Sort-Object Weight -Descending | Select-Object -First 1
+            if (-not $Dominant -or $Dominant.Weight -le 0) { return "#D8D6D1" }
+            $AverageRed = [int][Math]::Round($Dominant.Red / [double]$Dominant.Weight)
+            $AverageGreen = [int][Math]::Round($Dominant.Green / [double]$Dominant.Weight)
+            $AverageBlue = [int][Math]::Round($Dominant.Blue / [double]$Dominant.Weight)
+            return "#{0:X2}{1:X2}{2:X2}" -f $AverageRed, $AverageGreen, $AverageBlue
+        } finally {
+            $Sample.Dispose()
+        }
+    } finally {
+        $Source.Dispose()
+    }
+}
+
 function Copy-RootImagesToOriginals {
     $RootImages = Get-ChildItem -LiteralPath (Join-Path $Root "images") -File |
         Where-Object { $ImageExtensions -contains $_.Extension.ToLowerInvariant() -and $_.Name -ne "og-image.jpg" -and $ExcludedOriginals -notcontains $_.Name }
@@ -221,6 +273,7 @@ foreach ($File in $OrderedFiles) {
     $WebDimensions = Get-ImageDimensions -Path $WebPath
     $MediumDimensions = Get-ImageDimensions -Path $MediumPath
     $ThumbDimensions = Get-ImageDimensions -Path $ThumbPath
+    $PlaceholderColor = Get-ImagePlaceholderColor -Path $ThumbPath
 
     $Title = if ($Existing -and $Existing.title) { $Existing.title } elseif ($Seed) { $Seed.title } else { "IMAGE {0:D2}" -f $Id }
     $Category = if ($Existing -and $Existing.category) { $Existing.category } elseif ($Seed) { $Seed.category } else { "NEW" }
@@ -256,6 +309,7 @@ foreach ($File in $OrderedFiles) {
     $Item["medium"] = $MediumRelative
     $Item["mediumWidth"] = $MediumDimensions.Width
     $Item["mediumHeight"] = $MediumDimensions.Height
+    $Item["placeholderColor"] = $PlaceholderColor
     $Items.Add($Item)
     $Id++
 }

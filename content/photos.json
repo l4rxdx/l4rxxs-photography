@@ -25,7 +25,8 @@
                       "thumbHeight":  343,
                       "medium":  "images/medium/001-dsc00049.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  915
+                      "mediumHeight":  915,
+                      "placeholderColor":  "#6F5F5C"
                   },
                   {
                       "id":  2,
@@ -44,7 +45,8 @@
                       "thumbHeight":  343,
                       "medium":  "images/medium/002-desktop-screenshot-2026-01-04-23-3-23-04-2.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  915
+                      "mediumHeight":  915,
+                      "placeholderColor":  "#6A3A29"
                   },
                   {
                       "id":  3,
@@ -67,7 +69,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/003-dsc03004.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#BBC1E2"
                   },
                   {
                       "id":  4,
@@ -86,7 +89,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/004-dsc02865.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#86693B"
                   },
                   {
                       "id":  5,
@@ -109,7 +113,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/005-dsc02785.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#BCC4D6"
                   },
                   {
                       "id":  6,
@@ -128,7 +133,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/006-r0010684.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#C58542"
                   },
                   {
                       "id":  7,
@@ -147,7 +153,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/007-dsc02468.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#1C3743"
                   },
                   {
                       "id":  8,
@@ -166,7 +173,8 @@
                       "thumbHeight":  204,
                       "medium":  "images/medium/008-r0010682.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  545
+                      "mediumHeight":  545,
+                      "placeholderColor":  "#69432E"
                   },
                   {
                       "id":  9,
@@ -189,7 +197,8 @@
                       "thumbHeight":  360,
                       "medium":  "images/medium/009-dsc01843.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  960
+                      "mediumHeight":  960,
+                      "placeholderColor":  "#B7C8B2"
                   },
                   {
                       "id":  10,
@@ -208,7 +217,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/010-my-ye-cover.jpg",
                       "mediumWidth":  1056,
-                      "mediumHeight":  704
+                      "mediumHeight":  704,
+                      "placeholderColor":  "#0C538D"
                   },
                   {
                       "id":  11,
@@ -231,7 +241,8 @@
                       "thumbHeight":  360,
                       "medium":  "images/medium/011-dsc00811.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  960
+                      "mediumHeight":  960,
+                      "placeholderColor":  "#A3927E"
                   },
                   {
                       "id":  12,
@@ -254,7 +265,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/012-image.jpg",
                       "mediumWidth":  1248,
-                      "mediumHeight":  832
+                      "mediumHeight":  832,
+                      "placeholderColor":  "#857481"
                   },
                   {
                       "id":  13,
@@ -273,7 +285,8 @@
                       "thumbHeight":  424,
                       "medium":  "images/medium/013-dsc00323.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  1131
+                      "mediumHeight":  1131,
+                      "placeholderColor":  "#68744F"
                   },
                   {
                       "id":  14,
@@ -296,7 +309,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/014-grok-image-dd0c889a-a430-408a-8e1c-e13496ad3005.jpg",
                       "mediumWidth":  1248,
-                      "mediumHeight":  832
+                      "mediumHeight":  832,
+                      "placeholderColor":  "#BCC1BD"
                   },
                   {
                       "id":  15,
@@ -315,7 +329,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/015-dsc00261.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#867E82"
                   },
                   {
                       "id":  16,
@@ -334,7 +349,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/016-r0010826.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#30A8E3"
                   },
                   {
                       "id":  17,
@@ -353,7 +369,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/017-r0010821.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#B6C7CA"
                   },
                   {
                       "id":  18,
@@ -372,7 +389,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/018-r0010715.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#104A6F"
                   },
                   {
                       "id":  19,
@@ -391,7 +409,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/019-r0010914-2.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#B4C7CD"
                   },
                   {
                       "id":  20,
@@ -410,7 +429,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/041-dsc02624.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#685D12"
                   },
                   {
                       "id":  21,
@@ -429,7 +449,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/021-r0011370.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#954413"
                   },
                   {
                       "id":  22,
@@ -448,7 +469,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/022-r0011216.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#BEBBC4"
                   },
                   {
                       "id":  23,
@@ -467,7 +489,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/023-r0011206.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#867D8E"
                   },
                   {
                       "id":  24,
@@ -486,7 +509,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/024-r0011157.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#6A421A"
                   },
                   {
                       "id":  25,
@@ -505,7 +529,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/025-r0011079.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#A9AFB6"
                   },
                   {
                       "id":  26,
@@ -528,7 +553,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/026-dsc02934-2.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#909090"
                   },
                   {
                       "id":  27,
@@ -547,7 +573,8 @@
                       "thumbHeight":  343,
                       "medium":  "images/medium/027-dsc01690.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  915
+                      "mediumHeight":  915,
+                      "placeholderColor":  "#507178"
                   },
                   {
                       "id":  28,
@@ -566,7 +593,8 @@
                       "thumbHeight":  480,
                       "medium":  "images/medium/028-1.jpg",
                       "mediumWidth":  1024,
-                      "mediumHeight":  1280
+                      "mediumHeight":  1280,
+                      "placeholderColor":  "#8D847C"
                   },
                   {
                       "id":  29,
@@ -589,7 +617,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/029-r0011221.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#653D1F"
                   },
                   {
                       "id":  30,
@@ -608,7 +637,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/030-r0011494.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#B6B9C6"
                   },
                   {
                       "id":  31,
@@ -627,7 +657,8 @@
                       "thumbHeight":  360,
                       "medium":  "images/medium/031-dsc01040.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  960
+                      "mediumHeight":  960,
+                      "placeholderColor":  "#2D2D2D"
                   },
                   {
                       "id":  32,
@@ -650,7 +681,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/032-r0011433.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#BECDA7"
                   },
                   {
                       "id":  33,
@@ -673,7 +705,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/033-r0011430.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#BCC3AF"
                   },
                   {
                       "id":  34,
@@ -692,7 +725,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/034-dsc02184.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#867570"
                   },
                   {
                       "id":  35,
@@ -711,7 +745,8 @@
                       "thumbHeight":  360,
                       "medium":  "images/medium/035-dsc00505.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  960
+                      "mediumHeight":  960,
+                      "placeholderColor":  "#BEC0BF"
                   },
                   {
                       "id":  36,
@@ -730,7 +765,8 @@
                       "thumbHeight":  360,
                       "medium":  "images/medium/036-dsc00618.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  960
+                      "mediumHeight":  960,
+                      "placeholderColor":  "#182336"
                   },
                   {
                       "id":  37,
@@ -749,7 +785,8 @@
                       "thumbHeight":  360,
                       "medium":  "images/medium/037-dsc00627.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  960
+                      "mediumHeight":  960,
+                      "placeholderColor":  "#8F6F5F"
                   },
                   {
                       "id":  38,
@@ -768,7 +805,8 @@
                       "thumbHeight":  453,
                       "medium":  "images/medium/038-dsc01142-2.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  1209
+                      "mediumHeight":  1209,
+                      "placeholderColor":  "#878787"
                   },
                   {
                       "id":  39,
@@ -791,7 +829,8 @@
                       "thumbHeight":  480,
                       "medium":  "images/medium/039-desktop-screenshot-2025-12-07-15-24-09-11.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  1280
+                      "mediumHeight":  1280,
+                      "placeholderColor":  "#2E3033"
                   },
                   {
                       "id":  40,
@@ -810,7 +849,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/043-r0010392.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#A5C6DE"
                   },
                   {
                       "id":  41,
@@ -829,7 +869,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/020-r0011072.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#6D5F64"
                   },
                   {
                       "id":  42,
@@ -852,7 +893,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/042-r0011060.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#252C39"
                   },
                   {
                       "id":  43,
@@ -871,7 +913,8 @@
                       "thumbHeight":  480,
                       "medium":  "images/medium/040-r0010964.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  1280
+                      "mediumHeight":  1280,
+                      "placeholderColor":  "#BDB7C8"
                   },
                   {
                       "id":  44,
@@ -894,7 +937,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/044-r0011529.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#6D3C22"
                   },
                   {
                       "id":  45,
@@ -915,7 +959,8 @@
                       "thumbHeight":  480,
                       "medium":  "images/medium/045-luvsicpt4-water.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  1280
+                      "mediumHeight":  1280,
+                      "placeholderColor":  "#7F7163"
                   },
                   {
                       "id":  46,
@@ -934,7 +979,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/046-1-1-2-1-1-2.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#BACEC4"
                   },
                   {
                       "id":  47,
@@ -953,7 +999,8 @@
                       "thumbHeight":  204,
                       "medium":  "images/medium/047-r0011406.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  545
+                      "mediumHeight":  545,
+                      "placeholderColor":  "#8A897A"
                   },
                   {
                       "id":  48,
@@ -972,7 +1019,8 @@
                       "thumbHeight":  320,
                       "medium":  "images/medium/048-winter-sweet.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  853
+                      "mediumHeight":  853,
+                      "placeholderColor":  "#889193"
                   },
                   {
                       "id":  49,
@@ -991,7 +1039,8 @@
                       "thumbHeight":  480,
                       "medium":  "images/medium/049-makeup-flash.jpg",
                       "mediumWidth":  1280,
-                      "mediumHeight":  1280
+                      "mediumHeight":  1280,
+                      "placeholderColor":  "#C3C0BE"
                   }
               ],
     "mediumMax":  1280

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="work-root">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,9 +14,9 @@
   <link rel="icon" type="image/png" href="assets/favicon.png">
   <link rel="apple-touch-icon" href="assets/favicon.png">
   <link rel="manifest" href="site.webmanifest">
-  <link rel="stylesheet" href="assets/styles.css?v=v147-rail-return1">
+  <link rel="stylesheet" href="assets/styles.css?v=v150-motion-work1">
 </head>
-<body class="site work" data-page="work" data-view="grid" data-language="en" data-lang="en">
+<body class="site work" data-page="work" data-language="en" data-lang="en">
   <header class="site-header">
     <button class="nav-toggle control-menu js-nav-toggle" type="button" aria-label="Open navigation">
       <span></span>
@@ -92,22 +92,17 @@
     </div>
   </aside>
 
-  <main class="work-page" id="phatscroll">
-    <header class="work-index" aria-labelledby="work-heading">
-      <h1 class="work-index__title" id="work-heading" data-i18n="nav.work">WORK</h1>
-      <p class="work-index__meta">
-        <span><span data-work-count>45</span> <span data-i18n="work.photographs">PHOTOGRAPHS</span></span>
-        <span data-work-years>2025-2026</span>
-      </p>
-    </header>
-    <section class="work-board" data-work-items aria-label="Selected work"></section>
+  <main class="work-page">
+    <section class="work-spread" aria-label="Work 01">
+      <figure class="work-piece work-piece--final">
+        <img class="work-piece__image" src="images/work/work-01-final.jpg" width="2400" height="1600" alt="A glowing figure at sunrise with handwritten text" fetchpriority="high" decoding="async" draggable="false">
+      </figure>
+      <figure class="work-piece work-piece--source">
+        <img class="work-piece__image" src="images/work/work-01-source.png" width="800" height="1596" alt="Original portrait used in the artwork" decoding="async" draggable="false">
+      </figure>
+    </section>
   </main>
 
-  <footer class="view-switch" aria-label="Work view switch">
-    <button type="button" class="is-active" data-work-view="grid" data-i18n="work.grid" aria-pressed="true">GRID</button>
-    <button type="button" data-work-view="list" data-i18n="work.list" aria-pressed="false">LIST</button>
-  </footer>
-
-  <script src="assets/app.js?v=v147-rail-return1"></script>
+  <script src="assets/app.js?v=v150-motion-work1"></script>
 </body>
 </html>
