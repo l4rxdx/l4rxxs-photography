@@ -3,6 +3,13 @@ images/originals/
 codex-sandbox-test.tmp
 docs/previews/
 dist/
+workbench/assets/*
+!workbench/assets/.gitkeep
+workbench/photopea/sources/*
+workbench/photopea/exports/*
+workbench/photopea/runtime/
+!workbench/photopea/sources/.gitkeep
+!workbench/photopea/exports/.gitkeep
 .env
 .env.*
 !.env.example

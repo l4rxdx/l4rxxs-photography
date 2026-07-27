@@ -23,16 +23,39 @@ let photoPlaceholderRun = 0;
 let navTransitionTimer = 0;
 let pageTransitionTimer = 0;
 
+function getSiteSmoothScroll() {
+  return window.l4rxxSmoothScroll || null;
+}
+
+function setWindowScrollPosition(top) {
+  const controller = getSiteSmoothScroll();
+  if (controller?.enabled) {
+    controller.scrollTo(top, { immediate: true, force: true });
+    return;
+  }
+  window.scrollTo({ top, left: 0, behavior: "auto" });
+}
+
+function lockSiteScroll() {
+  getSiteSmoothScroll()?.lock();
+}
+
+function unlockSiteScroll(top = null) {
+  const controller = getSiteSmoothScroll();
+  if (!controller) return;
+  controller.unlock(Number.isFinite(top) ? top : undefined);
+}
+
 const languageCopy = {
   en: {
     "nav.overview": "OVERVIEW",
-    "nav.work": "WORK",
+    "nav.design": "DESIGN",
     "nav.logs": "LOGS",
     "logs.kicker": "Release history",
     "logs.title": "LOGS",
     "logs.intro": "Visible site changes, organized by date and category.",
     "home.about": "l4rxx is a visual maker collecting still moments, weathered surfaces, portraits, screens, and quiet fragments.",
-    "work.menuAbout": "l4rxx works with available light, found color, and scenes that feel almost still.",
+    "design.menuAbout": "l4rxx assembles photographs, type, color, and fragments into graphic studies.",
     contact: "CONTACT ME",
     "contact.copied": "EMAIL COPIED",
     "contact.copyStatus": "Email address copied to clipboard.",
@@ -46,13 +69,13 @@ const languageCopy = {
   },
   cn: {
     "nav.overview": "\u603b\u89c8",
-    "nav.work": "\u4f5c\u54c1",
+    "nav.design": "\u8bbe\u8ba1",
     "nav.logs": "\u65e5\u5fd7",
     "logs.kicker": "\u6b63\u5f0f\u66f4\u65b0\u8bb0\u5f55",
     "logs.title": "\u65e5\u5fd7",
     "logs.intro": "\u53ef\u89c1\u7684\u7f51\u7ad9\u66f4\u65b0\uff0c\u6309\u65e5\u671f\u4e0e\u7c7b\u522b\u6574\u7406\u3002",
     "home.about": "l4rxx \u662f\u4e00\u4f4d\u89c6\u89c9\u521b\u4f5c\u8005\uff0c\u6536\u96c6\u9759\u6b62\u77ac\u95f4\u3001\u98ce\u5316\u8868\u9762\u3001\u8096\u50cf\u3001\u5c4f\u5e55\u4e0e\u5b89\u9759\u788e\u7247\u3002",
-    "work.menuAbout": "l4rxx \u7528\u81ea\u7136\u5149\u3001\u88ab\u770b\u89c1\u7684\u989c\u8272\uff0c\u548c\u90a3\u4e9b\u5dee\u4e00\u70b9\u5c31\u9759\u6b62\u7684\u573a\u666f\u5de5\u4f5c\u3002",
+    "design.menuAbout": "l4rxx \u5c06\u7167\u7247\u3001\u6587\u5b57\u3001\u989c\u8272\u4e0e\u788e\u7247\u91cd\u65b0\u7f16\u6392\u6210\u5e73\u9762\u7ec3\u4e60\u3002",
     contact: "\u8054\u7cfb\u6211",
     "contact.copied": "\u90ae\u7bb1\u5df2\u590d\u5236",
     "contact.copyStatus": "\u90ae\u7bb1\u5730\u5740\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\u3002",
@@ -74,6 +97,40 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.5.2"],
+    date: "2026-07-28",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化全站线性滚动、菜单过渡与主页头像追踪，让桌面和移动端的移动节奏更连贯。",
+          "主页头像现在会避开并柔性挤开文字，桌面端悬浮结束后保留最后位置。"
+        ],
+        en: [
+          "Refined site-wide linear scrolling, menu transitions, and home avatar tracking for steadier motion across desktop and mobile.",
+          "The home avatar now avoids and gently displaces letters, while retaining its last hover position on desktop."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复从主页进入 REL 时，缩略图轨道先显示开头再跳到当前照片的问题。",
+          "修复 INDEX 快速切换和返回时可能出现的图片缺失、比例变化与落位偏差。"
+        ],
+        en: [
+          "Fixed the REL thumbnail rail briefly showing its beginning before centering the photo selected on home.",
+          "Fixed missing images, ratio changes, and final-position shifts during rapid INDEX switching and returns."
+        ]
+      },
+      additions: {
+        cn: [
+          "DESIGN 页面恢复入口，当前显示“xdx还没设计完”，未发布本地 Photopea 草稿与章节素材。"
+        ],
+        en: [
+          "Restored the DESIGN entry with an unfinished-page notice while keeping local Photopea drafts and chapter assets unpublished."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.5.1"],
     date: "2026-07-25",
@@ -432,9 +489,9 @@ function prepareOverviewScrollRestoration() {
   if (document.body?.dataset.page !== "home") return;
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
   if (isOverviewReturnNavigation()) return;
-  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  setWindowScrollPosition(0);
   window.addEventListener("pageshow", () => {
-    if (!isOverviewReturnNavigation()) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (!isOverviewReturnNavigation()) setWindowScrollPosition(0);
   }, { once: true });
 }
 
@@ -785,6 +842,7 @@ function setNavigationOpen(open, screen = document.querySelector(".js-nav-screen
   toggle?.setAttribute("aria-label", isOpen ? "Close navigation" : "Open navigation");
   toggle?.setAttribute("aria-expanded", String(isOpen));
   if (isOpen) {
+    lockSiteScroll();
     document.body.classList.remove("nav-closing");
     document.body.classList.add("nav-open", "nav-opening");
   } else {
@@ -796,6 +854,7 @@ function setNavigationOpen(open, screen = document.querySelector(".js-nav-screen
       document.body.classList.remove("nav-opening", "is-nav-transitioning");
     } else {
       document.body.classList.remove("nav-open", "nav-closing", "is-nav-transitioning");
+      unlockSiteScroll();
     }
     navTransitionTimer = 0;
   }, isOpen ? 620 : 460);
@@ -1267,7 +1326,7 @@ function renderOverview() {
   const isReturning = handleOverviewReturn(grid, returnState);
   if (!isReturning) initializeOverviewItems();
   initializeInfinityScroll(grid);
-  initializeOverviewInteraction(grid);
+  initializeOverviewObserverInteraction(grid);
 
   const captureOverviewReturn = (event) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -1571,9 +1630,10 @@ function handleOverviewReturn(grid, returnState = null) {
   }
   const maxReturnScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
   const targetY = Math.min(requestedTargetY, maxReturnScrollY);
+  getSiteSmoothScroll()?.resize();
 
   requestAnimationFrame(() => {
-    window.scrollTo({ top: targetY, left: 0, behavior: "auto" });
+    setWindowScrollPosition(targetY);
     requestAnimationFrame(() => {
       const target = findReturnTarget(grid, rel, targetY, state?.anchor);
       if (target) alignOverviewReturnTarget(target, state?.anchor);
@@ -1635,7 +1695,7 @@ function alignOverviewReturnTarget(target, anchor = null) {
   const maxScrollY = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
   const nextScrollY = Math.max(0, Math.min(maxScrollY, currentScrollY + currentCenterY - desiredCenterY));
   if (Math.abs(nextScrollY - currentScrollY) > 0.5) {
-    window.scrollTo({ top: nextScrollY, left: 0, behavior: "auto" });
+    setWindowScrollPosition(nextScrollY);
   }
   const alignedRect = getOverviewReturnRect(target);
   if (!alignedRect) return false;
@@ -1739,7 +1799,7 @@ function initializeInfinityScroll(grid) {
     nodes.forEach((node) => fragment.appendChild(node));
     grid.appendChild(fragment);
     const scrollDelta = anchor.offsetTop - beforeTop;
-    if (Math.abs(scrollDelta) > 0.5) window.scrollTo({ top: Math.max(0, scrollY + scrollDelta), left: 0, behavior: "auto" });
+    if (Math.abs(scrollDelta) > 0.5) setWindowScrollPosition(Math.max(0, scrollY + scrollDelta));
     grid.dispatchEvent(new CustomEvent("overview:batchrecycle"));
     return true;
   };
@@ -3444,6 +3504,705 @@ function initializeOverviewInteraction(grid) {
   };
 }
 
+function initializeOverviewObserverInteraction(grid) {
+  if (overviewInteractionCleanup) {
+    overviewInteractionCleanup();
+    overviewInteractionCleanup = null;
+  }
+  const body = document.body;
+  const title = document.querySelector(".brand-title");
+  const letters = title ? [...title.querySelectorAll(".brand-letter")] : [];
+  const figure = document.querySelector(".brand-fall-figure");
+  if (!grid || !title || !figure || !letters.length) return;
+
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const finePointer = window.matchMedia?.("(hover: hover) and (pointer: fine)");
+  const visibleItems = new Set();
+  const metrics = new Map();
+  let activeItem = null;
+  let hoveredItem = null;
+  let focusedItem = null;
+  let hasLatchedDirectItem = false;
+  let observer = null;
+  let readyTimer = 0;
+  let waitTimer = 0;
+  let navigationTimer = 0;
+  let frame = 0;
+  let motionFrame = 0;
+  let motionLastTime = 0;
+  let motionStableFrames = 0;
+  let resizeFrame = 0;
+  let interactionReady = false;
+  let letterGeometryReady = false;
+  const figureCollider = {
+    centerX: 0.51,
+    centerY: 0.51,
+    radiusX: 0.425,
+    radiusY: 0.476
+  };
+  const figureMotion = {
+    initialized: false,
+    x: 0,
+    y: 0,
+    angle: 0,
+    vx: 0,
+    vy: 0,
+    va: 0,
+    targetX: 0,
+    targetY: 0,
+    targetAngle: 0
+  };
+  const letterMotion = letters.map((letter, index) => ({
+    el: letter,
+    index,
+    glyph: letter.textContent.trim().toLowerCase(),
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    baseLeft: 0,
+    baseTop: 0,
+    width: 0,
+    height: 0
+  }));
+
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const isMobile = () => window.innerWidth <= 768;
+  const getPhotoItems = (items = null) => {
+    const source = items ? [...items] : [...grid.querySelectorAll(".overview-item[href]")];
+    return source.filter((item) => item?.matches?.(".overview-item[href]"));
+  };
+
+  const refreshMetrics = (items = null) => {
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    getPhotoItems(items).forEach((item) => {
+      const rect = item.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
+      metrics.set(item, {
+        centerX: rect.left + rect.width / 2,
+        centerY: scrollY + rect.top + rect.height / 2
+      });
+    });
+  };
+
+  const getItemScore = (item) => {
+    const metric = metrics.get(item);
+    if (!metric) return Number.POSITIVE_INFINITY;
+    const viewportCenterY = (window.scrollY || document.documentElement.scrollTop || 0) + window.innerHeight / 2;
+    const verticalDistance = Math.abs(metric.centerY - viewportCenterY);
+    const horizontalDistance = Math.abs(metric.centerX - window.innerWidth / 2);
+    return verticalDistance + horizontalDistance * (isMobile() ? 0.08 : 0.14);
+  };
+
+  const getCenteredItem = () => {
+    const candidates = [...visibleItems].filter((item) => item.isConnected && metrics.has(item));
+    if (!candidates.length) {
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const top = scrollY - window.innerHeight * 0.3;
+      const bottom = scrollY + window.innerHeight * 1.3;
+      metrics.forEach((metric, item) => {
+        if (item.isConnected && metric.centerY >= top && metric.centerY <= bottom) candidates.push(item);
+      });
+    }
+    if (!candidates.length) return null;
+    const best = candidates.reduce((current, item) => {
+      return getItemScore(item) < getItemScore(current) ? item : current;
+    }, candidates[0]);
+    if (
+      activeItem
+      && candidates.includes(activeItem)
+      && getItemScore(activeItem) <= getItemScore(best) + window.innerHeight * 0.08
+    ) {
+      return activeItem;
+    }
+    return best;
+  };
+
+  const getLetterInsets = (glyph) => {
+    const side = glyph === "l" ? 0.42 : glyph === "r" ? 0.29 : glyph === "4" ? 0.26 : 0.24;
+    return {
+      left: side,
+      right: side,
+      top: glyph === "4" ? 0.15 : 0.18,
+      bottom: glyph === "l" ? 0.18 : 0.16
+    };
+  };
+
+  const refreshLetterGeometry = () => {
+    letterMotion.forEach((state) => {
+      const rect = state.el.getBoundingClientRect();
+      state.baseLeft = rect.left - state.x;
+      state.baseTop = rect.top - state.y;
+      state.width = rect.width;
+      state.height = rect.height;
+    });
+    letterGeometryReady = letterMotion.every((state) => state.width > 0 && state.height > 0);
+  };
+
+  const getLetterBox = (state, offsetX = state.x, offsetY = state.y, clearance = 0) => {
+    const inset = getLetterInsets(state.glyph);
+    return {
+      left: state.baseLeft + offsetX + state.width * inset.left - clearance,
+      right: state.baseLeft + offsetX + state.width * (1 - inset.right) + clearance,
+      top: state.baseTop + offsetY + state.height * inset.top - clearance,
+      bottom: state.baseTop + offsetY + state.height * (1 - inset.bottom) + clearance
+    };
+  };
+
+  const getFigureEllipse = (x = figureMotion.x, y = figureMotion.y, clearance = 0) => {
+    const width = figure.offsetWidth || 44;
+    const height = figure.offsetHeight || width * 1.25;
+    return {
+      centerX: x + width * figureCollider.centerX,
+      centerY: y + height * figureCollider.centerY,
+      radiusX: Math.max(1, width * figureCollider.radiusX + clearance),
+      radiusY: Math.max(1, height * figureCollider.radiusY + clearance)
+    };
+  };
+
+  const ellipseOverlapsRect = (ellipse, rect) => {
+    const closestX = clamp(ellipse.centerX, rect.left, rect.right);
+    const closestY = clamp(ellipse.centerY, rect.top, rect.bottom);
+    const normalizedX = (closestX - ellipse.centerX) / ellipse.radiusX;
+    const normalizedY = (closestY - ellipse.centerY) / ellipse.radiusY;
+    return normalizedX * normalizedX + normalizedY * normalizedY < 1;
+  };
+
+  const shiftRect = (rect, x, y) => ({
+    left: rect.left + x,
+    right: rect.right + x,
+    top: rect.top + y,
+    bottom: rect.bottom + y
+  });
+
+  const getMinimumLetterSeparation = (ellipse, rect, directionX, directionY) => {
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    const unitX = directionX / directionLength;
+    const unitY = directionY / directionLength;
+    const maxDistance = Math.max(window.innerWidth, window.innerHeight) * 0.42;
+    let high = 1;
+    while (high < maxDistance && ellipseOverlapsRect(ellipse, shiftRect(rect, unitX * high, unitY * high))) {
+      high *= 2;
+    }
+    if (ellipseOverlapsRect(ellipse, shiftRect(rect, unitX * high, unitY * high))) return null;
+    let low = 0;
+    for (let index = 0; index < 11; index++) {
+      const middle = (low + high) / 2;
+      if (ellipseOverlapsRect(ellipse, shiftRect(rect, unitX * middle, unitY * middle))) low = middle;
+      else high = middle;
+    }
+    const distance = high + (isMobile() ? 0.7 : 1);
+    return {
+      x: unitX * distance,
+      y: unitY * distance,
+      distance
+    };
+  };
+
+  const getLetterPushDirection = (state, box, ellipse) => {
+    let directionX = (box.left + box.right) / 2 - ellipse.centerX;
+    let directionY = (box.top + box.bottom) / 2 - ellipse.centerY;
+    if (Math.hypot(directionX, directionY) > 0.01) return { x: directionX, y: directionY };
+    const travelX = figureMotion.vx || figureMotion.targetX - figureMotion.x;
+    const travelY = figureMotion.vy || figureMotion.targetY - figureMotion.y;
+    const travelLength = Math.hypot(travelX, travelY);
+    if (travelLength > 0.01) {
+      const side = state.index < (letterMotion.length - 1) / 2 ? -1 : 1;
+      return { x: -travelY * side, y: travelX * side };
+    }
+    return { x: state.index < (letterMotion.length - 1) / 2 ? -1 : 1, y: -0.12 };
+  };
+
+  const resolveLetterPairOverlaps = () => {
+    let resolved = false;
+    for (let firstIndex = 0; firstIndex < letterMotion.length; firstIndex++) {
+      for (let secondIndex = firstIndex + 1; secondIndex < letterMotion.length; secondIndex++) {
+        const first = letterMotion[firstIndex];
+        const second = letterMotion[secondIndex];
+        const firstBox = getLetterBox(first, first.x, first.y, 0.45);
+        const secondBox = getLetterBox(second, second.x, second.y, 0.45);
+        if (
+          firstBox.right <= secondBox.left
+          || firstBox.left >= secondBox.right
+          || firstBox.bottom <= secondBox.top
+          || firstBox.top >= secondBox.bottom
+        ) continue;
+        const overlapX = Math.min(firstBox.right - secondBox.left, secondBox.right - firstBox.left);
+        const overlapY = Math.min(firstBox.bottom - secondBox.top, secondBox.bottom - firstBox.top);
+        if (overlapX <= overlapY * 1.2) {
+          const push = (overlapX + 0.55) / 2;
+          first.x -= push;
+          second.x += push;
+          first.vx = Math.min(0, first.vx) * 0.35;
+          second.vx = Math.max(0, second.vx) * 0.35;
+        } else {
+          const firstCenterY = (firstBox.top + firstBox.bottom) / 2;
+          const secondCenterY = (secondBox.top + secondBox.bottom) / 2;
+          const direction = firstCenterY <= secondCenterY ? -1 : 1;
+          const push = (overlapY + 0.55) / 2;
+          first.y += direction * push;
+          second.y -= direction * push;
+          first.vy *= 0.35;
+          second.vy *= 0.35;
+        }
+        resolved = true;
+      }
+    }
+    return resolved;
+  };
+
+  const resolveFigureLetterCollisions = () => {
+    if (!letterGeometryReady) return false;
+    const ellipse = getFigureEllipse(figureMotion.x, figureMotion.y, isMobile() ? 1.1 : 1.6);
+    let collided = false;
+    for (let pass = 0; pass < 10; pass++) {
+      let changed = false;
+      let figureContact = false;
+      letterMotion.forEach((state) => {
+        const box = getLetterBox(state, state.x, state.y, 0.65);
+        if (!ellipseOverlapsRect(ellipse, box)) return;
+        const direction = getLetterPushDirection(state, box, ellipse);
+        const separation = getMinimumLetterSeparation(ellipse, box, direction.x, direction.y);
+        if (!separation) return;
+        state.x += separation.x;
+        state.y += separation.y;
+        state.vx += separation.x * 0.54;
+        state.vy += separation.y * 0.54;
+        changed = true;
+        figureContact = true;
+        collided = true;
+      });
+      const lettersDisplaced = letterMotion.some((state) => Math.hypot(state.x, state.y) > 0.05);
+      if ((figureContact || lettersDisplaced) && resolveLetterPairOverlaps()) changed = true;
+      if (!changed) break;
+    }
+    return collided;
+  };
+
+  const stepCriticalSpring = (value, velocity, target, response, dt) => {
+    const omega = 2 * Math.PI / response;
+    const acceleration = (target - value) * omega * omega - velocity * 2 * omega;
+    const nextVelocity = velocity + acceleration * dt;
+    return {
+      value: value + nextVelocity * dt,
+      velocity: nextVelocity
+    };
+  };
+
+  const setRenderedProperty = (target, property, value, key) => {
+    if (target[key] === value) return;
+    target.el.style.setProperty(property, value);
+    target[key] = value;
+  };
+
+  const renderObserverMotion = () => {
+    const figureX = `${figureMotion.x.toFixed(2)}px`;
+    const figureY = `${figureMotion.y.toFixed(2)}px`;
+    const figureAngle = `${figureMotion.angle.toFixed(2)}deg`;
+    if (figureMotion.renderX !== figureX) figure.style.setProperty("--figure-x", figureX);
+    if (figureMotion.renderY !== figureY) figure.style.setProperty("--figure-y", figureY);
+    if (figureMotion.renderAngle !== figureAngle) figure.style.setProperty("--figure-rotate", figureAngle);
+    figureMotion.renderX = figureX;
+    figureMotion.renderY = figureY;
+    figureMotion.renderAngle = figureAngle;
+    letterMotion.forEach((state) => {
+      setRenderedProperty(state, "--observer-letter-x", `${state.x.toFixed(2)}px`, "renderX");
+      setRenderedProperty(state, "--observer-letter-y", `${state.y.toFixed(2)}px`, "renderY");
+    });
+  };
+
+  const tickObserverMotion = (time) => {
+    motionFrame = 0;
+    if (!interactionReady || document.hidden) return;
+    if (!motionLastTime) motionLastTime = time;
+    const dt = clamp((time - motionLastTime) / 1000, 0.008, 0.032);
+    motionLastTime = time;
+
+    const nextX = stepCriticalSpring(figureMotion.x, figureMotion.vx, figureMotion.targetX, isMobile() ? 0.6 : 0.54, dt);
+    const nextY = stepCriticalSpring(figureMotion.y, figureMotion.vy, figureMotion.targetY, isMobile() ? 0.6 : 0.54, dt);
+    const nextAngle = stepCriticalSpring(figureMotion.angle, figureMotion.va, figureMotion.targetAngle, 0.62, dt);
+    figureMotion.x = nextX.value;
+    figureMotion.vx = nextX.velocity;
+    figureMotion.y = nextY.value;
+    figureMotion.vy = nextY.velocity;
+    figureMotion.angle = nextAngle.value;
+    figureMotion.va = nextAngle.velocity;
+
+    letterMotion.forEach((state) => {
+      const nextLetterX = stepCriticalSpring(state.x, state.vx, 0, isMobile() ? 0.7 : 0.64, dt);
+      const nextLetterY = stepCriticalSpring(state.y, state.vy, 0, isMobile() ? 0.7 : 0.64, dt);
+      state.x = nextLetterX.value;
+      state.vx = nextLetterX.velocity;
+      state.y = nextLetterY.value;
+      state.vy = nextLetterY.velocity;
+    });
+
+    const collided = resolveFigureLetterCollisions();
+    renderObserverMotion();
+
+    const figureDistance = Math.hypot(figureMotion.targetX - figureMotion.x, figureMotion.targetY - figureMotion.y);
+    const figureSpeed = Math.hypot(figureMotion.vx, figureMotion.vy);
+    const lettersSettled = letterMotion.every((state) => (
+      Math.hypot(state.x, state.y) < 0.08
+      && Math.hypot(state.vx, state.vy) < 0.35
+    ));
+    const figureSettled = figureDistance < 0.08
+      && figureSpeed < 0.35
+      && Math.abs(figureMotion.targetAngle - figureMotion.angle) < 0.05
+      && Math.abs(figureMotion.va) < 0.25;
+    motionStableFrames = figureSettled && lettersSettled && !collided ? motionStableFrames + 1 : 0;
+    if (motionStableFrames >= 3) {
+      figureMotion.x = figureMotion.targetX;
+      figureMotion.y = figureMotion.targetY;
+      figureMotion.angle = figureMotion.targetAngle;
+      figureMotion.vx = 0;
+      figureMotion.vy = 0;
+      figureMotion.va = 0;
+      letterMotion.forEach((state) => {
+        state.x = 0;
+        state.y = 0;
+        state.vx = 0;
+        state.vy = 0;
+      });
+      renderObserverMotion();
+      body.classList.remove("is-observer-moving");
+      motionLastTime = 0;
+      return;
+    }
+    motionFrame = requestAnimationFrame(tickObserverMotion);
+  };
+
+  const scheduleObserverMotion = () => {
+    if (reducedMotion || motionFrame || document.hidden) return;
+    body.classList.add("is-observer-moving");
+    motionStableFrames = 0;
+    motionFrame = requestAnimationFrame(tickObserverMotion);
+  };
+
+  const getFigureTarget = (item) => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const titleRect = title.getBoundingClientRect();
+    const figureWidth = figure.offsetWidth || 44;
+    const figureHeight = figure.offsetHeight || figureWidth * 1.25;
+    const titleCenterX = titleRect.left + titleRect.width / 2;
+    const titleCenterY = titleRect.top + titleRect.height / 2;
+    const metric = item ? metrics.get(item) : null;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const photoX = metric?.centerX ?? width * 0.74;
+    const photoY = metric ? metric.centerY - scrollY : height * 0.64;
+    let directionX = photoX - titleCenterX;
+    let directionY = photoY - titleCenterY;
+    const directionLength = Math.hypot(directionX, directionY);
+    if (directionLength < 0.01) {
+      directionX = 0.78;
+      directionY = 0.62;
+    } else {
+      directionX /= directionLength;
+      directionY /= directionLength;
+    }
+
+    const clearance = isMobile() ? 2.4 : 4;
+    const expandedHalfWidth = titleRect.width / 2 + figureWidth * figureCollider.radiusX + clearance;
+    const expandedHalfHeight = titleRect.height / 2 + figureHeight * figureCollider.radiusY + clearance;
+    const horizontalTravel = Math.abs(directionX) > 0.001
+      ? expandedHalfWidth / Math.abs(directionX)
+      : Number.POSITIVE_INFINITY;
+    const verticalTravel = Math.abs(directionY) > 0.001
+      ? expandedHalfHeight / Math.abs(directionY)
+      : Number.POSITIVE_INFINITY;
+    const travel = Math.min(horizontalTravel, verticalTravel);
+    const centerX = titleCenterX + directionX * travel;
+    const centerY = titleCenterY + directionY * travel;
+    const x = clamp(
+      centerX - figureWidth * figureCollider.centerX,
+      6,
+      Math.max(6, width - figureWidth - 6)
+    );
+    const y = clamp(
+      centerY - figureHeight * figureCollider.centerY,
+      6,
+      Math.max(6, height - figureHeight - 6)
+    );
+    const orbitAngle = Math.atan2(directionY, directionX);
+    const normalizedAngle = (orbitAngle + Math.PI * 2) % (Math.PI * 2);
+    const sector = Math.round(normalizedAngle / (Math.PI / 6)) % 12;
+    return {
+      x,
+      y,
+      angle: clamp(directionX * 5.2 + directionY * 3.4, -8, 8),
+      anchor: `angle-${sector}`,
+      sector
+    };
+  };
+
+  const applyTarget = (item, options = {}) => {
+    const target = getFigureTarget(item);
+    title.style.setProperty("--brand-shift-x", "0px");
+    title.style.setProperty("--brand-shift-y", "0px");
+    title.style.setProperty("--brand-tilt", "0deg");
+    title.style.setProperty("--brand-scale", "1");
+    figureMotion.targetX = target.x;
+    figureMotion.targetY = target.y;
+    figureMotion.targetAngle = target.angle;
+    body.dataset.observerAnchor = target.anchor;
+    body.dataset.observerAngle = String(target.sector);
+
+    const immediate = Boolean(options.immediate || reducedMotion || !figureMotion.initialized);
+    if (immediate) {
+      figureMotion.initialized = true;
+      figureMotion.x = target.x;
+      figureMotion.y = target.y;
+      figureMotion.angle = target.angle;
+      figureMotion.vx = 0;
+      figureMotion.vy = 0;
+      figureMotion.va = 0;
+      letterMotion.forEach((state) => {
+        state.x = 0;
+        state.y = 0;
+        state.vx = 0;
+        state.vy = 0;
+      });
+      renderObserverMotion();
+      body.classList.remove("is-observer-moving");
+      return;
+    }
+    scheduleObserverMotion();
+  };
+
+  const setActiveItem = (item) => {
+    const next = item?.isConnected ? item : null;
+    if (activeItem === next) {
+      applyTarget(activeItem);
+      return;
+    }
+    activeItem?.classList.remove("is-observer-active");
+    activeItem = next;
+    activeItem?.classList.add("is-observer-active");
+    body.dataset.observerRel = activeItem?.dataset.rel || "";
+    applyTarget(activeItem);
+  };
+
+  const updateActiveItem = () => {
+    if (!interactionReady) return;
+    const directTarget = finePointer?.matches ? (focusedItem || hoveredItem) : focusedItem;
+    if (directTarget) {
+      hasLatchedDirectItem = true;
+      setActiveItem(directTarget);
+      return;
+    }
+    if (finePointer?.matches && hasLatchedDirectItem && activeItem?.isConnected) return;
+    setActiveItem(getCenteredItem());
+  };
+
+  const scheduleActiveUpdate = () => {
+    if (frame || !interactionReady) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      updateActiveItem();
+    });
+  };
+
+  const observeItems = (items = null) => {
+    const photoItems = getPhotoItems(items);
+    refreshMetrics(photoItems);
+    photoItems.forEach((item) => observer?.observe(item));
+  };
+
+  const handlePointerOver = (event) => {
+    if (!finePointer?.matches) return;
+    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
+    if (!item || !grid.contains(item) || hoveredItem === item) return;
+    hoveredItem = item;
+    updateActiveItem();
+  };
+
+  const handlePointerOut = (event) => {
+    if (!hoveredItem) return;
+    const related = event.relatedTarget instanceof Element ? event.relatedTarget : null;
+    if (related && hoveredItem.contains(related)) return;
+    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
+    if (item !== hoveredItem) return;
+    hoveredItem = null;
+    scheduleActiveUpdate();
+  };
+
+  const handleFocusIn = (event) => {
+    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
+    if (!item || !grid.contains(item)) return;
+    focusedItem = item;
+    updateActiveItem();
+  };
+
+  const handleFocusOut = (event) => {
+    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
+    if (item !== focusedItem) return;
+    focusedItem = null;
+    scheduleActiveUpdate();
+  };
+
+  const handlePointerDown = (event) => {
+    if (
+      event.button !== 0
+      || event.metaKey
+      || event.ctrlKey
+      || event.shiftKey
+      || event.altKey
+    ) return;
+    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
+    if (!item || !grid.contains(item)) return;
+    setActiveItem(item);
+    body.classList.add("is-observer-navigating");
+    window.clearTimeout(navigationTimer);
+    navigationTimer = window.setTimeout(() => {
+      body.classList.remove("is-observer-navigating");
+    }, 700);
+  };
+
+  const handleBatchAppend = (event) => {
+    observeItems(event.detail?.items || null);
+    scheduleActiveUpdate();
+  };
+
+  const handleBatchRecycle = () => {
+    hoveredItem = hoveredItem?.isConnected ? hoveredItem : null;
+    focusedItem = focusedItem?.isConnected ? focusedItem : null;
+    if (activeItem && !activeItem.isConnected) {
+      activeItem = null;
+      hasLatchedDirectItem = false;
+      body.dataset.observerRel = "";
+    }
+    requestAnimationFrame(() => {
+      refreshMetrics();
+      scheduleActiveUpdate();
+    });
+  };
+
+  const handleResize = () => {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = 0;
+        refreshMetrics();
+        refreshLetterGeometry();
+        applyTarget(activeItem);
+        scheduleActiveUpdate();
+      });
+    });
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      if (motionFrame) cancelAnimationFrame(motionFrame);
+      motionFrame = 0;
+      motionLastTime = 0;
+      return;
+    }
+    refreshLetterGeometry();
+    applyTarget(activeItem);
+  };
+
+  const startInteraction = () => {
+    if (interactionReady) return;
+    interactionReady = true;
+    body.classList.add("is-observer-ready");
+    refreshMetrics();
+    refreshLetterGeometry();
+    if (reducedMotion) {
+      applyTarget(null, { immediate: true });
+      return;
+    }
+    updateActiveItem();
+  };
+
+  const waitForIntro = () => {
+    if (!body.classList.contains("has-finished")) {
+      waitTimer = window.setTimeout(waitForIntro, 50);
+      return;
+    }
+    const delay = body.classList.contains("is-returning-from-rel") ? 80 : (reducedMotion ? 0 : 1450);
+    readyTimer = window.setTimeout(startInteraction, delay);
+  };
+
+  body.classList.add("is-observer-home");
+  if (!reducedMotion) body.classList.add("is-observer-dynamic");
+  body.classList.remove(
+    "is-letter-attraction",
+    "is-letter-gravity",
+    "is-letter-reunion",
+    "is-observer-ready",
+    "is-observer-moving",
+    "is-observer-navigating"
+  );
+  body.dataset.observerAnchor = "right-bottom";
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) visibleItems.add(entry.target);
+      else visibleItems.delete(entry.target);
+    });
+    scheduleActiveUpdate();
+  }, {
+    root: null,
+    rootMargin: "28% 0px",
+    threshold: 0
+  });
+  observeItems();
+  grid.addEventListener("pointerover", handlePointerOver, { passive: true });
+  grid.addEventListener("pointerout", handlePointerOut, { passive: true });
+  grid.addEventListener("focusin", handleFocusIn);
+  grid.addEventListener("focusout", handleFocusOut);
+  grid.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
+  grid.addEventListener("overview:batchappend", handleBatchAppend);
+  grid.addEventListener("overview:batchrecycle", handleBatchRecycle);
+  window.addEventListener("scroll", scheduleActiveUpdate, { passive: true });
+  window.addEventListener("resize", handleResize);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  applyTarget(null, { immediate: true });
+  waitForIntro();
+
+  overviewInteractionCleanup = () => {
+    if (frame) cancelAnimationFrame(frame);
+    if (motionFrame) cancelAnimationFrame(motionFrame);
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    window.clearTimeout(readyTimer);
+    window.clearTimeout(waitTimer);
+    window.clearTimeout(navigationTimer);
+    observer?.disconnect();
+    grid.removeEventListener("pointerover", handlePointerOver);
+    grid.removeEventListener("pointerout", handlePointerOut);
+    grid.removeEventListener("focusin", handleFocusIn);
+    grid.removeEventListener("focusout", handleFocusOut);
+    grid.removeEventListener("pointerdown", handlePointerDown, true);
+    grid.removeEventListener("overview:batchappend", handleBatchAppend);
+    grid.removeEventListener("overview:batchrecycle", handleBatchRecycle);
+    window.removeEventListener("scroll", scheduleActiveUpdate);
+    window.removeEventListener("resize", handleResize);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    activeItem?.classList.remove("is-observer-active");
+    title.style.removeProperty("--brand-shift-x");
+    title.style.removeProperty("--brand-shift-y");
+    title.style.removeProperty("--brand-tilt");
+    title.style.removeProperty("--brand-scale");
+    figure.style.removeProperty("--figure-x");
+    figure.style.removeProperty("--figure-y");
+    figure.style.removeProperty("--figure-rotate");
+    letterMotion.forEach((state) => {
+      state.el.style.removeProperty("--observer-letter-x");
+      state.el.style.removeProperty("--observer-letter-y");
+    });
+    delete body.dataset.observerAnchor;
+    delete body.dataset.observerAngle;
+    delete body.dataset.observerRel;
+    body.classList.remove(
+      "is-observer-home",
+      "is-observer-dynamic",
+      "is-observer-ready",
+      "is-observer-moving",
+      "is-observer-navigating"
+    );
+  };
+}
+
 function startLoadingSequence(readiness = null) {
   if (document.body.classList.contains("is-returning-from-rel")) {
     document.body.classList.add("has-loaded", "has-opening-images-ready", "has-finished");
@@ -3644,12 +4403,15 @@ function renderFocus() {
   };
   const indexEnabled = Boolean(indexToggle);
   const indexGallery = indexEnabled ? document.createElement("section") : null;
+  let focusIndexSmoothScroll = null;
   if (indexGallery) {
     indexGallery.className = "focus-index-gallery";
     indexGallery.dataset.focusIndexGallery = "";
+    indexGallery.dataset.lenisPrevent = "";
     indexGallery.setAttribute("aria-label", "Photo index gallery");
     indexGallery?.setAttribute("aria-hidden", "true");
     shell.insertBefore(indexGallery, shell.querySelector(".focus-actions"));
+    focusIndexSmoothScroll = getSiteSmoothScroll()?.createNested?.(indexGallery) || null;
   }
   image.loading = "eager";
   image.fetchPriority = "high";
@@ -3712,6 +4474,7 @@ function renderFocus() {
   });
   thumbs.appendChild(thumbFragment);
   if (indexGallery && indexFragment) indexGallery.appendChild(indexFragment);
+  positionInitialFocusRail(initial);
   if (indexGallery && "IntersectionObserver" in window) {
     focusIndexCardObserver = new IntersectionObserver((entries) => {
       let hasVisibleChange = false;
@@ -3857,17 +4620,17 @@ function renderFocus() {
   setFocus(initial, false);
   thumbs.querySelectorAll("img").forEach((thumbImage) => {
     thumbImage.addEventListener("load", () => {
-      updateFocusRailMetrics();
-      updateMobileFocusRail();
-      if (Date.now() < focusInitialLockUntil) scrollToFocusIndex(initial, false);
+      if (Date.now() < focusInitialLockUntil) positionInitialFocusRail(initial);
+      else {
+        updateFocusRailMetrics();
+        updateMobileFocusRail();
+      }
       scheduleFocusRailSync(320);
     }, { once: true });
   });
   requestAnimationFrame(() => {
-    updateFocusRailMetrics();
-    updateMobileFocusRail();
-    scrollToFocusIndex(initial, false);
-    window.setTimeout(() => scrollToFocusIndex(initial, false), 520);
+    positionInitialFocusRail(initial);
+    window.setTimeout(() => positionInitialFocusRail(initial), 520);
     scheduleFocusRailSync(720);
   });
   window.addEventListener("resize", () => {
@@ -4313,7 +5076,13 @@ function renderFocus() {
       ? metric.top + metric.height / 2 - indexGallery.clientHeight / 2
       : card.offsetTop + card.offsetHeight / 2 - indexGallery.clientHeight / 2;
     const maxTop = Math.max(0, indexGallery.scrollHeight - indexGallery.clientHeight);
-    indexGallery.scrollTop = Math.max(0, Math.min(targetTop, maxTop));
+    const clampedTop = Math.max(0, Math.min(targetTop, maxTop));
+    if (focusIndexSmoothScroll) {
+      focusIndexSmoothScroll.resize();
+      focusIndexSmoothScroll.scrollTo(clampedTop, { immediate: true, force: true });
+    } else {
+      indexGallery.scrollTop = clampedTop;
+    }
     scheduleFocusIndexImageWindow();
     return getFocusIndexCardRect(card);
   }
@@ -4553,6 +5322,7 @@ function renderFocus() {
     if (document.body.classList.contains("focus-index-scroll-lock")) return;
     const body = document.body;
     focusIndexState.savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    lockSiteScroll();
     focusIndexState.savedBodyTop = body.style.top;
     focusIndexState.savedBodyPosition = body.style.position;
     focusIndexState.savedBodyWidth = body.style.width;
@@ -4578,7 +5348,7 @@ function renderFocus() {
     body.style.width = focusIndexState.savedBodyWidth;
     body.style.overflow = focusIndexState.savedBodyOverflow;
     body.style.paddingRight = focusIndexState.savedBodyPaddingRight;
-    window.scrollTo({ top: focusIndexState.savedScrollY, left: 0, behavior: "auto" });
+    unlockSiteScroll(focusIndexState.savedScrollY);
   }
 
   function clearFocusIndexCardMotionStyles(card) {
@@ -6053,7 +6823,7 @@ function renderFocus() {
       return;
     }
     if (focusMainSwipe.railAxis === "y") {
-      window.scrollTo({ top: position, left: 0, behavior: "auto" });
+      setWindowScrollPosition(position);
     }
   }
 
@@ -7209,8 +7979,17 @@ function renderFocus() {
     cancelFocusRailScroll();
     const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     const clampedTop = Math.max(0, Math.min(top, maxTop));
-    if (!smooth || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      window.scrollTo({ top: clampedTop, left: 0, behavior: "auto" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const smoothController = getSiteSmoothScroll();
+    if (!smooth || reduceMotion) {
+      setWindowScrollPosition(clampedTop);
+      return;
+    }
+    if (smoothController?.enabled) {
+      smoothController.scrollTo(clampedTop, {
+        immediate: false,
+        force: true
+      });
       return;
     }
     const startTop = window.scrollY || document.documentElement.scrollTop || 0;
@@ -7310,6 +8089,13 @@ function renderFocus() {
     const rect = thumb.getBoundingClientRect();
     const top = window.scrollY + rect.top + rect.height / 2 - window.innerHeight / 2;
     animateFocusDesktopRailTo(top, smooth);
+  }
+
+  function positionInitialFocusRail(index) {
+    updateFocusRailMetrics();
+    updateMobileFocusRail();
+    if (window.innerWidth > 768) getSiteSmoothScroll()?.resize();
+    scrollToFocusIndex(index, false);
   }
 
   function updateFocusRailMetrics() {

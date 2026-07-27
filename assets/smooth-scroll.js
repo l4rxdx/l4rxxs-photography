@@ -1,0 +1,183 @@
+(() => {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const linearScrollOptions = {
+    autoRaf: true,
+    lerp: 0.045,
+    smoothWheel: true,
+    wheelMultiplier: 0.8,
+    syncTouch: true,
+    touchMultiplier: 0.8,
+    orientation: "vertical",
+    gestureOrientation: "vertical",
+    overscroll: false
+  };
+  const nestedControllers = new Set();
+  let lenis = null;
+  let lockDepth = 0;
+  let lockedScrollY = 0;
+  let savedHtmlOverflow = "";
+
+  const getNativeTargetTop = (target) => {
+    if (typeof target === "number") return target;
+    if (typeof target === "string") {
+      const element = document.querySelector(target);
+      return element ? window.scrollY + element.getBoundingClientRect().top : 0;
+    }
+    if (target instanceof Element) {
+      return window.scrollY + target.getBoundingClientRect().top;
+    }
+    return 0;
+  };
+
+  const getNestedTargetTop = (wrapper, target) => {
+    if (typeof target === "number") return target;
+    if (typeof target === "string") {
+      const element = wrapper.querySelector(target);
+      return element ? wrapper.scrollTop + element.getBoundingClientRect().top - wrapper.getBoundingClientRect().top : 0;
+    }
+    if (target instanceof Element) {
+      return wrapper.scrollTop + target.getBoundingClientRect().top - wrapper.getBoundingClientRect().top;
+    }
+    return 0;
+  };
+
+  const shouldUseNativeScroll = (node) => {
+    const element = node instanceof Element ? node : node?.parentElement;
+    if (!element) return false;
+    if (element.closest("[data-lenis-prevent]")) return true;
+    if (element.closest(".local-work-layer--draggable")) return true;
+    return window.innerWidth <= 768 && Boolean(element.closest(".focus-rail"));
+  };
+
+  const createNestedInstance = (handle) => {
+    if (handle.instance || reducedMotion.matches || typeof window.Lenis !== "function") return;
+    handle.instance = new window.Lenis({
+      ...linearScrollOptions,
+      wrapper: handle.wrapper,
+      content: handle.wrapper,
+      eventsTarget: handle.wrapper
+    });
+  };
+
+  const controller = {
+    enabled: false,
+    instance: null,
+    scrollTo(target, options = {}) {
+      if (lenis) {
+        lenis.scrollTo(target, {
+          force: true,
+          ...options
+        });
+        return;
+      }
+      window.scrollTo({
+        top: getNativeTargetTop(target),
+        left: 0,
+        behavior: options.immediate === false && !reducedMotion.matches ? "smooth" : "auto"
+      });
+      options.onComplete?.();
+    },
+    sync(top = window.scrollY || document.documentElement.scrollTop || 0) {
+      if (!lenis) return;
+      lenis.scrollTo(top, { immediate: true, force: true });
+    },
+    start() {
+      lenis?.start();
+    },
+    stop() {
+      lenis?.stop();
+    },
+    resize() {
+      lenis?.resize();
+    },
+    createNested(wrapper) {
+      if (!(wrapper instanceof HTMLElement)) return null;
+      const handle = {
+        wrapper,
+        instance: null,
+        scrollTo(target, options = {}) {
+          if (this.instance) {
+            this.instance.scrollTo(target, {
+              force: true,
+              ...options
+            });
+            return;
+          }
+          wrapper.scrollTo({
+            top: getNestedTargetTop(wrapper, target),
+            left: 0,
+            behavior: options.immediate === false && !reducedMotion.matches ? "smooth" : "auto"
+          });
+          options.onComplete?.();
+        },
+        resize() {
+          this.instance?.resize();
+        },
+        destroy() {
+          this.instance?.destroy();
+          this.instance = null;
+          nestedControllers.delete(this);
+        }
+      };
+      nestedControllers.add(handle);
+      createNestedInstance(handle);
+      return handle;
+    },
+    lock() {
+      lockDepth += 1;
+      if (lockDepth > 1) return;
+      lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      savedHtmlOverflow = document.documentElement.style.overflow;
+      document.documentElement.style.overflow = "hidden";
+      lenis?.stop();
+    },
+    unlock(top = lockedScrollY) {
+      lockDepth = Math.max(0, lockDepth - 1);
+      if (lockDepth > 0) return;
+      document.documentElement.style.overflow = savedHtmlOverflow;
+      lenis?.start();
+      const targetTop = Number.isFinite(top) ? top : lockedScrollY;
+      if (lenis) {
+        lenis.resize();
+        lenis.scrollTo(targetTop, { immediate: true, force: true });
+      }
+      else window.scrollTo({ top: targetTop, left: 0, behavior: "auto" });
+    }
+  };
+
+  const destroy = () => {
+    nestedControllers.forEach((handle) => {
+      handle.instance?.destroy();
+      handle.instance = null;
+    });
+    if (lenis) {
+      lenis.destroy();
+      lenis = null;
+    }
+    controller.enabled = false;
+    controller.instance = null;
+    if (window.lenis && typeof window.lenis === "object") delete window.lenis;
+  };
+
+  const create = () => {
+    if (lenis || reducedMotion.matches || typeof window.Lenis !== "function") return;
+    lenis = new window.Lenis({
+      ...linearScrollOptions,
+      stopInertiaOnNavigate: true,
+      prevent: shouldUseNativeScroll
+    });
+    nestedControllers.forEach(createNestedInstance);
+    if (lockDepth > 0) lenis.stop();
+    controller.enabled = true;
+    controller.instance = lenis;
+    window.lenis = lenis;
+  };
+
+  window.l4rxxSmoothScroll = controller;
+  create();
+
+  reducedMotion.addEventListener?.("change", (event) => {
+    if (event.matches) destroy();
+    else create();
+  });
+})();
