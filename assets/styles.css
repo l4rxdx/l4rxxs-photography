@@ -1802,6 +1802,7 @@ html.work-root:not([data-theme="dark"]) body.work {
   min-height: 0;
   padding: 0;
   overflow: hidden;
+  overflow: clip;
   contain: paint;
 }
 
@@ -1942,6 +1943,22 @@ body:not(.has-loaded) .focus-rail,
   transform-origin: 50% 50%;
   transition: opacity .65s var(--ease-soft), filter .65s var(--ease-soft), transform .86s var(--ease-notes);
   pointer-events: auto;
+}
+
+@media (min-width: 769px) {
+  .focus-shell[data-focus-frame="landscape"] .focus-main {
+    width: min(76vw, 110rem);
+  }
+
+  .focus-shell[data-focus-frame="panorama"] .focus-main {
+    width: min(82vw, 126rem);
+  }
+
+  .focus-shell[data-focus-frame="portrait"] .focus-main {
+    top: calc(var(--space-8) + var(--space-2));
+    width: min(68vw, 86rem);
+    height: calc(100vh - 11rem);
+  }
 }
 
 .focus-main__button {
@@ -2457,7 +2474,7 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
   background-color: color-mix(in srgb, var(--color-light) 70%, transparent);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  transition: opacity .72s var(--ease-soft), background-color .82s var(--ease-soft), backdrop-filter .72s var(--ease-soft);
+  transition: opacity .72s var(--ease-soft), background-color .82s var(--ease-soft);
 }
 
 .focus-shell.is-index::before {
@@ -2466,8 +2483,8 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
 
 .focus-shell.is-index::before,
 .focus-shell.is-index-transitioning::before {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .focus-shell.is-index-from-notes::before {
@@ -2476,6 +2493,13 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
 
 .focus-shell.is-index-from-notes.is-index-background-releasing::before {
   background-color: color-mix(in srgb, var(--color-light) 70%, transparent);
+}
+
+body.focus-notes-index-handoff[data-apple-music-background-ready="true"]
+  .focus-shell.is-index-from-notes.is-index-background-releasing
+  .focus-notes-background {
+  opacity: 0;
+  transition-duration: .82s;
 }
 
 .focus-shell.is-index-to-notes::before {
@@ -3076,6 +3100,23 @@ body.focus-index-scroll-lock {
   touch-action: pan-y pinch-zoom;
 }
 
+html.focus-index-input-lock,
+body.focus-index-input-lock {
+  overscroll-behavior: none;
+  touch-action: none !important;
+}
+
+body.focus-index-input-lock::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: auto;
+  touch-action: none;
+  background: transparent;
+  cursor: default;
+}
+
 .focus-index-moving-image {
   position: fixed !important;
   z-index: 850 !important;
@@ -3172,6 +3213,12 @@ body[data-theme="dark"] .focus-index-moving-image {
 }
 
 @media (max-width: 768px) {
+  .focus-shell.is-notes .focus-rail,
+  .focus-shell.is-notes.is-index-transitioning:not(.is-index) .focus-rail,
+  .focus-shell.is-index-transitioning:not(.is-index) .focus-rail {
+    filter: none;
+  }
+
   .focus-index-gallery {
     inset: 0 var(--space-4);
     width: calc(100vw - var(--space-8));
@@ -3408,6 +3455,16 @@ body[data-theme="dark"] .focus-index-moving-image {
 
   .focus-shell.is-index-opening.is-index-from-notes .focus-rail {
     transform: translate3d(0, 0, 0) !important;
+  }
+
+  .focus-shell:not(.is-notes):not(.is-index):not(.is-index-opening):not(.is-index-closing):not(.is-index-transitioning):not(.is-index-return-settling) .focus-rail {
+    transition: opacity .42s var(--ease-soft), filter .42s var(--ease-soft), transform .54s var(--ease-notes);
+  }
+
+  .focus-shell.is-focus-rail-sleeping:not(.is-notes):not(.is-index):not(.is-index-opening):not(.is-index-closing):not(.is-index-transitioning):not(.is-index-return-settling) .focus-rail {
+    opacity: .3;
+    filter: none;
+    transform: translate3d(0, var(--space-3), 0);
   }
 }
 

@@ -122,6 +122,40 @@
     };
   }
 
+  function createPreferredColor(value) {
+    const match = /^#([0-9a-f]{6})$/i.exec(String(value || "").trim());
+    if (!match) return null;
+    const rgb = [0, 2, 4].map((offset) => parseInt(match[1].slice(offset, offset + 2), 16));
+    const darkForeground = [12, 12, 12];
+    const lightForeground = [235, 231, 223];
+    const foreground = getContrastRatio(rgb, darkForeground) >= getContrastRatio(rgb, lightForeground)
+      ? darkForeground
+      : lightForeground;
+    const css = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    return {
+      rgb,
+      css,
+      sceneCss: css,
+      foregroundCss: `rgb(${foreground[0]}, ${foreground[1]}, ${foreground[2]})`
+    };
+  }
+
+  function createSampledColor(value) {
+    const match = /^#([0-9a-f]{6})$/i.exec(String(value || "").trim());
+    if (!match) return null;
+    const rgb = [0, 2, 4].map((offset) => parseInt(match[1].slice(offset, offset + 2), 16));
+    const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+    const saturation = clamp(0, hsl.saturation, 0.72);
+    const lightness = clamp(0.18, hsl.lightness, 0.72);
+    const scene = createSceneColor(hsl.hue, saturation, lightness);
+    return {
+      rgb,
+      css: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`,
+      sceneCss: scene.backgroundCss,
+      foregroundCss: scene.foregroundCss
+    };
+  }
+
   function extractColor(image) {
     const canvas = document.createElement("canvas");
     canvas.width = sampleSize;
@@ -183,18 +217,25 @@
     };
   }
 
-  async function from(source, target = document.body) {
+  async function from(source, target = document.body, options = {}) {
     if (!target?.style) throw new TypeError("AppleMusicBackground target must be an element");
-    const key = getSourceKey(source);
-    if (!key) throw new TypeError("AppleMusicBackground source is required");
+    const sourceKey = getSourceKey(source);
+    if (!sourceKey) throw new TypeError("AppleMusicBackground source is required");
+    const preferredColor = createPreferredColor(options.preferredColor);
+    const sampledColor = preferredColor ? null : createSampledColor(options.sampledColor);
+    const localColor = preferredColor || sampledColor;
+    const key = localColor ? `${sourceKey}|${localColor.css}|${localColor.sceneCss}` : sourceKey;
     const runId = (targetRuns.get(target) || 0) + 1;
     targetRuns.set(target, runId);
     try {
       let color = colorCache.get(key);
       if (!color) {
-        let sourceImage = isImageReady(source) ? source : null;
-        if (!sourceImage) sourceImage = source instanceof HTMLImageElement ? await waitForImage(source) : await loadImage(source);
-        color = extractColor(sourceImage);
+        color = localColor;
+        if (!color) {
+          let sourceImage = isImageReady(source) ? source : null;
+          if (!sourceImage) sourceImage = source instanceof HTMLImageElement ? await waitForImage(source) : await loadImage(source);
+          color = extractColor(sourceImage);
+        }
         colorCache.set(key, color);
       }
       if (targetRuns.get(target) !== runId) return { ...color, applied: false };

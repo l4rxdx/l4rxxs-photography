@@ -53,7 +53,7 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "DSC02934-2.jpg"; title = "RAIN 27"; category = "WATER"; caption = "A dark figure and umbrella held against open water."; noteCn = "记得当时是清晨，本来想起早去看日出的，可惜那天是阴天，等了很久也没有看到太阳，但是没太阳的日出也挺好看的。"; noteEn = "It was early morning. I had planned to wake up for the sunrise, but the day was overcast. I waited a long time without seeing the sun, yet the sunless sunrise was beautiful too."; locationCn = "大理 洱海"; locationEn = "Dali Erhai Lake" },
     @{ original = "DSC01690.jpg"; title = "RIDE 28"; category = "STREET"; caption = "A lifted bicycle wheel in hard afternoon light." },
     @{ original = "1.jpg"; title = "BLOOM 29"; category = "PORTRAIT"; caption = "A bright portrait framed by pink flowers." },
-    @{ original = "R0011221.jpg"; title = "PARK 30"; category = "REFLECTION"; caption = "Autumn light doubles across the pond."; noteCn = "正值赏花季，里面全是人，我终于找到个人少的地方。"; noteEn = "It was peak blossom season and the place was packed. I finally found a quieter spot."; locationCn = "长沙 湖南农业大学"; locationEn = "Changsha Hunan Agricultural University" },
+    @{ original = "R0011221.jpg"; title = "PARK 30"; category = "REFLECTION"; caption = "Autumn light doubles across the pond."; noteCn = "终于找到个人少的地方"; noteEn = "I finally found a spot with fewer people."; locationCn = "长沙 湖南农业大学"; locationEn = "Changsha Hunan Agricultural University" },
     @{ original = "R0011494.jpg"; title = "ROOM 31"; category = "FRIENDS"; caption = "A loose flash frame from the sofa." },
     @{ original = "DSC01040.jpg"; title = "QUEUE 32"; category = "TRANSIT"; caption = "A ferry crowd compressed beneath a curved roof." },
     @{ original = "R0011433.jpg"; title = "PARK 33"; category = "VENDOR"; caption = "Colorful kites and toys waiting in warm grass."; noteCn = "下午健完身，再去公园散了会步，好恰意。"; noteEn = "After working out that afternoon, I went for a walk in the park. It felt so relaxing."; locationCn = "东莞 中心广场公园"; locationEn = "Dongguan Central Square Park" },
@@ -73,7 +73,10 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "1.1.2_1.1.2.jpg"; title = "CANOPY 47"; category = "PARK"; caption = "A green lawn held beneath a dark tree canopy." },
     @{ original = "R0011406.jpg"; title = "COURT 48"; category = "NIGHT"; caption = "A night basketball court seen through chain-link fencing." },
     @{ original = "winter-sweet.jpg"; title = "WINTER 49"; category = "STILL"; caption = "A hand holding a blue Winter Sweet CD against a pale wall." },
-    @{ original = "makeup-flash.jpg"; title = "FLASH 50"; category = "PORTRAIT"; caption = "A high-contrast black-and-white portrait during makeup." }
+    @{ original = "makeup-flash.jpg"; title = "FLASH 50"; category = "PORTRAIT"; caption = "A high-contrast black-and-white portrait during makeup." },
+    @{ original = "pastel-beach.png"; title = "BEACH 51"; category = "COAST"; caption = "A figure crosses a pastel shoreline beneath open light."; notesBackgroundColor = "#BB9FAE" },
+    @{ original = "daisies-bee.png"; title = "BLOOM 52"; category = "DETAIL"; caption = "A bee pauses among white daisies in hard sunlight." },
+    @{ original = "seagulls-plaza.png"; title = "FLIGHT 53"; category = "STREET"; caption = "White birds lift through bands of light and shadow." }
 )
 
 function Convert-ToSlug {
@@ -285,6 +288,7 @@ foreach ($File in $OrderedFiles) {
     $NoteEn = if ($Existing -and $Existing.noteEn) { $Existing.noteEn } elseif ($Seed -and $Seed.noteEn) { $Seed.noteEn } else { $null }
     $LocationCn = if ($Existing -and $Existing.locationCn) { $Existing.locationCn } elseif ($Seed -and $Seed.locationCn) { $Seed.locationCn } else { $null }
     $LocationEn = if ($Existing -and $Existing.locationEn) { $Existing.locationEn } elseif ($Seed -and $Seed.locationEn) { $Seed.locationEn } else { $null }
+    $NotesBackgroundColor = if ($Existing -and $Existing.notesBackgroundColor) { $Existing.notesBackgroundColor } elseif ($Seed -and $Seed.notesBackgroundColor) { $Seed.notesBackgroundColor } else { $null }
 
     $Item = [ordered]@{
         id = $Id
@@ -302,6 +306,7 @@ foreach ($File in $OrderedFiles) {
     if ($NoteEn) { $Item["noteEn"] = $NoteEn }
     if ($LocationCn) { $Item["locationCn"] = $LocationCn }
     if ($LocationEn) { $Item["locationEn"] = $LocationEn }
+    if ($NotesBackgroundColor) { $Item["notesBackgroundColor"] = $NotesBackgroundColor }
     $Item["width"] = $WebDimensions.Width
     $Item["height"] = $WebDimensions.Height
     $Item["thumbWidth"] = $ThumbDimensions.Width

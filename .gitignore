@@ -3,11 +3,16 @@ images/originals/
 codex-sandbox-test.tmp
 docs/previews/
 dist/
+.playwright-cli/
+security-release-check-report.md
+scripts/__pycache__/
 workbench/assets/*
 !workbench/assets/.gitkeep
+workbench/work-layout.json
 workbench/photopea/sources/*
 workbench/photopea/exports/*
 workbench/photopea/runtime/
+workbench/photopea/manifest.json
 !workbench/photopea/sources/.gitkeep
 !workbench/photopea/exports/.gitkeep
 .env
