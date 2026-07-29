@@ -1933,31 +1933,39 @@ body:not(.has-loaded) .focus-rail,
 }
 
 .focus-main {
+  --focus-main-anchor-y: 0%;
   position: fixed;
   top: calc(var(--space-16) + var(--space-2));
   left: 50%;
   z-index: 40;
   width: min(64vw, 76rem);
   height: calc(100vh - 15rem);
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(var(--focus-main-anchor-y));
   transform-origin: 50% 50%;
   transition: opacity .65s var(--ease-soft), filter .65s var(--ease-soft), transform .86s var(--ease-notes);
   pointer-events: auto;
 }
 
 @media (min-width: 769px) {
+  .focus-main {
+    --focus-main-anchor-y: -50%;
+    top: 50svh;
+    left: 50vw;
+    width: min(60vw, 72rem);
+    height: min(75svh, calc(100svh - 12rem));
+  }
+
   .focus-shell[data-focus-frame="landscape"] .focus-main {
-    width: min(76vw, 110rem);
+    width: min(71vw, 104rem);
   }
 
   .focus-shell[data-focus-frame="panorama"] .focus-main {
-    width: min(82vw, 126rem);
+    width: min(77vw, 118rem);
   }
 
   .focus-shell[data-focus-frame="portrait"] .focus-main {
-    top: calc(var(--space-8) + var(--space-2));
-    width: min(68vw, 86rem);
-    height: calc(100vh - 11rem);
+    width: min(60vw, 80rem);
+    height: min(78svh, calc(100svh - 9rem));
   }
 }
 
@@ -2103,7 +2111,7 @@ body:not(.has-loaded) .focus-rail,
 .focus-shell.is-notes .focus-main.is-measuring-base {
   opacity: 0 !important;
   filter: none !important;
-  transform: translateX(-50%) !important;
+  transform: translateX(-50%) translateY(var(--focus-main-anchor-y)) !important;
   transition: none !important;
   pointer-events: none !important;
   z-index: -1 !important;
@@ -2266,7 +2274,7 @@ body.is-returning-from-rel .c-element-overviewgrid .overview-item.is-visible .fs
 
 .focus-shell.is-notes .focus-main {
   filter: none;
-  transform: translateX(calc(-50% + var(--notes-photo-shift-x, -14vw))) translateY(var(--notes-photo-shift-y, 0px)) scale(var(--notes-photo-scale, .68));
+  transform: translateX(calc(-50% + var(--notes-photo-shift-x, -14vw))) translateY(calc(var(--focus-main-anchor-y) + var(--notes-photo-shift-y, 0px))) scale(var(--notes-photo-scale, .68));
   transition-delay: 0s;
 }
 
@@ -2460,7 +2468,7 @@ body[data-theme="dark"] .focus-shell.is-notes .focus-main__button {
 .focus-shell.is-index .focus-main {
   opacity: 0;
   filter: none;
-  transform: translateX(-50%) scale(.965);
+  transform: translateX(-50%) translateY(var(--focus-main-anchor-y)) scale(.965);
   pointer-events: none;
 }
 

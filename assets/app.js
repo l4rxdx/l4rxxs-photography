@@ -12,14 +12,29 @@ const PAGE_TRANSITION_STORAGE_KEY = "l4rxx-page-transition";
 const LANGUAGE_STORAGE_KEY = "l4rxx-language";
 const THEME_MODE_STORAGE_KEY = "l4rxx-theme-mode";
 const THEME_STORAGE_KEY = "l4rxx-theme";
-const PHOTO_MANIFEST_VERSION = "20260718-1";
-const OVERVIEW_OPENING_RETRY_DELAY = 1000;
+const PHOTO_MANIFEST_VERSION = (() => {
+  const appScript = document.currentScript
+    || [...document.scripts].reverse().find((script) => /(?:^|\/)assets\/app\.js(?:[?#]|$)/.test(script.src));
+  if (!appScript?.src) return "local";
+  try {
+    return new URL(appScript.src, window.location.href).searchParams.get("v") || "local";
+  } catch (error) {
+    return "local";
+  }
+})();
 const OVERVIEW_OPENING_RETRY_MAX_DELAY = 4000;
 const OVERVIEW_OPENING_REVEAL_DELAY = 720;
 const OVERVIEW_MAX_RECYCLED_BATCHES = 3;
 const PHOTO_PLACEHOLDER_FALLBACK = "#D8D6D1";
+const PHOTO_LOAD_RETRY_DELAYS = [600, 1800, 4000];
+const PHOTO_LOAD_PRIORITY = Object.freeze({ critical: 0, visible: 1, background: 2 });
 const photoPlaceholderCleanups = new WeakMap();
+const photoLoadJobs = new WeakMap();
+const failedPhotoImages = new Set();
+const photoLoadQueue = [];
 let photoPlaceholderRun = 0;
+let photoLoadSequence = 0;
+let activePhotoLoads = 0;
 let navTransitionTimer = 0;
 let pageTransitionTimer = 0;
 
@@ -97,6 +112,32 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.5.4"],
+    date: "2026-07-29",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化移动端图片加载调度：根据网络状况限制并发、减少推测请求，并在网络恢复或回到页面后继续加载。",
+          "微调桌面端 REL 主图尺寸与真实视口居中，并同步随记与 INDEX 的往返落点。"
+        ],
+        en: [
+          "Refined mobile photo loading with connection-aware concurrency, fewer speculative requests, and recovery after reconnecting or returning to the page.",
+          "Refined desktop REL sizing and true viewport centering while synchronizing notes and INDEX return geometry."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复慢速网络下 REL 主图或缩略图加载失败后无法恢复、切图失效或 INDEX 出现空白的问题。",
+          "修复随记背景取色影响其他照片的问题；现在只有 rel 50 使用专属粉色，其余照片恢复独立取色。"
+        ],
+        en: [
+          "Fixed REL main images or thumbnails failing to recover on slower networks, which could break photo switching or leave blank INDEX cards.",
+          "Fixed one notes background color affecting other photos; only rel 50 now uses its dedicated pink while every other photo keeps its own sampled color."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.5.3"],
     date: "2026-07-29",
@@ -594,9 +635,9 @@ async function loadPhotos() {
 function normalizePhoto(photo, index) {
   const id = Number(photo.id) || index + 1;
   const title = photo.title || `IMAGE ${String(id).padStart(2, "0")}`;
-  const full = photo.full || photo.src || photo.thumb;
-  const medium = photo.medium || full;
-  const thumb = photo.thumb || full;
+  const full = getVersionedPhotoSource(photo.full || photo.src || photo.thumb);
+  const medium = getVersionedPhotoSource(photo.medium || photo.full || photo.src || photo.thumb);
+  const thumb = getVersionedPhotoSource(photo.thumb || photo.full || photo.src);
   return {
     id,
     title,
@@ -634,6 +675,18 @@ function normalizePhotoPlaceholderColor(value) {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : PHOTO_PLACEHOLDER_FALLBACK;
 }
 
+function getVersionedPhotoSource(source) {
+  if (!source || /^(?:data|blob):/i.test(source)) return source || "";
+  try {
+    const url = new URL(source, window.location.href);
+    if (url.origin !== window.location.origin) return url.href;
+    url.searchParams.set("v", PHOTO_MANIFEST_VERSION);
+    return url.href;
+  } catch (error) {
+    return source;
+  }
+}
+
 function getPhotoImageSizeAttributes(photo, useThumb = false) {
   const width = useThumb ? photo?.thumbWidth : photo?.width;
   const height = useThumb ? photo?.thumbHeight : photo?.height;
@@ -667,11 +720,265 @@ function getPhotoSourceUrl(source) {
   }
 }
 
+function getPhotoSourceIdentity(source) {
+  const url = getPhotoSourceUrl(source);
+  if (!url) return "";
+  try {
+    const normalized = new URL(url);
+    normalized.searchParams.delete("photo-retry");
+    normalized.searchParams.delete("overview-retry");
+    return normalized.href;
+  } catch (error) {
+    return url;
+  }
+}
+
+function getPhotoLoadConcurrency() {
+  if (!isMobilePhotoClient()) return 8;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (isConstrainedPhotoConnection(connection)) return 2;
+  if (connection?.effectiveType === "3g" || (connection?.downlink > 0 && connection.downlink < 1.5)) return 3;
+  return 4;
+}
+
+function isMobilePhotoClient() {
+  return window.innerWidth <= 768
+    || (navigator.maxTouchPoints > 0 && window.matchMedia("(pointer: coarse)").matches);
+}
+
+function isConstrainedPhotoConnection(connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection) {
+  return Boolean(connection?.saveData || /^(?:slow-2g|2g)$/.test(connection?.effectiveType || ""));
+}
+
+function shouldAvoidPhotoPreloads(connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection) {
+  return Boolean(
+    isConstrainedPhotoConnection(connection)
+    || connection?.effectiveType === "3g"
+    || (connection?.downlink > 0 && connection.downlink < 1.5)
+  );
+}
+
+function getPhotoLoadPriority(value = "visible") {
+  return Object.prototype.hasOwnProperty.call(PHOTO_LOAD_PRIORITY, value) ? value : "visible";
+}
+
+function getPhotoRetrySource(source, attempt) {
+  if (attempt <= 0) return source;
+  try {
+    const url = new URL(source, window.location.href);
+    url.searchParams.set("photo-retry", String(attempt));
+    return url.href;
+  } catch (error) {
+    return source;
+  }
+}
+
+function isPhotoReadyForSource(image, source) {
+  if (!(image?.complete && image.naturalWidth > 0)) return false;
+  return getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src")) === getPhotoSourceIdentity(source);
+}
+
+function revealPhotoImage(image, host) {
+  failedPhotoImages.delete(image);
+  image.dataset.photoLoadState = "ready";
+  if (!host) return;
+  host.classList.remove("is-photo-loading");
+  host.classList.add("is-photo-ready");
+}
+
+function settlePhotoLoadJob(job, ready) {
+  if (job.settled) return;
+  job.settled = true;
+  window.clearTimeout(job.retryTimer);
+  job.cleanup?.();
+  if (job.active) {
+    job.active = false;
+    activePhotoLoads = Math.max(0, activePhotoLoads - 1);
+  }
+  if (photoLoadJobs.get(job.image) === job) photoLoadJobs.delete(job.image);
+  if (ready) {
+    job.hosts.forEach((host) => revealPhotoImage(job.image, host));
+    if (getPhotoSourceIdentity(job.image.dataset.src) === job.sourceIdentity) {
+      job.image.removeAttribute("data-src");
+    }
+  } else if (!job.cancelled) {
+    job.image.dataset.photoLoadState = "error";
+    failedPhotoImages.add(job.image);
+  }
+  job.resolve(Boolean(ready));
+  pumpPhotoLoadQueue();
+}
+
+function cancelPhotoLoadJob(job) {
+  if (!job || job.settled) return;
+  job.cancelled = true;
+  settlePhotoLoadJob(job, false);
+}
+
+function queuePhotoLoadJob(job, delay = 0) {
+  if (job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return;
+  const enqueue = () => {
+    if (job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return;
+    job.queued = true;
+    job.image.dataset.photoLoadState = "queued";
+    photoLoadQueue.push(job);
+    photoLoadQueue.sort((first, second) => (
+      PHOTO_LOAD_PRIORITY[first.priority] - PHOTO_LOAD_PRIORITY[second.priority]
+      || first.sequence - second.sequence
+    ));
+    pumpPhotoLoadQueue();
+  };
+  if (delay > 0) {
+    job.retryTimer = window.setTimeout(enqueue, delay);
+    return;
+  }
+  enqueue();
+}
+
+function retryPhotoLoadJob(job) {
+  job.cleanup?.();
+  if (job.active) {
+    job.active = false;
+    activePhotoLoads = Math.max(0, activePhotoLoads - 1);
+  }
+  if (job.attempt >= job.maxAttempts) {
+    settlePhotoLoadJob(job, false);
+    return;
+  }
+  const delay = PHOTO_LOAD_RETRY_DELAYS[Math.min(job.attempt, PHOTO_LOAD_RETRY_DELAYS.length - 1)];
+  job.attempt += 1;
+  job.queued = false;
+  job.image.dataset.photoLoadState = "retrying";
+  queuePhotoLoadJob(job, delay);
+  pumpPhotoLoadQueue();
+}
+
+function startPhotoLoadJob(job) {
+  if (job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return;
+  job.queued = false;
+  job.active = true;
+  activePhotoLoads += 1;
+  const { image } = job;
+  const requestSource = getPhotoRetrySource(job.source, job.attempt);
+  image.dataset.photoCanonicalSource = job.source;
+  image.dataset.photoLoadState = "loading";
+  image.loading = "eager";
+  image.fetchPriority = job.priority === "critical" ? "high" : "low";
+  const preserveVisual = job.preserveVisual && image.complete && image.naturalWidth > 0;
+  if (!preserveVisual) {
+    job.hosts.forEach((host) => {
+      host.classList.add("is-photo-loading");
+      host.classList.remove("is-photo-ready");
+    });
+  }
+
+  let attemptFinished = false;
+  const cleanup = () => {
+    window.clearTimeout(job.timeoutTimer);
+    image.removeEventListener("load", handleLoad);
+    image.removeEventListener("error", handleError);
+  };
+  const finishReady = () => {
+    if (attemptFinished || job.cancelled || photoLoadJobs.get(image) !== job) return;
+    attemptFinished = true;
+    cleanup();
+    settlePhotoLoadJob(job, true);
+  };
+  const handleLoad = () => {
+    if (getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src")) !== job.sourceIdentity
+      || image.naturalWidth <= 0) return;
+    if (typeof image.decode === "function") image.decode().then(finishReady).catch(finishReady);
+    else finishReady();
+  };
+  const handleError = () => {
+    if (attemptFinished || job.cancelled || photoLoadJobs.get(image) !== job) return;
+    attemptFinished = true;
+    retryPhotoLoadJob(job);
+  };
+  job.cleanup = cleanup;
+  image.addEventListener("load", handleLoad);
+  image.addEventListener("error", handleError);
+  job.timeoutTimer = window.setTimeout(handleError, job.timeout);
+  if (image.getAttribute("src") === requestSource) image.removeAttribute("src");
+  image.src = requestSource;
+  if (isPhotoReadyForSource(image, job.source)) handleLoad();
+}
+
+function pumpPhotoLoadQueue() {
+  const limit = getPhotoLoadConcurrency();
+  while (activePhotoLoads < limit && photoLoadQueue.length) {
+    const job = photoLoadQueue.shift();
+    if (!job || job.cancelled || job.settled || !job.queued || photoLoadJobs.get(job.image) !== job) continue;
+    startPhotoLoadJob(job);
+  }
+}
+
+function requestPhotoImage(image, source, options = {}) {
+  if (!image || !source) return Promise.resolve(false);
+  const normalizedSource = getPhotoSourceUrl(source);
+  const sourceIdentity = getPhotoSourceIdentity(normalizedSource);
+  const host = options.host || image.closest?.(".photo-placeholder") || null;
+  if (isPhotoReadyForSource(image, normalizedSource)) {
+    revealPhotoImage(image, host);
+    return Promise.resolve(true);
+  }
+
+  const priority = getPhotoLoadPriority(options.priority);
+  const existing = photoLoadJobs.get(image);
+  if (existing && existing.sourceIdentity === sourceIdentity) {
+    if (host) existing.hosts.add(host);
+    if (options.preserveVisual) existing.preserveVisual = true;
+    if (PHOTO_LOAD_PRIORITY[priority] < PHOTO_LOAD_PRIORITY[existing.priority]) {
+      existing.priority = priority;
+      image.fetchPriority = priority === "critical" ? "high" : "low";
+      if (existing.queued) {
+        photoLoadQueue.sort((first, second) => (
+          PHOTO_LOAD_PRIORITY[first.priority] - PHOTO_LOAD_PRIORITY[second.priority]
+          || first.sequence - second.sequence
+        ));
+      }
+    }
+    return existing.promise;
+  }
+  if (existing) cancelPhotoLoadJob(existing);
+
+  let resolveJob;
+  const promise = new Promise((resolve) => {
+    resolveJob = resolve;
+  });
+  const job = {
+    image,
+    hosts: new Set(host ? [host] : []),
+    source: normalizedSource,
+    sourceIdentity,
+    priority,
+    sequence: ++photoLoadSequence,
+    attempt: 0,
+    maxAttempts: Math.max(0, Number(options.maxAttempts ?? 3)),
+    timeout: Math.max(3000, Number(options.timeout || 12000)),
+    preserveVisual: Boolean(options.preserveVisual),
+    active: false,
+    queued: false,
+    cancelled: false,
+    settled: false,
+    retryTimer: 0,
+    timeoutTimer: 0,
+    cleanup: null,
+    promise,
+    resolve: resolveJob
+  };
+  photoLoadJobs.set(image, job);
+  failedPhotoImages.delete(image);
+  image.dataset.photoCanonicalSource = normalizedSource;
+  queuePhotoLoadJob(job);
+  return promise;
+}
+
 function watchPhotoPlaceholderImage(image, host, expectedSource = "") {
   if (!image || !host) return;
   photoPlaceholderCleanups.get(image)?.();
   const runId = String(++photoPlaceholderRun);
-  const expectedUrl = getPhotoSourceUrl(expectedSource || image.dataset.src || image.getAttribute("src") || "");
+  const expectedUrl = getPhotoSourceIdentity(expectedSource || image.dataset.src || image.getAttribute("src") || "");
   let settled = false;
 
   const cleanup = () => {
@@ -682,7 +989,7 @@ function watchPhotoPlaceholderImage(image, host, expectedSource = "") {
   const isCurrentSource = () => {
     if (image.dataset.photoPlaceholderRun !== runId) return false;
     if (!expectedUrl) return true;
-    const currentUrl = getPhotoSourceUrl(image.currentSrc || image.getAttribute("src") || "");
+    const currentUrl = getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src") || "");
     return currentUrl === expectedUrl;
   };
   const reveal = () => {
@@ -717,22 +1024,24 @@ function initializePhotoPlaceholder(host, image, expectedSource = "") {
   watchPhotoPlaceholderImage(image, host, expectedSource || image.dataset.src || image.getAttribute("src") || "");
 }
 
-function hydrateDeferredImage(image) {
-  const src = image?.dataset?.src;
+function hydrateDeferredImage(image, options = {}) {
+  const src = image?.dataset?.src || image?.dataset?.photoCanonicalSource;
   const srcset = image?.dataset?.srcset;
-  if (!src && !srcset) return;
+  if (!src && !srcset) return Promise.resolve(false);
   if (srcset) {
-    image.removeAttribute("data-srcset");
     image.srcset = srcset;
   }
-  if (src) {
-    image.removeAttribute("data-src");
-    image.src = src;
-  }
   const placeholder = image?.closest?.(".photo-placeholder");
-  if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
-    watchPhotoPlaceholderImage(image, placeholder, src || image.getAttribute("src") || "");
-  }
+  if (!src) return Promise.resolve(false);
+  return requestPhotoImage(image, src, {
+    host: placeholder,
+    priority: options.priority || "visible",
+    maxAttempts: options.maxAttempts,
+    timeout: options.timeout
+  }).then((ready) => {
+    if (ready && image.dataset.srcset === srcset) image.removeAttribute("data-srcset");
+    return ready;
+  });
 }
 
 function createDeferredImageObserver(rootMargin = "600px") {
@@ -740,8 +1049,9 @@ function createDeferredImageObserver(rootMargin = "600px") {
   return new IntersectionObserver((entries, observer) => {
     entries.forEach((entry) => {
       if (!entry.isIntersecting) return;
-      hydrateDeferredImage(entry.target);
-      observer.unobserve(entry.target);
+      hydrateDeferredImage(entry.target, { priority: "visible" }).then((ready) => {
+        if (ready) observer.unobserve(entry.target);
+      });
     });
   }, { root: null, rootMargin, threshold: 0.01 });
 }
@@ -749,11 +1059,80 @@ function createDeferredImageObserver(rootMargin = "600px") {
 function observeDeferredImages(root, observer) {
   const images = [...root.querySelectorAll("img[data-src]")];
   if (!observer) {
-    images.forEach(hydrateDeferredImage);
+    images.forEach((image) => hydrateDeferredImage(image, { priority: "visible" }));
     return;
   }
   images.forEach((image) => observer.observe(image));
 }
+
+function isPhotoImageNearViewport(image, margin = 480) {
+  if (!image?.isConnected) return false;
+  const rect = image.getBoundingClientRect();
+  return rect.bottom >= -margin
+    && rect.top <= window.innerHeight + margin
+    && rect.right >= -margin
+    && rect.left <= window.innerWidth + margin;
+}
+
+function retryRecoverablePhotoImages() {
+  document.querySelectorAll('[data-focus-image][data-focus-fallback="true"]').forEach((image) => {
+    retryFocusFallbackImage(image);
+  });
+  failedPhotoImages.forEach((image) => {
+    if (!image.isConnected) {
+      failedPhotoImages.delete(image);
+      return;
+    }
+    const source = image.dataset.photoCanonicalSource || image.dataset.src;
+    if (!source || !isPhotoImageNearViewport(image)) return;
+    const priority = image.matches("[data-focus-image]") ? "critical" : "visible";
+    requestPhotoImage(image, source, { priority }).catch(() => {});
+  });
+  document.querySelectorAll("img[data-src]").forEach((image) => {
+    if (isPhotoImageNearViewport(image)) hydrateDeferredImage(image, { priority: "visible" }).catch(() => {});
+  });
+}
+
+function retryFocusFallbackImage(image) {
+  const source = image?.dataset?.focusSource;
+  const fallbackSource = image?.currentSrc || image?.getAttribute("src") || "";
+  if (!image?.isConnected || !source || !fallbackSource || !isPhotoImageNearViewport(image)) {
+    return Promise.resolve(false);
+  }
+  if (getPhotoSourceIdentity(source) === getPhotoSourceIdentity(fallbackSource)) {
+    delete image.dataset.focusFallback;
+    image.style.removeProperty("background-image");
+    return Promise.resolve(true);
+  }
+  image.style.backgroundImage = `url("${fallbackSource}")`;
+  return requestPhotoImage(image, source, {
+    host: image.closest(".photo-placeholder"),
+    priority: "critical",
+    maxAttempts: 3,
+    timeout: 12000,
+    preserveVisual: true
+  }).then((ready) => {
+    if (ready && image.dataset.focusSource === source) {
+      delete image.dataset.focusFallback;
+      image.style.removeProperty("background-image");
+      return true;
+    }
+    if (image.dataset.focusSource !== source) return false;
+    return requestPhotoImage(image, fallbackSource, {
+      host: image.closest(".photo-placeholder"),
+      priority: "critical",
+      maxAttempts: 3,
+      timeout: 8000,
+      preserveVisual: true
+    }).then(() => false);
+  });
+}
+
+window.addEventListener("online", retryRecoverablePhotoImages);
+window.addEventListener("resize", pumpPhotoLoadQueue, { passive: true });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) retryRecoverablePhotoImages();
+});
 
 function isDefaultPhotoNote(note) {
   return !note || note === DEFAULT_PHOTO_NOTE_CN || note.includes("\u53c9\u6ef4\u53c9");
@@ -847,31 +1226,22 @@ function navigateWithPageTransition(url) {
 function waitForFocusOpeningImage() {
   const image = document.querySelector("[data-focus-image]");
   if (!image) return Promise.resolve();
-  hydrateDeferredImage(image);
-  image.loading = "eager";
-  image.fetchPriority = "high";
+  const source = image.dataset.focusSource
+    || image.dataset.photoCanonicalSource
+    || image.dataset.src
+    || image.getAttribute("src");
+  if (!source) return Promise.resolve();
   return new Promise((resolve) => {
-    let timer = 0;
-    const cleanup = () => {
+    const timer = window.setTimeout(resolve, 9000);
+    requestPhotoImage(image, source, {
+      host: image.closest(".photo-placeholder"),
+      priority: "critical",
+      maxAttempts: 3,
+      timeout: 12000
+    }).catch(() => false).then(() => {
       window.clearTimeout(timer);
-      image.removeEventListener("load", settle);
-      image.removeEventListener("error", settle);
-    };
-    const settle = () => {
-      if (image.complete && image.naturalWidth > 0 && typeof image.decode === "function") {
-        image.decode().catch(() => {}).then(() => {
-          cleanup();
-          resolve();
-        });
-        return;
-      }
-      cleanup();
       resolve();
-    };
-    image.addEventListener("load", settle, { once: true });
-    image.addEventListener("error", settle, { once: true });
-    timer = window.setTimeout(settle, 5000);
-    if (image.complete) settle();
+    });
   });
 }
 
@@ -1397,7 +1767,7 @@ function waitForOverviewOpeningImages(items) {
     .filter(Boolean);
   if (!images.length) return Promise.resolve();
 
-  return Promise.all(images.map(waitForOverviewOpeningImage)).then(() => {
+  return Promise.all(images.map((image) => waitForOverviewOpeningImage(image))).then(() => {
     prepaintOverviewOpeningImages(images);
   });
 }
@@ -1431,62 +1801,29 @@ function releaseOverviewOpeningRasters() {
 }
 
 function waitForOverviewOpeningImage(image) {
-  return new Promise((resolve) => {
-    const source = image.dataset.src || image.getAttribute("src") || "";
-    const host = image.closest(".photo-placeholder");
-    let retryCount = 0;
-    let retryTimer = 0;
-    let finished = false;
-
-    const cleanup = () => {
-      window.clearTimeout(retryTimer);
-      image.removeEventListener("load", decode);
-      image.removeEventListener("error", retry);
-    };
-    const finish = () => {
-      if (finished || image.naturalWidth <= 0) return;
-      finished = true;
-      cleanup();
-      if (host) {
-        host.classList.remove("is-photo-loading");
-        host.classList.add("is-photo-ready");
-      }
-      resolve();
-    };
-    const retry = () => {
-      if (finished) return;
-      cleanup();
-      const delay = Math.min(
-        OVERVIEW_OPENING_RETRY_MAX_DELAY,
-        OVERVIEW_OPENING_RETRY_DELAY * (2 ** retryCount)
-      );
-      retryCount++;
-      retryTimer = window.setTimeout(() => {
-        const retryUrl = new URL(source, window.location.href);
-        retryUrl.searchParams.set("overview-retry", String(retryCount));
-        image.addEventListener("load", decode);
-        image.addEventListener("error", retry);
-        image.src = retryUrl.href;
-        if (host) watchPhotoPlaceholderImage(image, host, retryUrl.href);
-      }, delay);
-    };
-    const decode = () => {
-      if (finished) return;
-      if (image.naturalWidth <= 0) {
-        retry();
-        return;
-      }
-      if (typeof image.decode === "function") image.decode().then(finish).catch(retry);
-      else finish();
-    };
-
-    image.loading = "eager";
-    image.fetchPriority = "high";
-    image.addEventListener("load", decode);
-    image.addEventListener("error", retry);
-    hydrateDeferredImage(image);
-    if (image.complete) decode();
+  const source = image.dataset.src || image.dataset.photoCanonicalSource || image.getAttribute("src") || "";
+  if (!source) return Promise.resolve();
+  const attempt = () => requestPhotoImage(image, source, {
+    host: image.closest(".photo-placeholder"),
+    priority: "critical",
+    maxAttempts: 3,
+    timeout: 12000
+  }).then((ready) => {
+    if (ready) return true;
+    return new Promise((resolve) => {
+      let settled = false;
+      const resume = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        window.removeEventListener("online", resume);
+        attempt().then(resolve);
+      };
+      const timer = window.setTimeout(resume, OVERVIEW_OPENING_RETRY_MAX_DELAY);
+      window.addEventListener("online", resume, { once: true });
+    });
   });
+  return attempt();
 }
 
 function createOverviewBatch(isOriginal = false) {
@@ -1542,7 +1879,7 @@ function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = ""
   link.href = `focus.html?rel=${photoRel}`;
   link.dataset.rel = String(photoRel);
   link.dataset.overviewSlot = String(cellIndex);
-  const thumbSource = prioritize ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
+  const thumbSource = `data-src="${photo.thumb}"`;
   link.innerHTML = `<span class="fs-media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritize ? "eager" : "lazy"}" fetchpriority="${prioritize ? "high" : "low"}" decoding="async"></span>`;
   return link;
 }
@@ -4288,7 +4625,7 @@ function renderFocus() {
   const navToggle = document.querySelector(".js-nav-toggle");
   const backLink = document.querySelector(".js-back");
   if (!shell || !title || !thumbs || !image || !caption || !imageToggle || !focusMain) return;
-  const getFocusPhotoSource = (photo) => window.innerWidth <= 768
+  const getFocusPhotoSource = (photo) => isMobilePhotoClient()
     ? photo?.medium || photo?.full || photo?.thumb || ""
     : photo?.full || photo?.medium || photo?.thumb || "";
   const getFocusMainFrame = (photo) => {
@@ -4488,7 +4825,7 @@ function renderFocus() {
     button.dataset.index = String(index + 1);
     button.style.setProperty("--delay", `${Math.min(index, 24) * 0.018}s`);
     const prioritizeThumb = Math.abs(index - initial) <= 2;
-    const thumbSource = prioritizeThumb ? `src="${photo.thumb}"` : `data-src="${photo.thumb}"`;
+    const thumbSource = `data-src="${photo.thumb}"`;
     button.innerHTML = `<span class="focus-thumb__media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritizeThumb ? "eager" : "lazy"}" fetchpriority="${index === initial ? "high" : "low"}" decoding="async"></span>`;
     const thumbImage = button.querySelector("img");
     const thumbMedia = button.querySelector(".focus-thumb__media");
@@ -4497,6 +4834,7 @@ function renderFocus() {
     if (thumbImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, thumbImage));
     button.addEventListener("click", () => {
       if (shell.classList.contains("is-index")) return;
+      hydrateDeferredImage(thumbImage, { priority: "critical" }).catch(() => {});
       setNotesOpen(false);
       setFocus(index, true, { source: "thumb" });
       glideFocusRailAfterThumbClick(index);
@@ -4525,6 +4863,7 @@ function renderFocus() {
       if (indexImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, indexImage));
       indexButton.addEventListener("pointerdown", () => {
         if (focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
+        if (shouldAvoidPhotoPreloads()) return;
         preloadFocusImageDecoded(getFocusPhotoSource(photo));
       }, { passive: true });
       indexButton.addEventListener("click", () => {
@@ -4561,7 +4900,9 @@ function renderFocus() {
     const start = Math.max(0, centerIndex - radius);
     const end = Math.min(photos.length - 1, centerIndex + radius);
     for (let index = start; index <= end; index++) {
-      hydrateDeferredImage(focusThumbButtons[index]?.querySelector("img"));
+      hydrateDeferredImage(focusThumbButtons[index]?.querySelector("img"), {
+        priority: index === centerIndex ? "critical" : "visible"
+      });
     }
   };
   const deferredThumbImages = [...thumbs.querySelectorAll("img[data-src]")];
@@ -4569,14 +4910,19 @@ function renderFocus() {
     const thumbObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-        hydrateDeferredImage(entry.target);
-        thumbObserver.unobserve(entry.target);
+        const thumbIndex = Number(entry.target.closest(".focus-thumb")?.dataset.index || 1) - 1;
+        const activeIndex = Number(shell.dataset.activeIndex || 0);
+        if (focusRailScrollFrame && Math.abs(thumbIndex - activeIndex) > 2) return;
+        hydrateDeferredImage(entry.target, { priority: "visible" }).then((ready) => {
+          if (ready) thumbObserver.unobserve(entry.target);
+        });
       });
-    }, { root: null, rootMargin: "320px", threshold: 0.01 });
+    }, { root: thumbs, rootMargin: "0px 240px", threshold: 0.01 });
     deferredThumbImages.forEach((thumbImage) => thumbObserver.observe(thumbImage));
   } else {
-    deferredThumbImages.forEach(hydrateDeferredImage);
+    deferredThumbImages.forEach((thumbImage) => hydrateDeferredImage(thumbImage, { priority: "visible" }));
   }
+  hydrateFocusThumbRange(initial, 1);
   indexGallery?.addEventListener("scroll", () => {
     resetFocusIndexHorizontalOffset();
     scheduleFocusIndexImageWindow();
@@ -5171,12 +5517,7 @@ function renderFocus() {
   }
 
   function getFocusImageAbsoluteUrl(src) {
-    if (!src) return "";
-    try {
-      return new URL(src, window.location.href).href;
-    } catch (error) {
-      return src;
-    }
+    return getPhotoSourceIdentity(src);
   }
 
   function setFocusIndexGalleryActive(index) {
@@ -5250,7 +5591,7 @@ function renderFocus() {
     const photo = photos[index];
     if (!photo) return null;
     const node = document.createElement("img");
-    node.src = photo.thumb;
+    node.dataset.src = photo.thumb;
     node.loading = "lazy";
     node.fetchPriority = "low";
     return prepareFocusIndexImage(node, index);
@@ -5262,113 +5603,73 @@ function renderFocus() {
     const thumb = getFocusImageAbsoluteUrl(photo.thumb);
     const current = getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src"));
     if (current && current !== thumb) return node.complete && node.naturalWidth > 0;
-    const watchThumbAttempt = () => {
-      if (node.dataset.focusIndexThumbWatching === thumb) return;
-      node.dataset.focusIndexThumbWatching = thumb;
-      const onLoad = () => {
-        if (getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src")) !== thumb) return;
-        delete node.dataset.focusIndexThumbWatching;
-        node.dataset.focusIndexThumbAttempts = "0";
-      };
-      const onError = () => {
-        if (getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src")) !== thumb) return;
-        delete node.dataset.focusIndexThumbWatching;
-        node.removeAttribute("src");
-        if (Number(node.dataset.focusIndexThumbAttempts || 0) >= 3) return;
-        window.setTimeout(() => {
-          if (focusIndexState.mode === "index" || focusIndexState.phase === "opening") {
-            scheduleFocusIndexImageWindow();
-          }
-        }, 160);
-      };
-      node.addEventListener("load", onLoad, { once: true });
-      node.addEventListener("error", onError, { once: true });
-    };
     if (current === thumb && node.complete && node.naturalWidth > 0) {
-      node.dataset.focusIndexThumbAttempts = "0";
+      revealPhotoImage(node, node.closest(".focus-index-card__media.photo-placeholder"));
       return true;
     }
-    if (current === thumb && !node.complete) {
-      watchThumbAttempt();
-      return false;
-    }
-    const attempts = Number(node.dataset.focusIndexThumbAttempts || 0);
-    if (attempts >= 3) return false;
     node.loading = "eager";
     node.fetchPriority = prioritize ? "high" : "low";
-    node.dataset.focusIndexThumbAttempts = String(attempts + 1);
-    watchThumbAttempt();
-    if (node.getAttribute("src")) node.removeAttribute("src");
-    node.src = photo.thumb;
     const placeholder = node.closest(".focus-index-card__media.photo-placeholder");
-    if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
-      watchPhotoPlaceholderImage(node, placeholder, photo.thumb);
-    }
+    requestPhotoImage(node, photo.thumb, {
+      host: placeholder,
+      priority: prioritize ? "critical" : "visible",
+      maxAttempts: 3,
+      timeout: 10000
+    }).then((ready) => {
+      if (!ready || (focusIndexState.mode !== "index" && focusIndexState.phase !== "opening")) return;
+      scheduleFocusIndexImageWindow();
+    });
     return false;
   }
 
   function requestFocusIndexFullImage(node, index, prioritize = false) {
     const photo = photos[index];
     const source = getFocusPhotoSource(photo);
-    if (!node || !source) return;
+    if (!node || !source) return Promise.resolve(false);
     prepareFocusIndexImage(node, index);
-    hydrateFocusIndexCardThumb(node, index, prioritize);
     const full = getFocusImageAbsoluteUrl(source);
     const current = getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src"));
     const thumb = getFocusImageAbsoluteUrl(photo.thumb);
-    if (current === thumb && (!node.complete || node.naturalWidth <= 0) && node.dataset.focusIndexThumbFailed !== thumb) {
-      node.fetchPriority = prioritize ? "high" : "low";
-      if (node.dataset.focusIndexWaitingForThumb === thumb) return;
-      node.dataset.focusIndexWaitingForThumb = thumb;
-      const resume = () => {
-        if (node.dataset.focusIndexWaitingForThumb !== thumb) return;
-        delete node.dataset.focusIndexWaitingForThumb;
-        requestFocusIndexFullImage(node, index, prioritize);
-      };
-      const resumeAfterError = () => {
-        node.dataset.focusIndexThumbFailed = thumb;
-        resume();
-      };
-      node.addEventListener("load", resume, { once: true });
-      node.addEventListener("error", resumeAfterError, { once: true });
-      return;
-    }
+    const placeholder = node.closest(".focus-index-card__media.photo-placeholder")
+      || node.closest(".photo-placeholder");
     if (current === full && node.complete && node.naturalWidth > 0) {
-      const placeholder = node.closest(".focus-index-card__media.photo-placeholder");
-      if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
-        watchPhotoPlaceholderImage(node, placeholder, source);
-      }
+      revealPhotoImage(node, placeholder);
       if (node.decode) node.decode().catch(() => {}).then(() => node.style.removeProperty("background-image"));
       else node.style.removeProperty("background-image");
-      return;
+      return Promise.resolve(true);
     }
-    if (node.dataset.focusIndexLoading === full) return;
-    node.dataset.focusIndexLoading = full;
-    node.fetchPriority = prioritize ? "high" : "low";
-    if (photo.thumb) node.style.backgroundImage = `url("${photo.thumb}")`;
-
-    const finish = () => {
-      if (node.dataset.focusIndexLoading !== full) return;
-      delete node.dataset.focusIndexLoading;
-      const clearFallback = () => node.style.removeProperty("background-image");
-      if (node.decode) node.decode().then(clearFallback).catch(clearFallback);
-      else clearFallback();
-    };
-    const fail = () => {
-      if (node.dataset.focusIndexLoading !== full) return;
-      delete node.dataset.focusIndexLoading;
-      if (photo.thumb && getFocusImageAbsoluteUrl(node.getAttribute("src")) !== getFocusImageAbsoluteUrl(photo.thumb)) {
-        node.src = photo.thumb;
+    const hasReadyVisual = node.complete && node.naturalWidth > 0;
+    const loadFull = () => {
+      if (photo.thumb && node.complete && node.naturalWidth > 0) {
+        node.style.backgroundImage = `url("${photo.thumb}")`;
       }
+      return requestPhotoImage(node, source, {
+        host: placeholder,
+        priority: prioritize ? "critical" : "visible",
+        maxAttempts: 3,
+        timeout: 12000
+      }).then((ready) => {
+        if (ready) {
+          node.style.removeProperty("background-image");
+          rememberFocusPhotoRatio(index, node);
+          return true;
+        }
+        if (!photo.thumb) return false;
+        return requestPhotoImage(node, photo.thumb, {
+          host: placeholder,
+          priority: prioritize ? "critical" : "visible",
+          maxAttempts: 3,
+          timeout: 9000
+        });
+      });
     };
-    node.addEventListener("load", finish, { once: true });
-    node.addEventListener("error", fail, { once: true });
-    node.src = source;
-    const placeholder = node.closest(".focus-index-card__media.photo-placeholder");
-    if (placeholder && !placeholder.classList.contains("is-photo-ready")) {
-      watchPhotoPlaceholderImage(node, placeholder, source);
-    }
-    if (node.complete && node.naturalWidth > 0) finish();
+    if (hasReadyVisual || !photo.thumb || current === thumb) return loadFull();
+    return requestPhotoImage(node, photo.thumb, {
+      host: placeholder,
+      priority: prioritize ? "critical" : "visible",
+      maxAttempts: 3,
+      timeout: 9000
+    }).then(loadFull);
   }
 
   function hydrateFocusIndexVisibleThumbs(prioritizedIndex = focusIndexState.activeIndex) {
@@ -6270,7 +6571,6 @@ function renderFocus() {
     const ratio = getFocusPhotoRatio(index, sourceRect);
     const travelSourceRect = normalizeFocusTravelRect(sourceRect, ratio) || sourceRect;
     const expectedSource = getFocusImageAbsoluteUrl(source);
-    const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
     image.loading = "eager";
     image.fetchPriority = "high";
     image.style.backgroundColor = normalizePhotoPlaceholderColor(photo.placeholderColor);
@@ -6289,9 +6589,16 @@ function renderFocus() {
       return matches;
     };
 
-    const ready = currentSource === expectedSource && image.complete && image.naturalWidth > 0;
-    if (!ready) preloadFocusImageDecoded(source).catch(() => {});
-    return Promise.resolve(finish(ready));
+    const hasReadyVisual = image.complete && image.naturalWidth > 0;
+    if (hasReadyVisual) return Promise.resolve(finish(true));
+    return requestPhotoImage(image, photo.thumb || source, {
+      host: image.closest(".photo-placeholder"),
+      priority: "critical",
+      maxAttempts: 3,
+      timeout: 9000
+    }).then((ready) => {
+      return finish(ready);
+    });
   }
 
   function beginFocusIndexNodeHandoff() {
@@ -6430,6 +6737,7 @@ function renderFocus() {
   function syncFocusIndexSelection(index) {
     const photo = photos[index];
     if (!photo) return;
+    const photoSource = getFocusPhotoSource(photo);
     clearFocusQueuedSwipe();
     clearFocusMainSwipe();
     focusSwitchSequence += 1;
@@ -6443,6 +6751,8 @@ function renderFocus() {
       image.height = photo.height;
     }
     image.alt = photo.alt || "";
+    image.dataset.focusSource = photoSource;
+    delete image.dataset.focusFallback;
     caption.textContent = "";
     updateFocusNoteContent(photo);
     title.textContent = photo.title;
@@ -6463,6 +6773,7 @@ function renderFocus() {
     focusIndexState.phase = "idle";
     focusIndexState.mode = "index";
     focusIndexState.activeIndex = index;
+    requestFocusIndexFullImage(image, index, true);
     scheduleFocusIndexImageWindow();
     releaseFocusIndexNodeHandoff(runId);
     releaseFocusNotesIndexHandoff(runId);
@@ -6740,11 +7051,6 @@ function renderFocus() {
     clearFocusQueuedSwipe();
     clearFocusMainSwipe();
     restoreMissingFocusIndexCardImages();
-    focusIndexCards.map((card) => card.querySelector("img:not([src])")).filter(Boolean).forEach((node) => {
-      if (Number(node.dataset.focusIndexThumbAttempts || 0) >= 3) {
-        node.dataset.focusIndexThumbAttempts = "0";
-      }
-    });
     if (focusIndexPreparedIndex !== index) warmFocusIndexCardThumbs(index);
     setFocusIndexGalleryActive(index);
     getFocusIndexCardByIndex(index)?.classList.add("is-index-hidden", "is-index-anchor");
@@ -6781,7 +7087,6 @@ function renderFocus() {
       invalidateFocusIndexMotionPlan();
     }
     const targetRect = liveTargetRect || preparedTargetRect;
-    requestFocusIndexFullImage(image, index, true);
     scheduleFocusIndexImageWindow();
     const cardAnchor = targetRect || getFocusIndexCardRect(getFocusIndexCardByIndex(index));
     const motionDuration = getFocusIndexImageMotionDuration(
@@ -7788,8 +8093,7 @@ function renderFocus() {
       ? image
       : photoSource;
     window.AppleMusicBackground.from(source, document.body, {
-      preferredColor: photo.notesBackgroundColor,
-      sampledColor: photo.placeholderColor
+      preferredColor: photo.notesBackgroundColor
     }).catch(() => {});
   }
 
@@ -7867,8 +8171,7 @@ function renderFocus() {
   function getFocusPreloadDepth(count) {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (!connection) return count;
-    if (connection.saveData || /^(slow-2g|2g)$/.test(connection.effectiveType || "")) return Math.min(1, count);
-    if (connection.effectiveType === "3g" || (connection.downlink > 0 && connection.downlink < 1.5)) return Math.min(2, count);
+    if (shouldAvoidPhotoPreloads(connection)) return 0;
     return count;
   }
 
@@ -7927,7 +8230,8 @@ function renderFocus() {
   }
 
   function preloadFocusNeighbors(index) {
-    [index - 1, index + 1].forEach((neighborIndex) => {
+    const candidates = getFocusPreloadDepth(2) >= 2 ? [index - 1, index + 1] : [index + 1];
+    candidates.forEach((neighborIndex) => {
       const neighbor = photos[neighborIndex];
       const source = getFocusPhotoSource(neighbor);
       if (source) preloadFocusImage(source, "low");
@@ -7935,6 +8239,7 @@ function renderFocus() {
   }
 
   function scheduleFocusNeighborPreload(index) {
+    if (shouldAvoidPhotoPreloads()) return;
     const photo = photos[index];
     const photoSource = getFocusPhotoSource(photo);
     if (!photoSource) return;
@@ -8078,23 +8383,40 @@ function renderFocus() {
     updateFocusMainFrame(photo);
     applyPhotoPlaceholder(imageToggle, photo);
     updateFocusMainPlaceholderGeometry(photo);
-    image.addEventListener("error", () => {
+    requestPhotoImage(image, photoSource, {
+      host: imageToggle,
+      priority: "critical",
+      maxAttempts: 3,
+      timeout: 12000
+    }).then((ready) => {
       if (image.dataset.focusSource !== photoSource) return;
+      if (ready) {
+        scheduleFocusNeighborPreload(index);
+        return;
+      }
       const fallbackSource = photo.thumb || "";
       if (!fallbackSource || getFocusImageAbsoluteUrl(fallbackSource) === getFocusImageAbsoluteUrl(photoSource)) return;
       image.dataset.focusFallback = "true";
-      image.fetchPriority = "high";
-      image.src = fallbackSource;
-      watchPhotoPlaceholderImage(image, imageToggle, fallbackSource);
-    }, { once: true });
-    image.src = photoSource;
-    watchPhotoPlaceholderImage(image, imageToggle, photoSource);
+      requestPhotoImage(image, fallbackSource, {
+        host: imageToggle,
+        priority: "critical",
+        maxAttempts: 3,
+        timeout: 8000
+      }).then((fallbackReady) => {
+        if (!fallbackReady || image.dataset.focusSource !== photoSource) return;
+        image.dataset.focusFallback = "true";
+        window.setTimeout(() => {
+          if (image.dataset.focusSource === photoSource && image.dataset.focusFallback === "true") {
+            retryFocusFallbackImage(image);
+          }
+        }, 8000);
+      });
+    });
     image.alt = photo.alt;
     caption.textContent = "";
     updateFocusNoteContent(photo);
     title.textContent = photo.title;
     if (shell.classList.contains("is-notes")) syncFocusNotesBackground(index);
-    scheduleFocusNeighborPreload(index);
     scheduleNotesLayoutUpdate();
     if (!shell.classList.contains("is-notes") && focusIndexState.mode !== "index") {
       scheduleFocusIndexMotionWarmup(index);
@@ -8142,7 +8464,10 @@ function renderFocus() {
 
     if (useHeldSwitch) {
       shell.classList.remove("is-switching-image");
-      preloadFocusImageWithin(photoSource, window.innerWidth <= 768 ? 420 : 620).then((ready) => {
+      const preloadRequest = shouldAvoidPhotoPreloads()
+        ? Promise.resolve(false)
+        : preloadFocusImageWithin(photoSource, window.innerWidth <= 768 ? 420 : 620);
+      preloadRequest.then((ready) => {
         if (switchRunId !== focusSwitchSequence) return;
         if (!ready) {
           clearFocusSwitchHandoff();
@@ -8161,7 +8486,10 @@ function renderFocus() {
     }, 760);
     const startedAt = performance.now();
     const switchOutDelay = options.source === "swipe" ? 160 : 260;
-    preloadFocusImageWithin(photoSource, window.innerWidth <= 768 ? 360 : 520).then(() => {
+    const preloadRequest = shouldAvoidPhotoPreloads()
+      ? Promise.resolve(false)
+      : preloadFocusImageWithin(photoSource, window.innerWidth <= 768 ? 360 : 520);
+    preloadRequest.then(() => {
       const remaining = Math.max(0, switchOutDelay - (performance.now() - startedAt));
       window.setTimeout(() => {
         if (switchRunId !== focusSwitchSequence) return;
