@@ -113,6 +113,22 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.5.5"],
+    date: "2026-07-29",
+    categories: {
+      fixes: {
+        cn: [
+          "修复部分浏览器缓存旧取色脚本时，rel 50 的随记背景仍显示为蓝色的问题。",
+          "专属粉色现在只应用于 rel 50，其余照片继续保持各自原有的图片取色。"
+        ],
+        en: [
+          "Fixed the rel 50 notes background remaining blue when a browser retained an older cached palette script.",
+          "The dedicated pink now applies only to rel 50, while every other photo keeps its existing image-sampled palette."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.5.4"],
     date: "2026-07-29",
     categories: {
@@ -8083,18 +8099,44 @@ function renderFocus() {
     shell.classList.toggle("has-note-location", Boolean(location));
   }
 
+  function applyFocusNotesPreferredBackground(value) {
+    const match = /^#([0-9a-f]{6})$/i.exec(String(value || "").trim());
+    if (!match) return false;
+    const rgb = [0, 2, 4].map((offset) => parseInt(match[1].slice(offset, offset + 2), 16));
+    const luminance = rgb.reduce((total, channel, index) => {
+      const normalized = channel / 255;
+      const linear = normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4;
+      return total + linear * [0.2126, 0.7152, 0.0722][index];
+    }, 0);
+    const darkContrast = (luminance + 0.05) / 0.0547;
+    const lightContrast = 0.834 / (luminance + 0.05);
+    const color = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    const foreground = darkContrast >= lightContrast ? "rgb(12, 12, 12)" : "rgb(235, 231, 223)";
+    window.AppleMusicBackground?.clear?.(document.body);
+    document.body.style.setProperty("--apple-music-background-color", color);
+    document.body.style.setProperty("--apple-music-background-scene", color);
+    document.body.style.setProperty("--apple-music-background-foreground", foreground);
+    document.body.dataset.appleMusicBackgroundReady = "true";
+    document.body.dispatchEvent(new CustomEvent("applemusicbackgroundchange", {
+      detail: { css: color, sceneCss: color, foregroundCss: foreground, applied: true }
+    }));
+    return true;
+  }
+
   function syncFocusNotesBackground(index) {
     const photo = photos[index];
     const photoSource = getFocusPhotoSource(photo);
-    if (!notesBackground || !photoSource || !window.AppleMusicBackground?.from) return;
+    if (!notesBackground || !photo) return;
+    if (applyFocusNotesPreferredBackground(photo.notesBackgroundColor)) return;
+    if (!photoSource || !window.AppleMusicBackground?.from) return;
     const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
     const expectedSource = getFocusImageAbsoluteUrl(photoSource);
     const source = image.complete && image.naturalWidth > 0 && currentSource === expectedSource
       ? image
       : photoSource;
-    window.AppleMusicBackground.from(source, document.body, {
-      preferredColor: photo.notesBackgroundColor
-    }).catch(() => {});
+    window.AppleMusicBackground.from(source, document.body).catch(() => {});
   }
 
   function trimFocusImagePreloadCache() {
