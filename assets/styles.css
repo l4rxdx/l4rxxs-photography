@@ -92,7 +92,14 @@ body::after {
   mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .9) 38%, rgba(0, 0, 0, .34) 74%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .9) 38%, rgba(0, 0, 0, .34) 74%, transparent 100%);
   pointer-events: none;
-  transition: background-color .72s var(--ease-soft);
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity .3s var(--ease-ui-out),
+    transform .48s var(--ease-notes),
+    background-color .72s var(--ease-soft),
+    backdrop-filter .3s var(--ease-soft),
+    -webkit-backdrop-filter .3s var(--ease-soft);
 }
 
 .page-transition-veil {
@@ -169,7 +176,7 @@ body[data-theme="dark"] .focus-actions a {
   body.is-theme-transitioning .nav-screen__log-symbol i,
   body.is-theme-transitioning .stroke,
   body.is-theme-transitioning .theme-core,
-  body.is-theme-transitioning .theme-eclipse,
+  body.is-theme-transitioning .theme-moon,
   body.is-theme-transitioning .focus-shell.is-index::before,
   body.is-theme-transitioning .logs-page::after {
     transition-property: background, background-color, color, border-color, filter, opacity;
@@ -455,7 +462,6 @@ body[data-theme="dark"] .language-lines-pop {
   --theme-sun-ray-length: 2.36rem;
   --theme-sun-ray-edge: calc((var(--theme-sun-ray-length) - var(--theme-sun-core-size)) / 2);
   --theme-moon-size: 2.36rem;
-  --theme-moon-eclipse-size: 1.72rem;
   transition: transform .72s var(--ease);
 }
 
@@ -471,21 +477,25 @@ body[data-theme="dark"] .language-lines-pop {
   background-color: transparent;
   overflow: hidden;
   transform: translate(-50%, -50%);
-  transition: transform .72s var(--ease), width .72s var(--ease), height .72s var(--ease), border-color .72s var(--ease), background .72s var(--ease);
+  transition: transform .72s var(--ease), opacity .3s var(--ease), border-color .72s var(--ease), background .72s var(--ease);
 }
 
-.theme-eclipse {
+.theme-moon {
   position: absolute;
   left: 50%;
   top: 50%;
   z-index: 3;
-  width: var(--theme-moon-eclipse-size);
-  height: var(--theme-moon-eclipse-size);
-  border-radius: 50%;
-  background-color: var(--color-light);
+  width: calc(var(--theme-moon-size) * 1.28);
+  height: calc(var(--theme-moon-size) * 1.28);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   opacity: 0;
-  transform: translate(0, -50%) scale(.72);
-  transition: opacity .42s var(--ease), transform .72s var(--ease), background .72s var(--ease);
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(12deg) scale(.72);
+  transition: opacity .3s var(--ease), transform .72s var(--ease), stroke .72s var(--ease);
 }
 
 .theme-symbol .theme-ray-a,
@@ -522,19 +532,21 @@ body[data-theme="dark"] .language-lines-pop {
 }
 
 body[data-theme="dark"] .theme-symbol {
-  transform: rotate(-18deg);
+  transform: none;
 }
 
 body[data-theme="dark"] .theme-core {
-  width: var(--theme-moon-size);
-  height: var(--theme-moon-size);
-  background-color: var(--color-light);
-  transform: translate(-58%, -50%);
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-12deg) scale(.72);
 }
 
-body[data-theme="dark"] .theme-eclipse {
+body[data-theme="dark"] .theme-moon {
   opacity: 1;
-  transform: translate(-5%, -50%) scale(1.02);
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
+
+body[data-theme="dark"] .theme-toggle:hover .theme-symbol {
+  transform: rotate(-8deg);
 }
 
 body[data-theme="dark"] .theme-ray-a,
@@ -1687,6 +1699,16 @@ body[data-theme="dark"].home.is-observer-home.is-observer-ready.has-finished .c-
   body[data-theme="dark"].home.is-observer-home.is-observer-ready.has-finished .c-element-overviewgrid .overview-item.is-observer-active .fs-media {
     filter: contrast(1.016) saturate(1.01) drop-shadow(0 .5rem 1rem rgba(235, 231, 223, .1));
   }
+
+  body.home.is-observer-home.is-observer-touch-scrolling .c-element-overviewgrid .overview-item.is-observer-active {
+    z-index: auto;
+  }
+
+  body.home.is-observer-home.is-observer-touch-scrolling .c-element-overviewgrid .overview-item.is-observer-active .fs-media,
+  body[data-theme="dark"].home.is-observer-home.is-observer-touch-scrolling .c-element-overviewgrid .overview-item.is-observer-active .fs-media {
+    filter: none;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+  }
 }
 
 html.work-root:not([data-theme="dark"]),
@@ -1850,11 +1872,6 @@ body.focus-notes-index-handoff[data-apple-music-background-ready="true"]::after 
   background-color: color-mix(in srgb, var(--apple-music-background-scene) 38%, transparent);
 }
 
-body.focus-notes-open[data-apple-music-background-ready="true"] .theme-core,
-body.focus-notes-open[data-apple-music-background-ready="true"] .theme-eclipse {
-  background-color: var(--apple-music-background-scene);
-}
-
 .focus-title {
   display: none;
 }
@@ -2012,6 +2029,12 @@ body:not(.has-loaded) .focus-rail,
   transform: scale(1);
   filter: none;
   transition: opacity .42s var(--ease-soft), transform .58s var(--ease-notes), filter .42s var(--ease-soft);
+}
+
+.focus-main img[data-focus-image] {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .focus-shell.is-notes-transitioning .focus-main img,
@@ -2602,7 +2625,6 @@ body.focus-notes-index-handoff[data-apple-music-background-ready="true"]
     --theme-sun-core-size: 1.24rem;
     --theme-sun-ray-length: 1.86rem;
     --theme-moon-size: 1.86rem;
-    --theme-moon-eclipse-size: 1.36rem;
   }
 
   .stroke {
@@ -3114,7 +3136,7 @@ body.focus-index-input-lock {
   touch-action: none !important;
 }
 
-body.focus-index-input-lock::after {
+html.focus-index-input-lock::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -3416,28 +3438,17 @@ body[data-theme="dark"] .focus-index-moving-image {
   gap: var(--space-3) !important;
   overflow: visible !important;
   visibility: visible !important;
-  opacity: var(--focus-rail-exit-opacity, 1) !important;
-  filter: var(--focus-rail-exit-filter, none) !important;
-  transform: translate3d(0, 0, 0) !important;
+  opacity: var(--focus-rail-exit-opacity, 1);
+  filter: var(--focus-rail-exit-filter, none);
+  transform: translate3d(0, 0, 0) scale(1);
   pointer-events: none !important;
-  transition: opacity .54s cubic-bezier(.24, .64, .34, 1), transform .68s cubic-bezier(.24, .64, .34, 1) !important;
+  transition: none !important;
   will-change: opacity, transform;
 }
 
 .focus-shell.is-index-opening.is-index-opening-active .focus-rail {
-  opacity: 0 !important;
-  transform: translate3d(calc(-1 * var(--space-4)), 0, 0) !important;
-}
-
-.focus-shell.is-index-opening.is-index-from-notes .focus-rail {
-  opacity: .22 !important;
-  filter: blur(2px) saturate(.72) !important;
-  transform: translate3d(0, 0, 0) !important;
-}
-
-.focus-shell.is-index-opening.is-index-from-notes.is-index-opening-active .focus-rail {
-  opacity: 0 !important;
-  transform: translate3d(calc(-1 * var(--space-4)), 0, 0) !important;
+  opacity: 0;
+  transform: translate3d(-14px, 0, 0) scale(.99);
 }
 
 @media (max-width: 768px) {
@@ -3449,6 +3460,8 @@ body[data-theme="dark"] .focus-index-moving-image {
     padding: var(--focus-rail-exit-padding, var(--mobile-thumb-lift) 0 0) !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    align-content: normal !important;
     align-items: center !important;
     overflow-x: auto !important;
     overflow-y: visible !important;
@@ -3456,13 +3469,8 @@ body[data-theme="dark"] .focus-index-moving-image {
     touch-action: none;
   }
 
-  .focus-shell.is-index-opening.is-index-opening-active .focus-rail,
-  .focus-shell.is-index-opening.is-index-from-notes.is-index-opening-active .focus-rail {
-    transform: translate3d(0, var(--space-8), 0) !important;
-  }
-
-  .focus-shell.is-index-opening.is-index-from-notes .focus-rail {
-    transform: translate3d(0, 0, 0) !important;
+  .focus-shell.is-index-opening.is-index-opening-active .focus-rail {
+    transform: translate3d(0, 20px, 0) scale(.99);
   }
 
   .focus-shell:not(.is-notes):not(.is-index):not(.is-index-opening):not(.is-index-closing):not(.is-index-transitioning):not(.is-index-return-settling) .focus-rail {
@@ -3470,6 +3478,7 @@ body[data-theme="dark"] .focus-index-moving-image {
   }
 
   .focus-shell.is-focus-rail-sleeping:not(.is-notes):not(.is-index):not(.is-index-opening):not(.is-index-closing):not(.is-index-transitioning):not(.is-index-return-settling) .focus-rail {
+    transition: opacity .72s cubic-bezier(.22, .61, .28, 1), filter .72s cubic-bezier(.22, .61, .28, 1), transform .82s var(--ease-notes);
     opacity: .3;
     filter: none;
     transform: translate3d(0, var(--space-3), 0);

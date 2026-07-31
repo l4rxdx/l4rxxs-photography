@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WORK Editor</title>
+  <link rel="stylesheet" href="./editor.css">
+</head>
+<body>
+  <main class="editor-shell" data-editor>
+    <header class="editor-topbar">
+      <div class="editor-brand">
+        <strong>WORK</strong>
+        <span>EDITOR</span>
+      </div>
+
+      <div class="toolbar-group" aria-label="History">
+        <button class="icon-button" type="button" data-command="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">↶</button>
+        <button class="icon-button" type="button" data-command="redo" aria-label="重做" title="重做 (Ctrl+Shift+Z)">↷</button>
+      </div>
+
+      <div class="segmented-control" role="group" aria-label="画板">
+        <button type="button" data-mode="desktop" aria-pressed="true">电脑</button>
+        <button type="button" data-mode="mobile" aria-pressed="false">手机</button>
+      </div>
+
+      <div class="toolbar-spacer"></div>
+
+      <div class="zoom-control" aria-label="缩放">
+        <button class="icon-button" type="button" data-command="zoom-out" aria-label="缩小" title="缩小">−</button>
+        <button class="zoom-value" type="button" data-command="zoom-fit" title="适合画布">100%</button>
+        <button class="icon-button" type="button" data-command="zoom-in" aria-label="放大" title="放大">+</button>
+      </div>
+
+      <button class="text-button" type="button" data-command="preview">预览</button>
+      <button class="text-button text-button--primary" type="button" data-command="save">保存</button>
+    </header>
+
+    <aside class="asset-panel">
+      <div class="panel-heading">
+        <strong>素材</strong>
+        <label class="icon-button" title="导入图片">
+          <span aria-hidden="true">+</span>
+          <span class="visually-hidden">导入图片</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple data-asset-input>
+        </label>
+      </div>
+      <div class="asset-grid" data-asset-grid></div>
+      <p class="empty-state" data-asset-empty>导入图片开始排版</p>
+    </aside>
+
+    <section class="stage" data-stage tabindex="0">
+      <div class="stage-surface" data-stage-surface>
+        <div class="artboard-shell">
+          <div class="artboard-label" data-artboard-label>DESKTOP · 1440 × 1800</div>
+          <div class="artboard" data-artboard>
+            <div class="selection-marquee" data-selection-marquee></div>
+            <div class="snap-guide snap-guide--vertical" data-guide-vertical></div>
+            <div class="snap-guide snap-guide--horizontal" data-guide-horizontal></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="inspector-panel">
+      <section class="inspector-section">
+        <div class="panel-heading">
+          <strong>属性</strong>
+          <span class="selection-count" data-selection-count>未选择</span>
+        </div>
+
+        <div class="property-grid" data-element-properties>
+          <label>X <input type="number" step="1" data-property="x"></label>
+          <label>Y <input type="number" step="1" data-property="y"></label>
+          <label>W <input type="number" step="1" min="1" data-property="width"></label>
+          <label>H <input type="number" step="1" min="1" data-property="height"></label>
+          <label>角度 <input type="number" step="1" data-property="rotation"></label>
+          <label>透明度 <input type="number" step="1" min="0" max="100" data-property="opacity"></label>
+        </div>
+
+        <div class="style-properties" data-style-properties>
+          <label class="style-property style-property--text" data-text-control>
+            <span>文字</span>
+            <textarea rows="3" data-style-property="text"></textarea>
+          </label>
+          <label class="style-property" data-color-control>
+            <span>颜色</span>
+            <input type="color" data-style-property="color">
+          </label>
+          <label class="style-property style-property--font-size" data-font-size-control>
+            <span>字号</span>
+            <input type="number" min="8" max="400" step="1" data-style-property="fontSize">
+          </label>
+        </div>
+
+        <div class="artboard-properties" data-artboard-properties>
+          <label>画板高度 <input type="number" min="480" max="12000" step="10" data-artboard-height></label>
+          <label>背景 <input type="color" data-artboard-background></label>
+          <button class="copy-layout-button" type="button" data-command="copy-desktop" hidden>复制电脑布局</button>
+        </div>
+      </section>
+
+      <section class="inspector-section">
+        <div class="panel-heading">
+          <strong>对齐</strong>
+        </div>
+        <div class="alignment-grid">
+          <button type="button" data-align="left" title="左对齐">左</button>
+          <button type="button" data-align="center" title="水平居中">中</button>
+          <button type="button" data-align="right" title="右对齐">右</button>
+          <button type="button" data-align="top" title="顶部对齐">上</button>
+          <button type="button" data-align="middle" title="垂直居中">央</button>
+          <button type="button" data-align="bottom" title="底部对齐">下</button>
+        </div>
+      </section>
+
+      <section class="inspector-section inspector-section--layers">
+        <div class="panel-heading">
+          <strong>图层</strong>
+          <div class="panel-actions">
+            <button class="icon-button" type="button" data-command="add-text" title="添加文字">T</button>
+            <button class="icon-button" type="button" data-command="add-rectangle" title="添加色块">□</button>
+          </div>
+        </div>
+        <div class="layer-list" data-layer-list></div>
+      </section>
+    </aside>
+
+    <footer class="statusbar">
+      <span data-status>草稿已载入</span>
+      <span>Shift 多选 · Alt 拖动复制 · 方向键微调</span>
+    </footer>
+
+    <div class="preview-overlay" data-preview-overlay aria-hidden="true">
+      <button class="preview-close" type="button" data-command="close-preview">关闭预览</button>
+      <div class="preview-canvas" data-preview-canvas></div>
+    </div>
+  </main>
+
+  <script type="module" src="./editor.js"></script>
+</body>
+</html>

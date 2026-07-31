@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>L4RXX WORK · Photopea</title>
+  <link rel="stylesheet" href="./photopea.css">
+</head>
+<body>
+  <main class="photopea-bridge" data-photopea-bridge>
+    <header class="bridge-toolbar">
+      <div class="bridge-brand" aria-label="L4RXX WORK">
+        <strong>L4RXX</strong>
+        <span>WORK · PHOTOPEA</span>
+      </div>
+
+      <label class="section-control">
+        <span>章节</span>
+        <input type="number" min="1" max="99" step="1" value="1" data-section>
+      </label>
+
+      <div class="mode-control" role="group" aria-label="输出设备">
+        <button type="button" data-mode="desktop" aria-pressed="true">电脑</button>
+        <button type="button" data-mode="mobile" aria-pressed="false">手机</button>
+      </div>
+
+      <div class="bridge-status" data-status role="status">正在连接 Photopea…</div>
+
+      <a class="toolbar-button" href="http://127.0.0.1:8778/work.html?mode=desktop" target="l4rxx-work-preview" data-preview>预览电脑</a>
+      <button class="toolbar-button toolbar-button--primary" type="button" data-export disabled>导出到 WORK</button>
+    </header>
+
+    <section class="photopea-stage">
+      <iframe
+        data-photopea-frame
+        title="Photopea"
+        allow="clipboard-read; clipboard-write"
+        referrerpolicy="strict-origin-when-cross-origin"
+      ></iframe>
+      <div class="bridge-loading" data-loading>PHOTOPEA</div>
+    </section>
+  </main>
+
+  <script type="module" src="./photopea.js"></script>
+</body>
+</html>

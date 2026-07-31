@@ -1,9 +1,11 @@
 {
   "name": "l4rxxs-photography",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/cloudflare-build.mjs"
+    "build": "node scripts/cloudflare-build.mjs",
+    "work:photopea": "node scripts/work-photopea-server.mjs",
+    "test:work-photopea": "node tests/work-photopea-check.mjs"
   }
 }

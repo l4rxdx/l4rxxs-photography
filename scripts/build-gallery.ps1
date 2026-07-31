@@ -76,7 +76,11 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "makeup-flash.jpg"; title = "FLASH 50"; category = "PORTRAIT"; caption = "A high-contrast black-and-white portrait during makeup." },
     @{ original = "pastel-beach.png"; title = "BEACH 51"; category = "COAST"; caption = "A figure crosses a pastel shoreline beneath open light."; notesBackgroundColor = "#BB9FAE" },
     @{ original = "daisies-bee.png"; title = "BLOOM 52"; category = "DETAIL"; caption = "A bee pauses among white daisies in hard sunlight." },
-    @{ original = "seagulls-plaza.png"; title = "FLIGHT 53"; category = "STREET"; caption = "White birds lift through bands of light and shadow." }
+    @{ original = "seagulls-plaza.png"; title = "FLIGHT 53"; category = "STREET"; caption = "White birds lift through bands of light and shadow." },
+    @{ original = "station-crossing.png"; title = "CROSSING 54"; category = "TRANSIT"; caption = "Still feet and blurred crossings share the station floor." },
+    @{ original = "park-bench-canopy.jpg"; title = "PAUSE 55"; category = "PARK"; caption = "A seated pause beneath a dense green canopy." },
+    @{ original = "fallen-leaf-shadow.jpg"; title = "LEAF 56"; category = "DETAIL"; caption = "One changing leaf held between light and shadow." },
+    @{ original = "sunlit-pavilion.jpg"; title = "LIGHT 57"; category = "ARCHITECTURE"; caption = "Late light reaches through the dark pavilion." }
 )
 
 function Convert-ToSlug {
@@ -132,7 +136,23 @@ function Save-ResizedImage {
                 $Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
                 $Graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
                 $Graphics.Clear([System.Drawing.Color]::FromArgb(245, 243, 240))
-                $Graphics.DrawImage($SrcImage, 0, 0, $Width, $Height)
+                $ImageAttributes = New-Object System.Drawing.Imaging.ImageAttributes
+                try {
+                    $ImageAttributes.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
+                    $DestinationRect = New-Object System.Drawing.Rectangle 0, 0, $Width, $Height
+                    $Graphics.DrawImage(
+                        $SrcImage,
+                        $DestinationRect,
+                        0,
+                        0,
+                        $SrcImage.Width,
+                        $SrcImage.Height,
+                        [System.Drawing.GraphicsUnit]::Pixel,
+                        $ImageAttributes
+                    )
+                } finally {
+                    $ImageAttributes.Dispose()
+                }
                 Save-Jpeg -Image $Bitmap -Path $Destination -Quality $Quality
             } finally {
                 $Graphics.Dispose()
@@ -276,7 +296,11 @@ foreach ($File in $OrderedFiles) {
     $WebDimensions = Get-ImageDimensions -Path $WebPath
     $MediumDimensions = Get-ImageDimensions -Path $MediumPath
     $ThumbDimensions = Get-ImageDimensions -Path $ThumbPath
-    $PlaceholderColor = Get-ImagePlaceholderColor -Path $ThumbPath
+    $PlaceholderColor = if ($Existing -and $Existing.placeholderColor) {
+        [string]$Existing.placeholderColor
+    } else {
+        Get-ImagePlaceholderColor -Path $ThumbPath
+    }
 
     $Title = if ($Existing -and $Existing.title) { $Existing.title } elseif ($Seed) { $Seed.title } else { "IMAGE {0:D2}" -f $Id }
     $Category = if ($Existing -and $Existing.category) { $Existing.category } elseif ($Seed) { $Seed.category } else { "NEW" }

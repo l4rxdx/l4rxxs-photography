@@ -31,10 +31,17 @@ const PHOTO_LOAD_PRIORITY = Object.freeze({ critical: 0, visible: 1, background:
 const photoPlaceholderCleanups = new WeakMap();
 const photoLoadJobs = new WeakMap();
 const failedPhotoImages = new Set();
+const photoRecoveryAttempts = new WeakMap();
 const photoLoadQueue = [];
 let photoPlaceholderRun = 0;
 let photoLoadSequence = 0;
+let photoHostStateSequence = 0;
+let photoRetrySequence = 0;
+let photoRecoveryTimer = 0;
+let photoRecoveryDueAt = 0;
+let photoRecoveryFrame = 0;
 let activePhotoLoads = 0;
+let activeCriticalPhotoLoads = 0;
 let navTransitionTimer = 0;
 let pageTransitionTimer = 0;
 
@@ -112,6 +119,44 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.5.6"],
+    date: "2026-08-01",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化移动端主页互动，让头像在滚动结束后稳定响应当前照片，减少手指离屏后的突兀变化。",
+          "优化 INDEX 图片预热与缩略图轨道交接，在保留现有动画表现的同时减少线上顿帧。",
+          "移动端 REL 缩略图轨道使用更柔和的休眠曲线，并在主图就绪和进场结束后再开始休眠。"
+        ],
+        en: [
+          "Refined mobile home interaction so the avatar responds to the settled photo after scrolling instead of shifting abruptly when the finger leaves the screen.",
+          "Refined INDEX image warmup and thumbnail-rail handoff to reduce online frame drops while preserving the existing motion design.",
+          "The mobile REL thumbnail rail now settles with a softer idle curve and waits for the main image and page entrance before sleeping."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复上线环境中加载任务过期后覆盖当前照片、留下纯色占位或导致 REL 与 INDEX 切图失效的问题。",
+          "修复从主页进入或刷新 REL 时缩略图轨道立即休眠，以及初始化滚动缩短首次清晰停留时间的问题。",
+          "重绘夜间主题月亮图标，并修复新增无限滚动批次只显示占位色的问题。"
+        ],
+        en: [
+          "Fixed stale online image requests overriding the active photo, leaving solid placeholders, or breaking REL and INDEX photo switching.",
+          "Fixed the REL thumbnail rail sleeping immediately after home navigation or refresh, including initialization scrolls shortening its first awake period.",
+          "Redrew the dark-theme moon icon and fixed newly recycled home batches remaining as solid placeholders."
+        ]
+      },
+      additions: {
+        cn: [
+          "新增 4 张照片，图库现有 56 张照片。"
+        ],
+        en: [
+          "Added 4 photos, bringing the gallery to 56 photos."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.5.5"],
     date: "2026-07-29",
@@ -620,7 +665,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (page === "focus") {
       renderFocus();
-      if (hasIncomingTransition) waitForFocusOpeningImage().then(finishIncomingPageTransition);
+      waitForFocusOpeningImage().then(() => {
+        document.body.classList.add("has-focus-opening-image-ready");
+        if (hasIncomingTransition) finishIncomingPageTransition();
+      });
     }
     startLoadingSequence(openingImagesReady);
   } catch (error) {
@@ -719,8 +767,73 @@ function getPhotoPlaceholderStyle(photo, useThumb = false) {
   return `--photo-placeholder-color:${normalizePhotoPlaceholderColor(photo?.placeholderColor)};--photo-placeholder-ratio:${getPhotoAspectRatio(photo, useThumb).toFixed(6)}`;
 }
 
+function getPhotoRecordKey(photo) {
+  if (!photo) return "";
+  return String(photo.id || getPhotoSourceIdentity(photo.full || photo.medium || photo.thumb || ""));
+}
+
+function setPhotoImageKey(image, key) {
+  if (!image) return;
+  const nextKey = String(key || "");
+  const previousKey = image.dataset.photoKey || "";
+  if (previousKey && nextKey && previousKey !== nextKey) {
+    cancelPhotoLoadJob(photoLoadJobs.get(image));
+    photoPlaceholderCleanups.get(image)?.();
+    photoPlaceholderCleanups.delete(image);
+    failedPhotoImages.delete(image);
+    photoRecoveryAttempts.delete(image);
+    image.removeAttribute("data-photo-canonical-source");
+    image.removeAttribute("data-photo-load-state");
+  }
+  if (nextKey) image.dataset.photoKey = nextKey;
+  else image.removeAttribute("data-photo-key");
+}
+
+function getPhotoImageHost(image, preferredHost = null) {
+  if (preferredHost?.classList?.contains("photo-placeholder") && preferredHost.contains(image)) {
+    return preferredHost;
+  }
+  return image?.closest?.(".photo-placeholder") || null;
+}
+
+function beginPhotoHostState(host, image, options = {}) {
+  const currentHost = getPhotoImageHost(image, host);
+  if (!currentHost) return null;
+  const photoKey = String(options.photoKey || image?.dataset?.photoKey || currentHost.dataset.photoKey || "");
+  const claim = String(++photoHostStateSequence);
+  currentHost.dataset.photoLoadClaim = claim;
+  if (photoKey) currentHost.dataset.photoKey = photoKey;
+  if (!options.preserveVisual) {
+    currentHost.classList.add("is-photo-loading");
+    currentHost.classList.remove("is-photo-ready");
+    currentHost.removeAttribute("data-photo-loaded-source");
+  }
+  return { host: currentHost, claim };
+}
+
+function isCurrentPhotoHost(host, image, options = {}) {
+  if (!host || !image || !host.contains(image)) return false;
+  if (getPhotoImageHost(image) !== host) return false;
+  if (options.claim && host.dataset.photoLoadClaim !== options.claim) return false;
+  const photoKey = String(options.photoKey || "");
+  if (photoKey && image.dataset.photoKey !== photoKey) return false;
+  if (photoKey && host.dataset.photoKey && host.dataset.photoKey !== photoKey) return false;
+  const expectedSource = getPhotoSourceIdentity(options.source || "");
+  if (expectedSource) {
+    const currentSource = getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src") || "");
+    if (currentSource !== expectedSource) return false;
+  }
+  return image.complete && image.naturalWidth > 0;
+}
+
 function applyPhotoPlaceholder(host, photo, useThumb = false) {
   if (!host) return;
+  const image = host.querySelector("img[data-focus-image], img[data-photo-key], img");
+  const photoKey = getPhotoRecordKey(photo);
+  if (image) setPhotoImageKey(image, photoKey);
+  if (photoKey) host.dataset.photoKey = photoKey;
+  host.dataset.photoLoadClaim = String(++photoHostStateSequence);
+  host.removeAttribute("data-photo-loaded-source");
   host.classList.add("photo-placeholder", "is-photo-loading");
   host.classList.remove("is-photo-ready");
   host.style.setProperty("--photo-placeholder-color", normalizePhotoPlaceholderColor(photo?.placeholderColor));
@@ -778,11 +891,12 @@ function getPhotoLoadPriority(value = "visible") {
   return Object.prototype.hasOwnProperty.call(PHOTO_LOAD_PRIORITY, value) ? value : "visible";
 }
 
-function getPhotoRetrySource(source, attempt) {
-  if (attempt <= 0) return source;
+function getPhotoRetrySource(source, attempt, requestId = "") {
+  if (attempt <= 0 && !requestId) return source;
   try {
     const url = new URL(source, window.location.href);
-    url.searchParams.set("photo-retry", String(attempt));
+    const retryId = requestId || `retry-${++photoRetrySequence}`;
+    url.searchParams.set("photo-retry", `${retryId}-${Math.max(0, attempt)}`);
     return url.href;
   } catch (error) {
     return source;
@@ -794,12 +908,60 @@ function isPhotoReadyForSource(image, source) {
   return getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src")) === getPhotoSourceIdentity(source);
 }
 
-function revealPhotoImage(image, host) {
+function getPhotoByRecordKey(key) {
+  const normalizedKey = String(key || "");
+  if (!normalizedKey) return null;
+  return photos.find((photo) => getPhotoRecordKey(photo) === normalizedKey) || null;
+}
+
+function isPhotoSourceForRecord(source, key) {
+  const identity = getPhotoSourceIdentity(source);
+  const photo = getPhotoByRecordKey(key);
+  if (!identity || !photo) return false;
+  return [photo.thumb, photo.medium, photo.full]
+    .filter(Boolean)
+    .some((candidate) => getPhotoSourceIdentity(candidate) === identity);
+}
+
+function revealReadyPhotoVisual(image, preferredHost = null) {
+  if (!(image?.complete && image.naturalWidth > 0)) return false;
+  const host = getPhotoImageHost(image, preferredHost);
+  const photoKey = String(image.dataset.photoKey || host?.dataset?.photoKey || "");
+  const currentSource = image.currentSrc || image.getAttribute("src") || "";
+  if (!host || !photoKey || !isPhotoSourceForRecord(currentSource, photoKey)) return false;
+  return revealPhotoImage(image, host, {
+    photoKey,
+    source: currentSource
+  });
+}
+
+function revealPhotoImage(image, host, options = {}) {
+  const currentHost = getPhotoImageHost(image, host);
+  if (!isCurrentPhotoHost(currentHost, image, options)) return false;
   failedPhotoImages.delete(image);
+  photoRecoveryAttempts.delete(image);
   image.dataset.photoLoadState = "ready";
-  if (!host) return;
-  host.classList.remove("is-photo-loading");
-  host.classList.add("is-photo-ready");
+  currentHost.classList.remove("is-photo-loading");
+  currentHost.classList.add("is-photo-ready");
+  currentHost.dataset.photoLoadedSource = getPhotoSourceIdentity(
+    image.currentSrc || image.getAttribute("src") || options.source || ""
+  );
+  return true;
+}
+
+function isPhotoLoadJobCurrent(job) {
+  if (!job || job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return false;
+  return !job.photoKey || job.image.dataset.photoKey === job.photoKey;
+}
+
+function claimPhotoLoadJobHost(job, preferredHost = null, preserveVisual = job?.preserveVisual) {
+  if (!job || !isPhotoLoadJobCurrent(job)) return null;
+  const claim = beginPhotoHostState(preferredHost, job.image, {
+    photoKey: job.photoKey,
+    preserveVisual: Boolean(preserveVisual)
+  });
+  if (claim) job.hostClaims.set(claim.host, claim.claim);
+  return claim;
 }
 
 function settlePhotoLoadJob(job, ready) {
@@ -810,16 +972,30 @@ function settlePhotoLoadJob(job, ready) {
   if (job.active) {
     job.active = false;
     activePhotoLoads = Math.max(0, activePhotoLoads - 1);
+    if (job.countedCritical) {
+      job.countedCritical = false;
+      activeCriticalPhotoLoads = Math.max(0, activeCriticalPhotoLoads - 1);
+    }
   }
   if (photoLoadJobs.get(job.image) === job) photoLoadJobs.delete(job.image);
   if (ready) {
-    job.hosts.forEach((host) => revealPhotoImage(job.image, host));
+    const currentHost = getPhotoImageHost(job.image);
+    const claim = currentHost ? job.hostClaims.get(currentHost) : "";
+    revealPhotoImage(job.image, currentHost, {
+      claim,
+      photoKey: job.photoKey,
+      source: job.sourceIdentity
+    });
     if (getPhotoSourceIdentity(job.image.dataset.src) === job.sourceIdentity) {
       job.image.removeAttribute("data-src");
     }
+    photoRecoveryAttempts.delete(job.image);
   } else if (!job.cancelled) {
     job.image.dataset.photoLoadState = "error";
     failedPhotoImages.add(job.image);
+    const attempts = (photoRecoveryAttempts.get(job.image) || 0) + 1;
+    photoRecoveryAttempts.set(job.image, attempts);
+    schedulePhotoRecoverySweep(Math.min(20000, 1800 * (2 ** Math.min(3, attempts - 1))));
   }
   job.resolve(Boolean(ready));
   pumpPhotoLoadQueue();
@@ -832,9 +1008,9 @@ function cancelPhotoLoadJob(job) {
 }
 
 function queuePhotoLoadJob(job, delay = 0) {
-  if (job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return;
+  if (!isPhotoLoadJobCurrent(job)) return;
   const enqueue = () => {
-    if (job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return;
+    if (!isPhotoLoadJobCurrent(job)) return;
     job.queued = true;
     job.image.dataset.photoLoadState = "queued";
     photoLoadQueue.push(job);
@@ -856,6 +1032,10 @@ function retryPhotoLoadJob(job) {
   if (job.active) {
     job.active = false;
     activePhotoLoads = Math.max(0, activePhotoLoads - 1);
+    if (job.countedCritical) {
+      job.countedCritical = false;
+      activeCriticalPhotoLoads = Math.max(0, activeCriticalPhotoLoads - 1);
+    }
   }
   if (job.attempt >= job.maxAttempts) {
     settlePhotoLoadJob(job, false);
@@ -870,32 +1050,43 @@ function retryPhotoLoadJob(job) {
 }
 
 function startPhotoLoadJob(job) {
-  if (job.cancelled || job.settled || photoLoadJobs.get(job.image) !== job) return;
+  if (!isPhotoLoadJobCurrent(job)) {
+    cancelPhotoLoadJob(job);
+    return;
+  }
   job.queued = false;
   job.active = true;
+  job.startedAt = performance.now();
+  job.countedCritical = job.priority === "critical";
   activePhotoLoads += 1;
+  if (job.countedCritical) activeCriticalPhotoLoads += 1;
   const { image } = job;
-  const requestSource = getPhotoRetrySource(job.source, job.attempt);
+  const requestSource = getPhotoRetrySource(
+    job.source,
+    job.attempt,
+    (job.cacheBust || job.attempt > 0) ? job.sequence : ""
+  );
   image.dataset.photoCanonicalSource = job.source;
   image.dataset.photoLoadState = "loading";
   image.loading = "eager";
   image.fetchPriority = job.priority === "critical" ? "high" : "low";
   const preserveVisual = job.preserveVisual && image.complete && image.naturalWidth > 0;
-  if (!preserveVisual) {
-    job.hosts.forEach((host) => {
-      host.classList.add("is-photo-loading");
-      host.classList.remove("is-photo-ready");
-    });
-  }
+  claimPhotoLoadJobHost(job, getPhotoImageHost(image), preserveVisual);
 
   let attemptFinished = false;
+  let decodeFallbackTimer = 0;
   const cleanup = () => {
     window.clearTimeout(job.timeoutTimer);
+    window.clearTimeout(decodeFallbackTimer);
     image.removeEventListener("load", handleLoad);
     image.removeEventListener("error", handleError);
   };
   const finishReady = () => {
-    if (attemptFinished || job.cancelled || photoLoadJobs.get(image) !== job) return;
+    if (attemptFinished) return;
+    if (!isPhotoLoadJobCurrent(job)) {
+      cancelPhotoLoadJob(job);
+      return;
+    }
     attemptFinished = true;
     cleanup();
     settlePhotoLoadJob(job, true);
@@ -903,11 +1094,18 @@ function startPhotoLoadJob(job) {
   const handleLoad = () => {
     if (getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src")) !== job.sourceIdentity
       || image.naturalWidth <= 0) return;
-    if (typeof image.decode === "function") image.decode().then(finishReady).catch(finishReady);
+    if (typeof image.decode === "function") {
+      decodeFallbackTimer = window.setTimeout(finishReady, 600);
+      image.decode().then(finishReady).catch(finishReady);
+    }
     else finishReady();
   };
   const handleError = () => {
-    if (attemptFinished || job.cancelled || photoLoadJobs.get(image) !== job) return;
+    if (attemptFinished) return;
+    if (!isPhotoLoadJobCurrent(job)) {
+      cancelPhotoLoadJob(job);
+      return;
+    }
     attemptFinished = true;
     retryPhotoLoadJob(job);
   };
@@ -922,39 +1120,68 @@ function startPhotoLoadJob(job) {
 
 function pumpPhotoLoadQueue() {
   const limit = getPhotoLoadConcurrency();
-  while (activePhotoLoads < limit && photoLoadQueue.length) {
+  const normalLimit = Math.max(1, limit - 1);
+  while (photoLoadQueue.length) {
     const job = photoLoadQueue.shift();
     if (!job || job.cancelled || job.settled || !job.queued || photoLoadJobs.get(job.image) !== job) continue;
+    const canStart = job.priority === "critical"
+      ? activePhotoLoads < limit + 1
+      : activePhotoLoads < normalLimit;
+    if (!canStart) {
+      photoLoadQueue.unshift(job);
+      break;
+    }
     startPhotoLoadJob(job);
   }
 }
 
 function requestPhotoImage(image, source, options = {}) {
   if (!image || !source) return Promise.resolve(false);
+  photoPlaceholderCleanups.get(image)?.();
+  photoPlaceholderCleanups.delete(image);
   const normalizedSource = getPhotoSourceUrl(source);
   const sourceIdentity = getPhotoSourceIdentity(normalizedSource);
   const host = options.host || image.closest?.(".photo-placeholder") || null;
+  const photoKey = String(options.photoKey || image.dataset.photoKey || host?.dataset?.photoKey || "");
   if (isPhotoReadyForSource(image, normalizedSource)) {
-    revealPhotoImage(image, host);
+    revealPhotoImage(image, host, { photoKey, source: sourceIdentity });
+    if (getPhotoSourceIdentity(image.dataset.src) === sourceIdentity) image.removeAttribute("data-src");
     return Promise.resolve(true);
   }
 
   const priority = getPhotoLoadPriority(options.priority);
-  const existing = photoLoadJobs.get(image);
+  let existing = photoLoadJobs.get(image);
   if (existing && existing.sourceIdentity === sourceIdentity) {
-    if (host) existing.hosts.add(host);
-    if (options.preserveVisual) existing.preserveVisual = true;
-    if (PHOTO_LOAD_PRIORITY[priority] < PHOTO_LOAD_PRIORITY[existing.priority]) {
-      existing.priority = priority;
-      image.fetchPriority = priority === "critical" ? "high" : "low";
-      if (existing.queued) {
-        photoLoadQueue.sort((first, second) => (
-          PHOTO_LOAD_PRIORITY[first.priority] - PHOTO_LOAD_PRIORITY[second.priority]
-          || first.sequence - second.sequence
-        ));
+    if (photoKey && existing.photoKey && photoKey !== existing.photoKey) {
+      cancelPhotoLoadJob(existing);
+      existing = null;
+    } else if (
+      options.restartIfStalled
+      && existing.active
+      && performance.now() - Number(existing.startedAt || 0)
+        >= Math.max(1200, Number(options.stallThreshold || 2400))
+    ) {
+      cancelPhotoLoadJob(existing);
+      existing = null;
+    } else {
+      claimPhotoLoadJobHost(existing, host, options.preserveVisual || existing.preserveVisual);
+      if (options.preserveVisual) existing.preserveVisual = true;
+      if (PHOTO_LOAD_PRIORITY[priority] < PHOTO_LOAD_PRIORITY[existing.priority]) {
+        existing.priority = priority;
+        image.fetchPriority = priority === "critical" ? "high" : "low";
+        if (existing.active && priority === "critical" && !existing.countedCritical) {
+          existing.countedCritical = true;
+          activeCriticalPhotoLoads += 1;
+        }
+        if (existing.queued) {
+          photoLoadQueue.sort((first, second) => (
+            PHOTO_LOAD_PRIORITY[first.priority] - PHOTO_LOAD_PRIORITY[second.priority]
+            || first.sequence - second.sequence
+          ));
+        }
       }
+      return existing.promise;
     }
-    return existing.promise;
   }
   if (existing) cancelPhotoLoadJob(existing);
 
@@ -964,21 +1191,25 @@ function requestPhotoImage(image, source, options = {}) {
   });
   const job = {
     image,
-    hosts: new Set(host ? [host] : []),
+    hostClaims: new Map(),
     source: normalizedSource,
     sourceIdentity,
+    photoKey,
     priority,
     sequence: ++photoLoadSequence,
     attempt: 0,
     maxAttempts: Math.max(0, Number(options.maxAttempts ?? 3)),
     timeout: Math.max(3000, Number(options.timeout || 12000)),
     preserveVisual: Boolean(options.preserveVisual),
+    cacheBust: Boolean(options.cacheBust || failedPhotoImages.has(image)),
     active: false,
+    countedCritical: false,
     queued: false,
     cancelled: false,
     settled: false,
     retryTimer: 0,
     timeoutTimer: 0,
+    startedAt: 0,
     cleanup: null,
     promise,
     resolve: resolveJob
@@ -986,6 +1217,7 @@ function requestPhotoImage(image, source, options = {}) {
   photoLoadJobs.set(image, job);
   failedPhotoImages.delete(image);
   image.dataset.photoCanonicalSource = normalizedSource;
+  claimPhotoLoadJobHost(job, host, job.preserveVisual);
   queuePhotoLoadJob(job);
   return promise;
 }
@@ -995,9 +1227,14 @@ function watchPhotoPlaceholderImage(image, host, expectedSource = "") {
   photoPlaceholderCleanups.get(image)?.();
   const runId = String(++photoPlaceholderRun);
   const expectedUrl = getPhotoSourceIdentity(expectedSource || image.dataset.src || image.getAttribute("src") || "");
+  const photoKey = String(image.dataset.photoKey || host.dataset.photoKey || "");
+  if (expectedUrl) image.dataset.photoCanonicalSource = expectedUrl;
+  const hostState = beginPhotoHostState(host, image, { photoKey });
   let settled = false;
+  let decodeFallbackTimer = 0;
 
   const cleanup = () => {
+    window.clearTimeout(decodeFallbackTimer);
     image.removeEventListener("load", handleLoad);
     image.removeEventListener("error", handleError);
     if (photoPlaceholderCleanups.get(image) === cleanup) photoPlaceholderCleanups.delete(image);
@@ -1010,25 +1247,34 @@ function watchPhotoPlaceholderImage(image, host, expectedSource = "") {
   };
   const reveal = () => {
     if (settled || !isCurrentSource() || image.naturalWidth <= 0) return;
+    if (!revealPhotoImage(image, hostState?.host || host, {
+      claim: hostState?.claim || "",
+      photoKey,
+      source: expectedUrl
+    })) return;
     settled = true;
     cleanup();
-    host.classList.remove("is-photo-loading");
-    host.classList.add("is-photo-ready");
   };
   const handleLoad = () => {
     if (!isCurrentSource() || image.naturalWidth <= 0) return;
-    if (typeof image.decode === "function") image.decode().then(reveal).catch(reveal);
+    if (typeof image.decode === "function") {
+      decodeFallbackTimer = window.setTimeout(reveal, 600);
+      image.decode().then(reveal).catch(reveal);
+    }
     else reveal();
   };
   const handleError = () => {
     if (!isCurrentSource()) return;
     settled = true;
     cleanup();
+    image.dataset.photoLoadState = "error";
+    failedPhotoImages.add(image);
+    const attempts = (photoRecoveryAttempts.get(image) || 0) + 1;
+    photoRecoveryAttempts.set(image, attempts);
+    schedulePhotoRecoverySweep(Math.min(12000, 1200 * (2 ** Math.min(3, attempts - 1))));
   };
 
   image.dataset.photoPlaceholderRun = runId;
-  host.classList.add("is-photo-loading");
-  host.classList.remove("is-photo-ready");
   image.addEventListener("load", handleLoad);
   image.addEventListener("error", handleError);
   photoPlaceholderCleanups.set(image, cleanup);
@@ -1067,6 +1313,7 @@ function createDeferredImageObserver(rootMargin = "600px") {
       if (!entry.isIntersecting) return;
       hydrateDeferredImage(entry.target, { priority: "visible" }).then((ready) => {
         if (ready) observer.unobserve(entry.target);
+        else schedulePhotoRecoverySweep(1200);
       });
     });
   }, { root: null, rootMargin, threshold: 0.01 });
@@ -1081,6 +1328,42 @@ function observeDeferredImages(root, observer) {
   images.forEach((image) => observer.observe(image));
 }
 
+function refreshDeferredPhotoImages(root, observer, options = {}) {
+  if (!root) return;
+  const images = root.matches?.("img") ? [root] : [...root.querySelectorAll("img")];
+  images.forEach((image) => {
+    if (!image.dataset.photoKey && !image.dataset.src && !image.dataset.photoCanonicalSource) return;
+    const host = getPhotoImageHost(image);
+    const source = image.dataset.src
+      || image.dataset.photoCanonicalSource
+      || image.currentSrc
+      || image.getAttribute("src")
+      || "";
+    const hasReadyVisual = revealReadyPhotoVisual(image, host);
+    if (source && isPhotoReadyForSource(image, source)) {
+      if (getPhotoSourceIdentity(image.dataset.src) === getPhotoSourceIdentity(source)) {
+        image.removeAttribute("data-src");
+      }
+      observer?.unobserve(image);
+      return;
+    }
+    if (image.dataset.src && observer) {
+      observer.unobserve(image);
+      observer.observe(image);
+    }
+    if (source && isPhotoImageNearViewport(image, Number(options.margin || 720))) {
+      requestPhotoImage(image, source, {
+        host,
+        priority: options.priority || "visible",
+        maxAttempts: options.maxAttempts ?? 3,
+        timeout: options.timeout || 12000,
+        preserveVisual: hasReadyVisual,
+        cacheBust: photoRecoveryAttempts.has(image)
+      }).catch(() => {});
+    }
+  });
+}
+
 function isPhotoImageNearViewport(image, margin = 480) {
   if (!image?.isConnected) return false;
   const rect = image.getBoundingClientRect();
@@ -1090,65 +1373,111 @@ function isPhotoImageNearViewport(image, margin = 480) {
     && rect.left <= window.innerWidth + margin;
 }
 
-function retryRecoverablePhotoImages() {
-  document.querySelectorAll('[data-focus-image][data-focus-fallback="true"]').forEach((image) => {
-    retryFocusFallbackImage(image);
-  });
-  failedPhotoImages.forEach((image) => {
-    if (!image.isConnected) {
-      failedPhotoImages.delete(image);
-      return;
-    }
-    const source = image.dataset.photoCanonicalSource || image.dataset.src;
-    if (!source || !isPhotoImageNearViewport(image)) return;
-    const priority = image.matches("[data-focus-image]") ? "critical" : "visible";
-    requestPhotoImage(image, source, { priority }).catch(() => {});
-  });
-  document.querySelectorAll("img[data-src]").forEach((image) => {
-    if (isPhotoImageNearViewport(image)) hydrateDeferredImage(image, { priority: "visible" }).catch(() => {});
+function schedulePhotoRecoverySweep(delay = 0) {
+  const normalizedDelay = Math.max(0, Number(delay) || 0);
+  const dueAt = performance.now() + normalizedDelay;
+  if (photoRecoveryTimer && photoRecoveryDueAt <= dueAt) return;
+  window.clearTimeout(photoRecoveryTimer);
+  photoRecoveryDueAt = dueAt;
+  photoRecoveryTimer = window.setTimeout(() => {
+    photoRecoveryTimer = 0;
+    photoRecoveryDueAt = 0;
+    retryRecoverablePhotoImages();
+  }, normalizedDelay);
+}
+
+function schedulePhotoRecoveryFromViewport() {
+  if (photoRecoveryFrame) return;
+  photoRecoveryFrame = requestAnimationFrame(() => {
+    photoRecoveryFrame = 0;
+    schedulePhotoRecoverySweep(120);
   });
 }
 
-function retryFocusFallbackImage(image) {
-  const source = image?.dataset?.focusSource;
-  const fallbackSource = image?.currentSrc || image?.getAttribute("src") || "";
-  if (!image?.isConnected || !source || !fallbackSource || !isPhotoImageNearViewport(image)) {
-    return Promise.resolve(false);
+function retryRecoverablePhotoImages() {
+  if (document.hidden) {
+    schedulePhotoRecoverySweep(1600);
+    return;
   }
-  if (getPhotoSourceIdentity(source) === getPhotoSourceIdentity(fallbackSource)) {
-    delete image.dataset.focusFallback;
-    image.style.removeProperty("background-image");
-    return Promise.resolve(true);
-  }
-  image.style.backgroundImage = `url("${fallbackSource}")`;
-  return requestPhotoImage(image, source, {
-    host: image.closest(".photo-placeholder"),
-    priority: "critical",
-    maxAttempts: 3,
-    timeout: 12000,
-    preserveVisual: true
-  }).then((ready) => {
-    if (ready && image.dataset.focusSource === source) {
-      delete image.dataset.focusFallback;
-      image.style.removeProperty("background-image");
-      return true;
+  const candidates = new Set();
+  failedPhotoImages.forEach((image) => {
+    if (!image.isConnected) {
+      failedPhotoImages.delete(image);
+      photoRecoveryAttempts.delete(image);
+      return;
     }
-    if (image.dataset.focusSource !== source) return false;
-    return requestPhotoImage(image, fallbackSource, {
-      host: image.closest(".photo-placeholder"),
-      priority: "critical",
+    if (isPhotoImageNearViewport(image, 720)) candidates.add(image);
+  });
+  document.querySelectorAll("img[data-src]").forEach((image) => {
+    if (isPhotoImageNearViewport(image, 720)) candidates.add(image);
+  });
+  document.querySelectorAll(".photo-placeholder.is-photo-loading img[data-photo-key]").forEach((image) => {
+    if (getPhotoImageHost(image)?.querySelector("img[data-photo-key]") !== image) return;
+    if (isPhotoImageNearViewport(image, 720)) candidates.add(image);
+  });
+  candidates.forEach((image) => {
+    const host = getPhotoImageHost(image);
+    const isFocusMain = image.matches("[data-focus-image]");
+    const source = (isFocusMain ? image.dataset.focusVisualSource : image.dataset.src)
+      || (isFocusMain ? image.dataset.focusSource : image.dataset.photoCanonicalSource)
+      || image.dataset.src
+      || image.dataset.photoCanonicalSource
+      || image.currentSrc
+      || image.getAttribute("src")
+      || "";
+    if (!source) return;
+    const hasReadyVisual = revealReadyPhotoVisual(image, host);
+    if (isPhotoReadyForSource(image, source)) {
+      if (getPhotoSourceIdentity(image.dataset.src) === getPhotoSourceIdentity(source)) {
+        image.removeAttribute("data-src");
+      }
+      return;
+    }
+    const priority = image.matches("[data-focus-image]") ? "critical" : "visible";
+    requestPhotoImage(image, source, {
+      host,
+      priority,
       maxAttempts: 3,
-      timeout: 8000,
-      preserveVisual: true
-    }).then(() => false);
+      timeout: priority === "critical" ? 9000 : 12000,
+      preserveVisual: hasReadyVisual,
+      cacheBust: photoRecoveryAttempts.has(image)
+    }).catch(() => {});
   });
 }
 
 window.addEventListener("online", retryRecoverablePhotoImages);
+window.addEventListener("pageshow", retryRecoverablePhotoImages);
+window.addEventListener("focus", retryRecoverablePhotoImages);
+window.addEventListener("scroll", schedulePhotoRecoveryFromViewport, { passive: true });
+window.addEventListener("resize", schedulePhotoRecoveryFromViewport, { passive: true });
 window.addEventListener("resize", pumpPhotoLoadQueue, { passive: true });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) retryRecoverablePhotoImages();
 });
+document.addEventListener("pointerdown", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const host = target?.closest?.(".photo-placeholder.is-photo-loading");
+  const image = host?.querySelector?.("img[data-photo-key]");
+  if (!image) return;
+  const isFocusMain = image.matches("[data-focus-image]");
+  const source = (isFocusMain ? image.dataset.focusVisualSource : image.dataset.src)
+    || (isFocusMain ? image.dataset.focusSource : image.dataset.photoCanonicalSource)
+    || image.dataset.src
+    || image.dataset.photoCanonicalSource
+    || image.getAttribute("src")
+    || "";
+  if (!source) return;
+  requestPhotoImage(image, source, {
+    host,
+    priority: "critical",
+    maxAttempts: 3,
+    timeout: 9000,
+    restartIfStalled: true,
+    stallThreshold: 2200,
+    cacheBust: photoRecoveryAttempts.has(image)
+  }).catch(() => {});
+}, { capture: true, passive: true });
+navigator.connection?.addEventListener?.("change", retryRecoverablePhotoImages);
 
 function isDefaultPhotoNote(note) {
   return !note || note === DEFAULT_PHOTO_NOTE_CN || note.includes("\u53c9\u6ef4\u53c9");
@@ -1242,7 +1571,8 @@ function navigateWithPageTransition(url) {
 function waitForFocusOpeningImage() {
   const image = document.querySelector("[data-focus-image]");
   if (!image) return Promise.resolve();
-  const source = image.dataset.focusSource
+  const source = image.dataset.focusVisualSource
+    || image.dataset.focusSource
     || image.dataset.photoCanonicalSource
     || image.dataset.src
     || image.getAttribute("src");
@@ -1891,12 +2221,13 @@ function createOverviewLink(photo, index, isOriginal, cellIndex, extraClass = ""
   if (columnIndex === 0 || columnIndex === 4) link.classList.add("overview-size--edge");
   if (isOriginal && cellIndex <= 14) link.classList.add("is-visible");
   const photoRel = getPhotoRel(photo, index);
+  const photoKey = getPhotoRecordKey(photo);
   const prioritize = isOriginal && cellIndex < 5;
   link.href = `focus.html?rel=${photoRel}`;
   link.dataset.rel = String(photoRel);
   link.dataset.overviewSlot = String(cellIndex);
   const thumbSource = `data-src="${photo.thumb}"`;
-  link.innerHTML = `<span class="fs-media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritize ? "eager" : "lazy"}" fetchpriority="${prioritize ? "high" : "low"}" decoding="async"></span>`;
+  link.innerHTML = `<span class="fs-media photo-placeholder is-photo-loading" data-photo-key="${photoKey}" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} data-photo-key="${photoKey}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritize ? "eager" : "lazy"}" fetchpriority="${prioritize ? "high" : "low"}" decoding="async"></span>`;
   return link;
 }
 
@@ -1961,10 +2292,15 @@ function appendOverviewBatch(grid, batch, isInitial = false) {
   appendedItems.forEach((item) => {
     const media = item.querySelector?.(".fs-media.photo-placeholder");
     const image = media?.querySelector("img");
-    if (media && image) initializePhotoPlaceholder(media, image, image.dataset.src || image.getAttribute("src") || "");
+    const rel = Number(item.dataset.rel || 0);
+    const photo = photos.find((candidate, index) => getPhotoRel(candidate, index) === rel);
+    if (media && image) {
+      if (photo) applyPhotoPlaceholder(media, photo, true);
+      initializePhotoPlaceholder(media, image, image.dataset.src || image.getAttribute("src") || "");
+    }
   });
   updateOverviewPhotoPlaceholderGeometry(appendedItems);
-  observeDeferredImages(grid, overviewImageObserver);
+  appendedItems.forEach((item) => observeDeferredImages(item, overviewImageObserver));
   grid.dispatchEvent(new CustomEvent("overview:batchappend", {
     detail: { batchId, items: appendedItems }
   }));
@@ -2195,7 +2531,14 @@ function initializeInfinityScroll(grid) {
     grid.appendChild(fragment);
     const scrollDelta = anchor.offsetTop - beforeTop;
     if (Math.abs(scrollDelta) > 0.5) setWindowScrollPosition(Math.max(0, scrollY + scrollDelta));
-    grid.dispatchEvent(new CustomEvent("overview:batchrecycle"));
+    nodes.forEach((node) => refreshDeferredPhotoImages(node, overviewImageObserver, {
+      priority: "visible",
+      margin: 900
+    }));
+    grid.dispatchEvent(new CustomEvent("overview:batchrecycle", {
+      detail: { batchId, items: nodes }
+    }));
+    schedulePhotoRecoverySweep(0);
     return true;
   };
 
@@ -3922,6 +4265,14 @@ function initializeOverviewObserverInteraction(grid) {
   let readyTimer = 0;
   let waitTimer = 0;
   let navigationTimer = 0;
+  let mobileScrollTimer = 0;
+  let mobilePointerId = null;
+  let mobilePointerStartX = 0;
+  let mobilePointerStartY = 0;
+  let mobilePointerMoved = false;
+  let mobileScrollActive = false;
+  let mobilePendingItem = null;
+  let suppressCoarseFocusUntil = 0;
   let frame = 0;
   let motionFrame = 0;
   let motionLastTime = 0;
@@ -3963,6 +4314,7 @@ function initializeOverviewObserverInteraction(grid) {
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const isMobile = () => window.innerWidth <= 768;
+  const usesScrollSettledInteraction = () => isMobile() && !finePointer?.matches;
   const getPhotoItems = (items = null) => {
     const source = items ? [...items] : [...grid.querySelectorAll(".overview-item[href]")];
     return source.filter((item) => item?.matches?.(".overview-item[href]"));
@@ -4003,10 +4355,11 @@ function initializeOverviewObserverInteraction(grid) {
     const best = candidates.reduce((current, item) => {
       return getItemScore(item) < getItemScore(current) ? item : current;
     }, candidates[0]);
+    const hysteresis = isMobile() ? window.innerHeight * 0.1 : window.innerHeight * 0.08;
     if (
       activeItem
       && candidates.includes(activeItem)
-      && getItemScore(activeItem) <= getItemScore(best) + window.innerHeight * 0.08
+      && getItemScore(activeItem) <= getItemScore(best) + hysteresis
     ) {
       return activeItem;
     }
@@ -4274,6 +4627,25 @@ function initializeOverviewObserverInteraction(grid) {
     motionFrame = requestAnimationFrame(tickObserverMotion);
   };
 
+  const freezeObserverMotion = () => {
+    if (motionFrame) cancelAnimationFrame(motionFrame);
+    motionFrame = 0;
+    motionLastTime = 0;
+    motionStableFrames = 0;
+    figureMotion.targetX = figureMotion.x;
+    figureMotion.targetY = figureMotion.y;
+    figureMotion.targetAngle = figureMotion.angle;
+    figureMotion.vx = 0;
+    figureMotion.vy = 0;
+    figureMotion.va = 0;
+    letterMotion.forEach((state) => {
+      state.vx = 0;
+      state.vy = 0;
+    });
+    renderObserverMotion();
+    body.classList.remove("is-observer-moving");
+  };
+
   const getFigureTarget = (item) => {
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -4380,6 +4752,7 @@ function initializeOverviewObserverInteraction(grid) {
 
   const updateActiveItem = () => {
     if (!interactionReady) return;
+    if (usesScrollSettledInteraction() && mobileScrollActive) return;
     const directTarget = finePointer?.matches ? (focusedItem || hoveredItem) : focusedItem;
     if (directTarget) {
       hasLatchedDirectItem = true;
@@ -4396,6 +4769,42 @@ function initializeOverviewObserverInteraction(grid) {
       frame = 0;
       updateActiveItem();
     });
+  };
+
+  const commitMobileScrollTarget = () => {
+    window.clearTimeout(mobileScrollTimer);
+    mobileScrollTimer = 0;
+    if (!usesScrollSettledInteraction()) return;
+    mobilePendingItem = getCenteredItem();
+    mobileScrollActive = false;
+    body.classList.remove("is-observer-touch-scrolling");
+    focusedItem = null;
+    hasLatchedDirectItem = false;
+    setActiveItem(mobilePendingItem);
+    mobilePendingItem = null;
+  };
+
+  const scheduleMobileScrollSettle = () => {
+    if (!usesScrollSettledInteraction() || !interactionReady) {
+      scheduleActiveUpdate();
+      return;
+    }
+    mobilePendingItem = getCenteredItem();
+    window.clearTimeout(mobileScrollTimer);
+    mobileScrollTimer = window.setTimeout(() => {
+      if (mobilePointerId !== null) return;
+      commitMobileScrollTarget();
+    }, 140);
+  };
+
+  const beginMobileScrollInteraction = () => {
+    if (!usesScrollSettledInteraction() || !interactionReady) return;
+    if (!mobileScrollActive) {
+      mobileScrollActive = true;
+      body.classList.add("is-observer-touch-scrolling");
+      freezeObserverMotion();
+    }
+    scheduleMobileScrollSettle();
   };
 
   const observeItems = (items = null) => {
@@ -4425,6 +4834,9 @@ function initializeOverviewObserverInteraction(grid) {
   const handleFocusIn = (event) => {
     const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
     if (!item || !grid.contains(item)) return;
+    if (usesScrollSettledInteraction()) {
+      if (performance.now() < suppressCoarseFocusUntil || !item.matches(":focus-visible")) return;
+    }
     focusedItem = item;
     updateActiveItem();
   };
@@ -4446,12 +4858,53 @@ function initializeOverviewObserverInteraction(grid) {
     ) return;
     const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
     if (!item || !grid.contains(item)) return;
+    if (usesScrollSettledInteraction()) {
+      mobilePointerId = event.pointerId;
+      mobilePointerStartX = event.clientX;
+      mobilePointerStartY = event.clientY;
+      mobilePointerMoved = false;
+      suppressCoarseFocusUntil = performance.now() + 700;
+      focusedItem = null;
+      return;
+    }
     setActiveItem(item);
     body.classList.add("is-observer-navigating");
     window.clearTimeout(navigationTimer);
     navigationTimer = window.setTimeout(() => {
       body.classList.remove("is-observer-navigating");
     }, 700);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!usesScrollSettledInteraction() || mobilePointerId !== event.pointerId) return;
+    const dx = event.clientX - mobilePointerStartX;
+    const dy = event.clientY - mobilePointerStartY;
+    if (!mobilePointerMoved && Math.hypot(dx, dy) > 8) mobilePointerMoved = true;
+    if (mobilePointerMoved) beginMobileScrollInteraction();
+  };
+
+  const finishMobilePointer = (event) => {
+    if (!usesScrollSettledInteraction() || mobilePointerId !== event.pointerId) return;
+    const wasMoving = mobilePointerMoved;
+    mobilePointerId = null;
+    mobilePointerMoved = false;
+    if (wasMoving || mobileScrollActive) {
+      scheduleMobileScrollSettle();
+      return;
+    }
+    body.classList.add("is-observer-navigating");
+    window.clearTimeout(navigationTimer);
+    navigationTimer = window.setTimeout(() => {
+      body.classList.remove("is-observer-navigating");
+    }, 700);
+  };
+
+  const handleOverviewScroll = () => {
+    if (usesScrollSettledInteraction()) {
+      beginMobileScrollInteraction();
+      return;
+    }
+    scheduleActiveUpdate();
   };
 
   const handleBatchAppend = (event) => {
@@ -4462,6 +4915,7 @@ function initializeOverviewObserverInteraction(grid) {
   const handleBatchRecycle = () => {
     hoveredItem = hoveredItem?.isConnected ? hoveredItem : null;
     focusedItem = focusedItem?.isConnected ? focusedItem : null;
+    mobilePendingItem = mobilePendingItem?.isConnected ? mobilePendingItem : null;
     if (activeItem && !activeItem.isConnected) {
       activeItem = null;
       hasLatchedDirectItem = false;
@@ -4491,6 +4945,11 @@ function initializeOverviewObserverInteraction(grid) {
       if (motionFrame) cancelAnimationFrame(motionFrame);
       motionFrame = 0;
       motionLastTime = 0;
+      window.clearTimeout(mobileScrollTimer);
+      mobileScrollTimer = 0;
+      mobilePointerId = null;
+      mobileScrollActive = false;
+      body.classList.remove("is-observer-touch-scrolling");
       return;
     }
     refreshLetterGeometry();
@@ -4547,9 +5006,13 @@ function initializeOverviewObserverInteraction(grid) {
   grid.addEventListener("focusin", handleFocusIn);
   grid.addEventListener("focusout", handleFocusOut);
   grid.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
+  grid.addEventListener("pointermove", handlePointerMove, { capture: true, passive: true });
+  grid.addEventListener("pointerup", finishMobilePointer, { capture: true, passive: true });
+  grid.addEventListener("pointercancel", finishMobilePointer, { capture: true, passive: true });
   grid.addEventListener("overview:batchappend", handleBatchAppend);
   grid.addEventListener("overview:batchrecycle", handleBatchRecycle);
-  window.addEventListener("scroll", scheduleActiveUpdate, { passive: true });
+  window.addEventListener("scroll", handleOverviewScroll, { passive: true });
+  window.addEventListener("scrollend", commitMobileScrollTarget, { passive: true });
   window.addEventListener("resize", handleResize);
   document.addEventListener("visibilitychange", handleVisibilityChange);
   applyTarget(null, { immediate: true });
@@ -4562,15 +5025,20 @@ function initializeOverviewObserverInteraction(grid) {
     window.clearTimeout(readyTimer);
     window.clearTimeout(waitTimer);
     window.clearTimeout(navigationTimer);
+    window.clearTimeout(mobileScrollTimer);
     observer?.disconnect();
     grid.removeEventListener("pointerover", handlePointerOver);
     grid.removeEventListener("pointerout", handlePointerOut);
     grid.removeEventListener("focusin", handleFocusIn);
     grid.removeEventListener("focusout", handleFocusOut);
     grid.removeEventListener("pointerdown", handlePointerDown, true);
+    grid.removeEventListener("pointermove", handlePointerMove, true);
+    grid.removeEventListener("pointerup", finishMobilePointer, true);
+    grid.removeEventListener("pointercancel", finishMobilePointer, true);
     grid.removeEventListener("overview:batchappend", handleBatchAppend);
     grid.removeEventListener("overview:batchrecycle", handleBatchRecycle);
-    window.removeEventListener("scroll", scheduleActiveUpdate);
+    window.removeEventListener("scroll", handleOverviewScroll);
+    window.removeEventListener("scrollend", commitMobileScrollTarget);
     window.removeEventListener("resize", handleResize);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
     activeItem?.classList.remove("is-observer-active");
@@ -4593,7 +5061,8 @@ function initializeOverviewObserverInteraction(grid) {
       "is-observer-dynamic",
       "is-observer-ready",
       "is-observer-moving",
-      "is-observer-navigating"
+      "is-observer-navigating",
+      "is-observer-touch-scrolling"
     );
   };
 }
@@ -4737,6 +5206,7 @@ function renderFocus() {
   let focusSwitchHandoffTimer = 0;
   let focusIndexTransitionTimer = 0;
   let focusRailScrollFrame = 0;
+  let focusRailIndexExitAnimation = null;
   let focusRailSyncFrame = 0;
   let focusRailSyncUntil = 0;
   let focusRailSelectionLastAt = 0;
@@ -4744,7 +5214,11 @@ function renderFocus() {
   const focusRailSelectionInterval = 96;
   let mobileFocusRailSleepTimer = 0;
   let mobileFocusRailTouchActive = false;
-  const mobileFocusRailSleepDelay = 1600;
+  const mobileFocusRailSleepDelay = 950;
+  let mobileFocusRailFirstSleepAt = 0;
+  let mobileFocusRailEntryReady = document.body.classList.contains("has-focus-opening-image-ready")
+    && !document.body.classList.contains("is-page-entering");
+  let mobileFocusRailEntryObserver = null;
   let focusRailThumbMetrics = [];
   let focusIndexPreparedIndex = -1;
   let focusIndexThumbBatchTimer = 0;
@@ -4760,6 +5234,8 @@ function renderFocus() {
   let focusIndexMotionWarmupHandle = 0;
   let focusIndexMotionWarmupTimer = 0;
   let focusIndexMotionWarmupRun = 0;
+  let focusIndexThumbWarmupRun = 0;
+  let focusIndexThumbWarmupTimer = 0;
   let focusManualSelectionIndex = null;
   let focusManualSelectionTimer = 0;
   let focusSwipeSyncTimer = 0;
@@ -4780,9 +5256,15 @@ function renderFocus() {
   let focusIndexInputLockTimer = 0;
   let focusIndexInputLockRunId = 0;
   let focusNeighborPreloadRun = 0;
+  let focusMainPhotoLoadRun = 0;
+  let focusMainQualityRequest = null;
+  let focusMainQualityRetryTimer = 0;
+  const focusMainQualityRetryDelays = [2500, 8000, 20000];
   const focusPhotoRatios = new Map();
   const focusImagePreloadCache = new Map();
+  const focusImagePreloadFailures = new Map();
   const focusImagePreloadCacheLimit = 8;
+  let focusImagePreloadSequence = 0;
   const rel = Number(new URLSearchParams(window.location.search).get("rel"));
   const initial = Number.isFinite(rel) && rel > 0 ? Math.min(rel - 1, photos.length - 1) : 0;
   const focusIndexState = {
@@ -4845,6 +5327,8 @@ function renderFocus() {
     button.innerHTML = `<span class="focus-thumb__media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo, true)}"><img ${thumbSource} alt="${photo.alt}"${getPhotoImageSizeAttributes(photo, true)} loading="${prioritizeThumb ? "eager" : "lazy"}" fetchpriority="${index === initial ? "high" : "low"}" decoding="async"></span>`;
     const thumbImage = button.querySelector("img");
     const thumbMedia = button.querySelector(".focus-thumb__media");
+    setPhotoImageKey(thumbImage, getPhotoRecordKey(photo));
+    if (thumbMedia) thumbMedia.dataset.photoKey = getPhotoRecordKey(photo);
     initializePhotoPlaceholder(thumbMedia, thumbImage, photo.thumb);
     thumbImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, thumbImage), { once: true });
     if (thumbImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, thumbImage));
@@ -4874,6 +5358,8 @@ function renderFocus() {
       indexButton.innerHTML = `<span class="focus-index-card__media photo-placeholder is-photo-loading" style="${getPhotoPlaceholderStyle(photo)}"><img ${indexThumbSource} data-focus-index-full="${getFocusPhotoSource(photo)}" data-focus-index-thumb="${photo.thumb}" alt="${photo.alt}"${getPhotoImageSizeAttributes(photo)} loading="${prewarmIndexThumb ? "eager" : "lazy"}" fetchpriority="low" decoding="async"></span>`;
       const indexImage = indexButton.querySelector("img");
       const indexMedia = indexButton.querySelector(".focus-index-card__media");
+      setPhotoImageKey(indexImage, getPhotoRecordKey(photo));
+      if (indexMedia) indexMedia.dataset.photoKey = getPhotoRecordKey(photo);
       initializePhotoPlaceholder(indexMedia, indexImage, photo.thumb);
       indexImage?.addEventListener("load", () => rememberFocusPhotoRatio(index, indexImage), { once: true });
       if (indexImage?.complete) requestAnimationFrame(() => rememberFocusPhotoRatio(index, indexImage));
@@ -4905,7 +5391,7 @@ function renderFocus() {
           hasVisibleChange = true;
         }
       });
-      if (hasVisibleChange && (focusIndexState.mode === "index" || focusIndexState.phase === "opening")) {
+      if (hasVisibleChange && focusIndexState.mode === "index" && focusIndexState.phase === "idle") {
         scheduleFocusIndexImageWindow();
       }
     }, { root: indexGallery, rootMargin: "30% 0px", threshold: 0.01 });
@@ -5049,7 +5535,7 @@ function renderFocus() {
   });
   focusInitialLockUntil = Date.now() + 1800;
   setFocus(initial, false);
-  wakeMobileFocusRail({ delay: 2400 });
+  wakeMobileFocusRailAfterOpeningReady(1500);
   thumbs.querySelectorAll("img").forEach((thumbImage) => {
     thumbImage.addEventListener("load", () => {
       if (Date.now() < focusInitialLockUntil
@@ -5536,6 +6022,22 @@ function renderFocus() {
     return getPhotoSourceIdentity(src);
   }
 
+  function isFocusPhotoVisualSource(photo, source) {
+    const current = getFocusImageAbsoluteUrl(source);
+    if (!photo || !current) return false;
+    return [photo.thumb, photo.medium, photo.full]
+      .filter(Boolean)
+      .some((candidate) => getFocusImageAbsoluteUrl(candidate) === current);
+  }
+
+  function hasReadyFocusPhotoVisual(node, photo) {
+    return Boolean(
+      node?.complete
+      && node.naturalWidth > 0
+      && isFocusPhotoVisualSource(photo, node.currentSrc || node.getAttribute("src"))
+    );
+  }
+
   function setFocusIndexGalleryActive(index) {
     if (!indexGallery) return;
     focusIndexCards.forEach((card, cardIndex) => {
@@ -5591,6 +6093,10 @@ function renderFocus() {
   function prepareFocusIndexImage(node, index) {
     const photo = photos[index];
     if (!node || !photo) return node;
+    const photoKey = getPhotoRecordKey(photo);
+    setPhotoImageKey(node, photoKey);
+    const host = getPhotoImageHost(node);
+    if (host) host.dataset.photoKey = photoKey;
     node.dataset.focusIndexPhoto = String(index);
     node.dataset.focusIndexFull = getFocusPhotoSource(photo);
     node.dataset.focusIndexThumb = photo.thumb;
@@ -5618,7 +6124,23 @@ function renderFocus() {
     if (!node || !photo?.thumb) return false;
     const thumb = getFocusImageAbsoluteUrl(photo.thumb);
     const current = getFocusImageAbsoluteUrl(node.currentSrc || node.getAttribute("src"));
-    if (current && current !== thumb) return node.complete && node.naturalWidth > 0;
+    const currentJob = photoLoadJobs.get(node);
+    const photoKey = getPhotoRecordKey(photo);
+    const full = getFocusImageAbsoluteUrl(getFocusPhotoSource(photo));
+    if (current && current !== thumb && hasReadyFocusPhotoVisual(node, photo)) {
+      revealPhotoImage(node, node.closest(".focus-index-card__media.photo-placeholder"), {
+        photoKey,
+        source: current
+      });
+      return true;
+    }
+    if (
+      currentJob
+      && (!currentJob.photoKey || currentJob.photoKey === photoKey)
+      && (currentJob.sourceIdentity === thumb || currentJob.sourceIdentity === full)
+    ) {
+      return false;
+    }
     if (current === thumb && node.complete && node.naturalWidth > 0) {
       revealPhotoImage(node, node.closest(".focus-index-card__media.photo-placeholder"));
       return true;
@@ -5649,14 +6171,17 @@ function renderFocus() {
     const placeholder = node.closest(".focus-index-card__media.photo-placeholder")
       || node.closest(".photo-placeholder");
     if (current === full && node.complete && node.naturalWidth > 0) {
-      revealPhotoImage(node, placeholder);
+      revealPhotoImage(node, placeholder, {
+        photoKey: getPhotoRecordKey(photo),
+        source
+      });
       if (node.decode) node.decode().catch(() => {}).then(() => node.style.removeProperty("background-image"));
       else node.style.removeProperty("background-image");
       return Promise.resolve(true);
     }
-    const hasReadyVisual = node.complete && node.naturalWidth > 0;
+    const hasReadyVisual = hasReadyFocusPhotoVisual(node, photo);
     const loadFull = () => {
-      if (photo.thumb && node.complete && node.naturalWidth > 0) {
+      if (photo.thumb && hasReadyFocusPhotoVisual(node, photo)) {
         node.style.backgroundImage = `url("${photo.thumb}")`;
       }
       return requestPhotoImage(node, source, {
@@ -5744,7 +6269,7 @@ function renderFocus() {
 
   function hydrateFocusIndexImageWindow() {
     focusIndexState.loadFrame = 0;
-    if (!indexGallery || (focusIndexState.mode !== "index" && focusIndexState.phase !== "opening")) return;
+    if (!indexGallery || focusIndexState.mode !== "index" || focusIndexState.phase !== "idle") return;
     hydrateFocusIndexVisibleThumbs();
   }
 
@@ -5762,8 +6287,16 @@ function renderFocus() {
     }
     focusIndexPreparedViewportWidth = window.innerWidth;
     focusIndexPreparedViewportHeight = window.innerHeight;
-    hydrateFocusIndexVisibleThumbs(boundedIndex);
     focusIndexPreparedIndex = boundedIndex;
+  }
+
+  function scheduleFocusIndexThumbWarmupNow(activeIndex) {
+    if (!indexGallery || focusIndexState.mode === "index" || focusIndexState.phase !== "idle") return;
+    const boundedIndex = getBoundedFocusIndex(activeIndex);
+    if (!canReuseFocusIndexCardMotionFrames(boundedIndex)) {
+      prepareFocusIndexCardMotionPlan(boundedIndex);
+    }
+    prewarmFocusIndexMotionThumbs(boundedIndex, focusIndexThumbWarmupRun);
   }
 
   function scheduleFocusIndexImageWindow() {
@@ -6279,12 +6812,72 @@ function renderFocus() {
 
   function cancelFocusIndexMotionWarmup() {
     focusIndexMotionWarmupRun += 1;
+    focusIndexThumbWarmupRun += 1;
     if (focusIndexMotionWarmupHandle && "cancelIdleCallback" in window) {
       window.cancelIdleCallback(focusIndexMotionWarmupHandle);
     }
     focusIndexMotionWarmupHandle = 0;
     window.clearTimeout(focusIndexMotionWarmupTimer);
     focusIndexMotionWarmupTimer = 0;
+    window.clearTimeout(focusIndexThumbWarmupTimer);
+    focusIndexThumbWarmupTimer = 0;
+  }
+
+  function getFocusIndexMotionThumbIndexes(activeIndex) {
+    const index = getBoundedFocusIndex(activeIndex);
+    const planned = [...focusIndexState.cardMotionFrames.keys()]
+      .filter((candidate) => candidate >= 0 && candidate < photos.length && candidate !== index);
+    if (planned.length) {
+      planned.sort((first, second) => Math.abs(first - index) - Math.abs(second - index));
+      return planned;
+    }
+    const fallbackLimit = Math.min(photos.length - 1, window.innerWidth <= 768 ? 18 : 28);
+    const getNeighborFallback = () => {
+      const neighbors = [];
+      for (let offset = 1; neighbors.length < fallbackLimit && offset < photos.length; offset += 1) {
+        const previous = index - offset;
+        const next = index + offset;
+        if (previous >= 0) neighbors.push(previous);
+        if (neighbors.length >= fallbackLimit) break;
+        if (next < photos.length) neighbors.push(next);
+      }
+      return neighbors;
+    };
+    const galleryRect = getFocusRect(indexGallery);
+    if (!galleryRect) return getNeighborFallback();
+    const buffer = Math.min(96, galleryRect.height * 0.12);
+    const visible = refreshFocusIndexCardMetrics()
+      .filter((metric) => (
+        metric.index !== index
+        && metric.left + metric.width >= -buffer
+        && metric.left <= galleryRect.width + buffer
+        && metric.top + metric.height >= indexGallery.scrollTop - buffer
+        && metric.top <= indexGallery.scrollTop + galleryRect.height + buffer
+      ))
+      .map((metric) => metric.index)
+      .sort((first, second) => Math.abs(first - index) - Math.abs(second - index));
+    return visible.length ? visible : getNeighborFallback();
+  }
+
+  function prewarmFocusIndexMotionThumbs(activeIndex, runId = focusIndexThumbWarmupRun) {
+    if (!indexGallery) return;
+    const index = getBoundedFocusIndex(activeIndex);
+    const candidates = getFocusIndexMotionThumbIndexes(index);
+    if (!candidates.length) return;
+    const batchSize = 4;
+    const tick = () => {
+      focusIndexThumbWarmupTimer = 0;
+      if (runId !== focusIndexThumbWarmupRun) return;
+      if (focusIndexState.mode === "index" || focusIndexState.phase !== "idle") return;
+      candidates.splice(0, batchSize).forEach((candidate) => {
+        const node = getOrCreateFocusIndexCardImage(candidate);
+        hydrateFocusIndexCardThumb(node, candidate, false);
+      });
+      if (candidates.length) {
+        focusIndexThumbWarmupTimer = window.setTimeout(tick, 140);
+      }
+    };
+    tick();
   }
 
   function scheduleFocusIndexMotionWarmup(activeIndex) {
@@ -6305,6 +6898,7 @@ function renderFocus() {
           return;
         }
         prepareFocusIndexCardMotionPlan(index);
+        prewarmFocusIndexMotionThumbs(index, focusIndexThumbWarmupRun);
       };
       if ("requestIdleCallback" in window) {
         focusIndexMotionWarmupHandle = window.requestIdleCallback(warmup, { timeout: 900 });
@@ -6359,9 +6953,17 @@ function renderFocus() {
       const { card, visualIndex, spawn, timing, currentTransform, currentOpacity } = motion;
       const finalTransform = direction === "open" ? "none" : spawn.transform;
       const finalOpacity = direction === "open" ? "1" : spawn.opacity;
-      const delay = 0;
+      const requestedDelay = direction === "open" && !resume
+        ? Math.max(0, Number(options.startDelay) || 0)
+        : 0;
+      const delay = Math.min(requestedDelay, Math.max(0, timing.duration - 180));
       const motionRunId = focusIndexState.runId;
-      const startCardMotion = (startTransform, startOpacity, motionDelay = delay, motionDuration = timing.duration) => {
+      const startCardMotion = (
+        startTransform,
+        startOpacity,
+        motionDelay = delay,
+        motionDuration = Math.max(180, timing.duration - delay)
+      ) => {
         if (focusIndexState.runId !== motionRunId || (direction === "open" && focusIndexState.mode !== "index")) return;
         const duration = Math.max(180, motionDuration);
         const keyframes = resume
@@ -6395,10 +6997,6 @@ function renderFocus() {
           animation.cancel();
         }).catch(() => {});
       };
-      const cardImage = card.querySelector("img");
-      if (direction === "open" && cardImage) {
-        hydrateFocusIndexCardThumb(cardImage, visualIndex, false);
-      }
       startCardMotion(currentTransform, currentOpacity);
     });
     return motions.length ? timelineEnd : 0;
@@ -6561,22 +7159,44 @@ function renderFocus() {
     if (finalRect) setFocusIndexMovingRect(image, finalRect);
     media.querySelectorAll("img").forEach((node) => {
       if (node !== image) {
+        cancelPhotoLoadJob(photoLoadJobs.get(node));
+        photoPlaceholderCleanups.get(node)?.();
+        photoPlaceholderCleanups.delete(node);
+        failedPhotoImages.delete(node);
+        photoRecoveryAttempts.delete(node);
         node.remove();
       }
     });
     media.appendChild(image);
     image.setAttribute("data-focus-image", "");
     prepareFocusIndexImage(image, index);
+    applyPhotoPlaceholder(media, photos[index]);
+    if (hasReadyFocusPhotoVisual(image, photos[index])) {
+      revealPhotoImage(image, media, {
+        photoKey: getPhotoRecordKey(photos[index]),
+        source: image.currentSrc || image.getAttribute("src")
+      });
+    }
     clearFocusIndexMovingStyles(image);
     card.classList.remove("is-index-hidden", "is-index-anchor");
   }
 
-  function restoreFocusIndexImageToMain(finalRect) {
+  function restoreFocusIndexImageToMain(finalRect, index = focusIndexState.activeIndex) {
     if (!image) return;
     if (finalRect) setFocusIndexMovingRect(image, finalRect);
     const swipeLayer = imageToggle.querySelector(".focus-swipe-layer");
     imageToggle.insertBefore(image, swipeLayer || null);
     image.setAttribute("data-focus-image", "");
+    const photo = photos[index];
+    if (photo) {
+      applyPhotoPlaceholder(imageToggle, photo);
+      if (hasReadyFocusPhotoVisual(image, photo)) {
+        revealPhotoImage(image, imageToggle, {
+          photoKey: getPhotoRecordKey(photo),
+          source: image.currentSrc || image.getAttribute("src")
+        });
+      }
+    }
     clearFocusIndexMovingStyles(image);
   }
 
@@ -6605,7 +7225,7 @@ function renderFocus() {
       return matches;
     };
 
-    const hasReadyVisual = image.complete && image.naturalWidth > 0;
+    const hasReadyVisual = hasReadyFocusPhotoVisual(image, photo);
     if (hasReadyVisual) return Promise.resolve(finish(true));
     return requestPhotoImage(image, photo.thumb || source, {
       host: image.closest(".photo-placeholder"),
@@ -6634,7 +7254,9 @@ function renderFocus() {
       shell.classList.remove("is-index-reparenting");
       if (settleDuration <= 0) return;
       focusIndexReturnSettleTimer = window.setTimeout(() => {
-        if (focusIndexState.runId === runId) shell.classList.remove("is-index-return-settling");
+        if (focusIndexState.runId === runId) {
+          shell.classList.remove("is-index-return-settling");
+        }
         focusIndexReturnSettleTimer = 0;
       }, settleDuration);
     }));
@@ -6664,6 +7286,10 @@ function renderFocus() {
   ];
 
   function prepareFocusRailIndexExit() {
+    if (focusRailIndexExitAnimation) {
+      focusRailIndexExitAnimation.cancel();
+      focusRailIndexExitAnimation = null;
+    }
     shell.classList.remove("is-index-opening-active");
     const rect = getFocusRect(thumbs);
     if (!rect) {
@@ -6684,13 +7310,53 @@ function renderFocus() {
     clearMobileFocusRailSleep();
   }
 
-  function startFocusRailIndexExit() {
-    if (focusIndexState.phase !== "opening") return;
+  function startFocusRailIndexExit(indexDuration = getFocusIndexPrimaryDuration()) {
+    if (focusIndexState.phase !== "opening") return 0;
     thumbs.offsetHeight;
     shell.classList.add("is-index-opening-active");
+    if (isFocusIndexReducedMotion() || typeof thumbs.animate !== "function") return 0;
+    const capturedOpacity = Number.parseFloat(
+      shell.style.getPropertyValue("--focus-rail-exit-opacity")
+    );
+    const startOpacity = Number.isFinite(capturedOpacity)
+      ? Math.max(0, Math.min(1, capturedOpacity))
+      : Math.max(0, Math.min(1, Number.parseFloat(getComputedStyle(thumbs).opacity) || 1));
+    const duration = Math.max(520, Math.min(660, Number(indexDuration) * .58));
+    const handoffOffset = Math.max(.12, Math.min(.18, 90 / duration));
+    const handoffOpacity = Math.max(0, startOpacity * .72);
+    const endTransform = window.innerWidth <= 768
+      ? "translate3d(0, 20px, 0) scale(.99)"
+      : "translate3d(-14px, 0, 0) scale(.99)";
+    focusRailIndexExitAnimation = thumbs.animate([
+      {
+        offset: 0,
+        opacity: startOpacity,
+        transform: "translate3d(0, 0, 0) scale(1)"
+      },
+      {
+        offset: handoffOffset,
+        opacity: handoffOpacity,
+        transform: "translate3d(0, 0, 0) scale(.997)"
+      },
+      {
+        offset: 1,
+        opacity: 0,
+        transform: endTransform
+      }
+    ], {
+      duration,
+      easing: "cubic-bezier(.22, .68, .28, 1)",
+      fill: "both"
+    });
+    focusRailIndexExitAnimation.finished.catch(() => {});
+    return duration;
   }
 
   function clearFocusRailIndexExit() {
+    if (focusRailIndexExitAnimation) {
+      focusRailIndexExitAnimation.cancel();
+      focusRailIndexExitAnimation = null;
+    }
     shell.classList.remove("is-index-opening-active");
     focusRailExitProperties.forEach((property) => shell.style.removeProperty(property));
   }
@@ -6840,7 +7506,7 @@ function renderFocus() {
         sourceRect: getFocusRect(image)
       })
       || getFocusMainTargetRect({ notes: restoreNotes, layoutReady: Boolean(restoredNotesLayout) });
-    restoreFocusIndexImageToMain(finalRect);
+    restoreFocusIndexImageToMain(finalRect, index);
     restoreMissingFocusIndexCardImages();
     focusIndexCards.forEach((card) => {
       card.classList.remove("is-index-hidden", "is-index-anchor");
@@ -6855,7 +7521,7 @@ function renderFocus() {
     focusIndexState.returnImagePreparing = false;
     holdFocusIndexInteraction();
     releaseFocusRailAfterIndexReturn(index);
-    requestFocusIndexFullImage(image, index, true);
+    startFocusMainProgressiveLoad(photos[index], index);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
     releaseFocusIndexTransitionInput(runId);
     if (!restoreNotes) scheduleFocusIndexMotionWarmup(index);
@@ -7034,6 +7700,8 @@ function renderFocus() {
       activeIndex = Number(shell.dataset.activeIndex || 0);
     }
     const index = getBoundedFocusIndex(activeIndex);
+    focusMainPhotoLoadRun += 1;
+    cancelFocusMainQualityRequest();
     window.clearTimeout(focusIndexReturnSettleTimer);
     focusIndexReturnSettleTimer = 0;
     shell.classList.remove("is-index-return-settling");
@@ -7085,7 +7753,6 @@ function renderFocus() {
     shell.classList.add("is-index", "is-index-opening");
     resetFocusIndexShellScroll();
     shell.classList.remove("is-index-closing", "is-index-exiting", "is-index-reparenting");
-    if (!resumed) startFocusRailIndexExit();
     if (openingFromNotes) {
       requestAnimationFrame(() => {
         if (focusIndexState.runId !== runId || focusIndexState.phase !== "opening") return;
@@ -7103,7 +7770,6 @@ function renderFocus() {
       invalidateFocusIndexMotionPlan();
     }
     const targetRect = liveTargetRect || preparedTargetRect;
-    scheduleFocusIndexImageWindow();
     const cardAnchor = targetRect || getFocusIndexCardRect(getFocusIndexCardByIndex(index));
     const motionDuration = getFocusIndexImageMotionDuration(
       index,
@@ -7115,9 +7781,12 @@ function renderFocus() {
     const cardTimeline = playFocusIndexCardMotion("open", cardAnchor, index, resumed, {
       totalDuration: motionDuration,
       mainFromRect: sourceRect,
-      mainToRect: targetRect
+      mainToRect: targetRect,
+      startDelay: resumed ? 0 : 70
     });
-    const totalDuration = Math.max(motionDuration, cardTimeline);
+    const primaryTimeline = Math.max(motionDuration, cardTimeline);
+    const railTimeline = resumed ? 0 : startFocusRailIndexExit(primaryTimeline);
+    const totalDuration = Math.max(primaryTimeline, railTimeline);
     armFocusIndexTransitionInputRecovery(runId, totalDuration + 900);
     setIndexTransitioning(totalDuration + 180);
     focusSyncHoldUntil = Date.now() + totalDuration + 220;
@@ -7823,7 +8492,7 @@ function renderFocus() {
       focusIndexState.returnMode = focusIndexState.mode;
     }
     if (isOpen) clearMobileFocusRailSleep();
-    else wakeMobileFocusRail({ delay: 2200 });
+    else wakeMobileFocusRail({ delay: 1350 });
     if (!reduceNotesMotion && !gestureMotion) {
       const transitionCleanupDelay = isOpen ? 920 : 820;
       focusNotesTransitionTimer = window.setTimeout(() => {
@@ -8166,32 +8835,53 @@ function renderFocus() {
       const next = new Image();
       next.decoding = "async";
       next.fetchPriority = priority;
-      entry = { image: next, request: null, resolve: null, settled: false, ready: null, priority };
+      entry = {
+        image: next,
+        request: null,
+        resolve: null,
+        settled: false,
+        ready: null,
+        priority,
+        timer: 0
+      };
       entry.request = new Promise((resolve) => {
         entry.resolve = resolve;
-        next.onload = () => {
+        const settle = (ready) => {
           if (entry.settled) return;
           entry.settled = true;
-          entry.ready = true;
+          entry.ready = Boolean(ready);
+          window.clearTimeout(entry.timer);
+          entry.timer = 0;
+          next.onload = null;
+          next.onerror = null;
           entry.resolve = null;
+          if (ready) focusImagePreloadFailures.delete(src);
+          else {
+            focusImagePreloadFailures.set(src, (focusImagePreloadFailures.get(src) || 0) + 1);
+            if (focusImagePreloadCache.get(src) === entry) focusImagePreloadCache.delete(src);
+          }
           trimFocusImagePreloadCache();
-          resolve(true);
+          resolve(Boolean(ready));
         };
-        next.onerror = () => {
-          if (entry.settled) return;
-          entry.settled = true;
-          entry.ready = false;
-          entry.resolve = null;
-          if (focusImagePreloadCache.get(src) === entry) focusImagePreloadCache.delete(src);
-          trimFocusImagePreloadCache();
-          resolve(false);
-        };
+        next.onload = () => settle(true);
+        next.onerror = () => settle(false);
+        entry.timer = window.setTimeout(() => {
+          next.removeAttribute("src");
+          settle(false);
+        }, priority === "high" ? 10000 : 15000);
       });
       focusImagePreloadCache.set(src, entry);
-      next.src = src;
+      const failureCount = focusImagePreloadFailures.get(src) || 0;
+      next.src = getPhotoRetrySource(
+        src,
+        failureCount,
+        failureCount > 0 ? `preload-${++focusImagePreloadSequence}` : ""
+      );
     }
     if (!decode) return entry.request;
-    return entry.request.then((ready) => ready ? waitForImageDecoded(entry.image, 0) : false);
+    return entry.request.then((ready) => (
+      ready ? waitForImageDecoded(entry.image, priority === "high" ? 1800 : 2600) : false
+    ));
   }
 
   function cancelStaleFocusImagePreloads(keepIndexes = []) {
@@ -8201,6 +8891,8 @@ function renderFocus() {
     for (const [src, entry] of focusImagePreloadCache) {
       if (entry.settled || keepSources.has(src)) continue;
       entry.settled = true;
+      window.clearTimeout(entry.timer);
+      entry.timer = 0;
       entry.image.onload = null;
       entry.image.onerror = null;
       entry.image.removeAttribute("src");
@@ -8328,7 +9020,9 @@ function renderFocus() {
   function getFocusPhotoIndexForSource(source) {
     const absoluteSource = getFocusImageAbsoluteUrl(source);
     if (!absoluteSource) return -1;
-    return photos.findIndex((photo) => [photo.full, photo.medium].some((candidate) => getFocusImageAbsoluteUrl(candidate) === absoluteSource));
+    return photos.findIndex((photo) => [photo.full, photo.medium, photo.thumb]
+      .filter(Boolean)
+      .some((candidate) => getFocusImageAbsoluteUrl(candidate) === absoluteSource));
   }
 
   function getVisibleFocusPhotoIndex() {
@@ -8364,7 +9058,13 @@ function renderFocus() {
     window.clearTimeout(focusSwitchHandoffTimer);
     focusSwitchHandoffTimer = 0;
     const holdImage = ensureFocusSwitchHoldImage();
-    const source = image.currentSrc || image.getAttribute("src");
+    const keepVisibleHold = (shell.classList.contains("is-focus-switch-holding")
+      || shell.classList.contains("is-focus-switch-fading"))
+      && holdImage.complete
+      && holdImage.naturalWidth > 0;
+    const source = keepVisibleHold
+      ? holdImage.currentSrc || holdImage.getAttribute("src")
+      : image.currentSrc || image.getAttribute("src");
     if (source && holdImage.getAttribute("src") !== source) holdImage.src = source;
     if (image.width > 0) holdImage.width = image.width;
     if (image.height > 0) holdImage.height = image.height;
@@ -8402,6 +9102,43 @@ function renderFocus() {
     });
   }
 
+  function waitForFocusMainVisual(index, timeout = 9000) {
+    const photo = photos[index];
+    if (!photo) return Promise.resolve(false);
+    return new Promise((resolve) => {
+      let settled = false;
+      let observer = null;
+      const finish = (ready) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        image.removeEventListener("load", check);
+        image.removeEventListener("error", check);
+        observer?.disconnect();
+        resolve(Boolean(ready));
+      };
+      const check = () => {
+        if (Number(shell.dataset.activeIndex || 0) !== index) {
+          finish(false);
+          return;
+        }
+        if (image.parentElement === imageToggle && hasReadyFocusPhotoVisual(image, photo)) finish(true);
+      };
+      const timer = window.setTimeout(() => finish(false), Math.max(1000, timeout));
+      image.addEventListener("load", check);
+      image.addEventListener("error", check);
+      if ("MutationObserver" in window) {
+        observer = new MutationObserver(check);
+        observer.observe(imageToggle, {
+          attributes: true,
+          attributeFilter: ["class", "data-photo-key", "data-photo-loaded-source"],
+          subtree: true
+        });
+      }
+      check();
+    });
+  }
+
   function updateFocusChrome(index, replaceUrl) {
     const previousIndex = Number(shell.dataset.activeIndex || 0);
     shell.dataset.activeIndex = String(index);
@@ -8414,47 +9151,211 @@ function renderFocus() {
     }
   }
 
+  function cancelFocusMainQualityRequest() {
+    window.clearTimeout(focusMainQualityRetryTimer);
+    focusMainQualityRetryTimer = 0;
+    if (!focusMainQualityRequest) return;
+    window.clearTimeout(focusMainQualityRequest.timer);
+    window.clearTimeout(focusMainQualityRequest.decodeTimer);
+    focusMainQualityRequest.image.onload = null;
+    focusMainQualityRequest.image.onerror = null;
+    focusMainQualityRequest.image.removeAttribute("src");
+    focusMainQualityRequest = null;
+  }
+
+  function isCurrentFocusMainLoad(runId, index, source) {
+    return runId === focusMainPhotoLoadRun
+      && Number(shell.dataset.activeIndex || 0) === index
+      && getFocusImageAbsoluteUrl(image.dataset.focusSource) === getFocusImageAbsoluteUrl(source);
+  }
+
+  function finishFocusMainQualityUpgrade(runId, index, source, previewSource, requestSource = source) {
+    if (!isCurrentFocusMainLoad(runId, index, source)) return Promise.resolve(false);
+    if (previewSource) image.style.backgroundImage = `url("${previewSource}")`;
+    return requestPhotoImage(image, requestSource, {
+      host: imageToggle,
+      priority: "critical",
+      maxAttempts: 0,
+      timeout: 4500,
+      preserveVisual: true
+    }).then((ready) => {
+      if (!isCurrentFocusMainLoad(runId, index, source)) return false;
+      if (!ready) return false;
+      image.dataset.focusVisualSource = source;
+      imageToggle.dataset.photoVisual = "quality";
+      imageToggle.classList.remove("is-photo-loading");
+      imageToggle.classList.add("is-photo-ready");
+      imageToggle.removeAttribute("aria-busy");
+      window.setTimeout(() => {
+        if (isCurrentFocusMainLoad(runId, index, source)
+          && getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src")) === getPhotoSourceIdentity(source)) {
+          image.style.removeProperty("background-image");
+        }
+      }, 260);
+      scheduleFocusNeighborPreload(index);
+      return true;
+    });
+  }
+
+  function queueFocusMainQualityRetry(photo, index, runId, attempt) {
+    if (attempt >= focusMainQualityRetryDelays.length
+      || !isCurrentFocusMainLoad(runId, index, getFocusPhotoSource(photo))) return;
+    window.clearTimeout(focusMainQualityRetryTimer);
+    focusMainQualityRetryTimer = window.setTimeout(() => {
+      focusMainQualityRetryTimer = 0;
+      startFocusMainQualityUpgrade(photo, index, runId, attempt + 1);
+    }, focusMainQualityRetryDelays[attempt]);
+  }
+
+  function startFocusMainQualityUpgrade(photo, index, runId, attempt = 0) {
+    const source = getFocusPhotoSource(photo);
+    const previewSource = photo?.thumb || source;
+    const requestSource = getPhotoRetrySource(source, attempt, attempt > 0 ? `${runId}-${attempt}` : "");
+    if (!source || source === previewSource || !isCurrentFocusMainLoad(runId, index, source)) return;
+    if (focusMainQualityRequest) {
+      window.clearTimeout(focusMainQualityRequest.timer);
+      window.clearTimeout(focusMainQualityRequest.decodeTimer);
+      focusMainQualityRequest.image.onload = null;
+      focusMainQualityRequest.image.onerror = null;
+      focusMainQualityRequest.image.removeAttribute("src");
+      focusMainQualityRequest = null;
+    }
+
+    const loader = new Image();
+    loader.decoding = "async";
+    loader.fetchPriority = "high";
+    const request = {
+      image: loader,
+      timer: 0,
+      decodeTimer: 0,
+      runId
+    };
+    focusMainQualityRequest = request;
+
+    const finish = (ready) => {
+      if (focusMainQualityRequest !== request) return;
+      window.clearTimeout(request.timer);
+      window.clearTimeout(request.decodeTimer);
+      loader.onload = null;
+      loader.onerror = null;
+      focusMainQualityRequest = null;
+      if (!isCurrentFocusMainLoad(runId, index, source)) return;
+      if (!ready) {
+        queueFocusMainQualityRetry(photo, index, runId, attempt);
+        return;
+      }
+      finishFocusMainQualityUpgrade(runId, index, source, previewSource, requestSource).then((upgraded) => {
+        if (!upgraded) queueFocusMainQualityRetry(photo, index, runId, attempt);
+      });
+    };
+
+    loader.onload = () => {
+      if (typeof loader.decode === "function") {
+        request.decodeTimer = window.setTimeout(() => finish(true), 700);
+        loader.decode().then(() => finish(true)).catch(() => finish(true));
+      }
+      else finish(true);
+    };
+    loader.onerror = () => finish(false);
+    request.timer = window.setTimeout(() => {
+      loader.removeAttribute("src");
+      finish(false);
+    }, attempt === 0 ? 4200 : Math.min(12000, 6000 + attempt * 2000));
+    loader.src = requestSource;
+  }
+
+  function startFocusMainProgressiveLoad(photo, index) {
+    const source = getFocusPhotoSource(photo);
+    const previewSource = photo?.thumb || source;
+    const runId = ++focusMainPhotoLoadRun;
+    cancelFocusMainQualityRequest();
+    applyPhotoPlaceholder(imageToggle, photo);
+    setPhotoImageKey(image, getPhotoRecordKey(photo));
+    image.style.removeProperty("background-image");
+    imageToggle.removeAttribute("data-photo-visual");
+    imageToggle.setAttribute("aria-busy", "true");
+    image.dataset.focusSource = source;
+    image.dataset.focusVisualSource = previewSource;
+
+    const currentSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
+    const qualitySource = getFocusImageAbsoluteUrl(source);
+    const currentIsReady = image.complete && image.naturalWidth > 0;
+    if (currentIsReady && currentSource === qualitySource) {
+      image.dataset.focusVisualSource = source;
+      imageToggle.dataset.photoVisual = "quality";
+      revealPhotoImage(image, imageToggle, {
+        photoKey: getPhotoRecordKey(photo),
+        source
+      });
+      imageToggle.removeAttribute("aria-busy");
+      image.style.removeProperty("background-color");
+      scheduleFocusNeighborPreload(index);
+      scheduleFocusIndexThumbWarmupNow(index);
+      return Promise.resolve(true);
+    }
+    if (currentIsReady && currentSource === getFocusImageAbsoluteUrl(previewSource)) {
+      imageToggle.dataset.photoVisual = previewSource === source ? "quality" : "preview";
+      revealPhotoImage(image, imageToggle, {
+        photoKey: getPhotoRecordKey(photo),
+        source: previewSource
+      });
+      imageToggle.removeAttribute("aria-busy");
+      scheduleFocusIndexThumbWarmupNow(index);
+      if (previewSource !== source) startFocusMainQualityUpgrade(photo, index, runId);
+      else scheduleFocusNeighborPreload(index);
+      return Promise.resolve(true);
+    }
+
+    const previewRequest = requestPhotoImage(image, previewSource, {
+      host: imageToggle,
+      priority: "critical",
+      maxAttempts: 1,
+      timeout: 4000,
+      photoKey: getPhotoRecordKey(photo)
+    }).then((ready) => {
+      if (!isCurrentFocusMainLoad(runId, index, source)) return false;
+      if (!ready) return false;
+      image.dataset.focusVisualSource = previewSource;
+      imageToggle.dataset.photoVisual = previewSource === source ? "quality" : "preview";
+      imageToggle.classList.remove("is-photo-loading");
+      imageToggle.classList.add("is-photo-ready");
+      imageToggle.removeAttribute("aria-busy");
+      scheduleFocusIndexThumbWarmupNow(index);
+      if (previewSource === source) scheduleFocusNeighborPreload(index);
+      return true;
+    });
+
+    if (previewSource !== source) {
+      if (shouldAvoidPhotoPreloads()) {
+        previewRequest.finally(() => {
+          if (isCurrentFocusMainLoad(runId, index, source)) {
+            startFocusMainQualityUpgrade(photo, index, runId);
+          }
+        });
+      } else {
+        focusMainQualityRetryTimer = window.setTimeout(() => {
+          focusMainQualityRetryTimer = 0;
+          if (isCurrentFocusMainLoad(runId, index, source)) {
+            startFocusMainQualityUpgrade(photo, index, runId);
+          }
+        }, 180);
+      }
+    }
+    return previewRequest;
+  }
+
   function commitFocusPhoto(photo, index) {
     if (photo.width > 0 && photo.height > 0) {
       image.width = photo.width;
       image.height = photo.height;
     }
     const photoSource = getFocusPhotoSource(photo);
-    image.dataset.focusSource = photoSource;
     delete image.dataset.focusFallback;
     updateFocusMainFrame(photo);
     applyPhotoPlaceholder(imageToggle, photo);
     updateFocusMainPlaceholderGeometry(photo);
-    requestPhotoImage(image, photoSource, {
-      host: imageToggle,
-      priority: "critical",
-      maxAttempts: 3,
-      timeout: 12000
-    }).then((ready) => {
-      if (image.dataset.focusSource !== photoSource) return;
-      if (ready) {
-        scheduleFocusNeighborPreload(index);
-        return;
-      }
-      const fallbackSource = photo.thumb || "";
-      if (!fallbackSource || getFocusImageAbsoluteUrl(fallbackSource) === getFocusImageAbsoluteUrl(photoSource)) return;
-      image.dataset.focusFallback = "true";
-      requestPhotoImage(image, fallbackSource, {
-        host: imageToggle,
-        priority: "critical",
-        maxAttempts: 3,
-        timeout: 8000
-      }).then((fallbackReady) => {
-        if (!fallbackReady || image.dataset.focusSource !== photoSource) return;
-        image.dataset.focusFallback = "true";
-        window.setTimeout(() => {
-          if (image.dataset.focusSource === photoSource && image.dataset.focusFallback === "true") {
-            retryFocusFallbackImage(image);
-          }
-        }, 8000);
-      });
-    });
     image.alt = photo.alt;
+    const visualRequest = startFocusMainProgressiveLoad(photo, index);
     caption.textContent = "";
     updateFocusNoteContent(photo);
     title.textContent = photo.title;
@@ -8463,6 +9364,7 @@ function renderFocus() {
     if (!shell.classList.contains("is-notes") && focusIndexState.mode !== "index") {
       scheduleFocusIndexMotionWarmup(index);
     }
+    return visualRequest;
   }
 
   function setFocus(index, replaceUrl, options = {}) {
@@ -8476,12 +9378,14 @@ function renderFocus() {
     if (index !== previousIndex) focusLastNavigationDirection = index > previousIndex ? 1 : -1;
     const currentImageSource = getFocusImageAbsoluteUrl(image.currentSrc || image.getAttribute("src"));
     const photoSource = getFocusPhotoSource(photo);
-    const targetImageSource = getFocusImageAbsoluteUrl(photoSource);
-    const imageNeedsCommit = currentImageSource !== targetImageSource;
+    const imageNeedsCommit = previousIndex !== index || !isFocusPhotoVisualSource(photo, currentImageSource);
+    const previousVisualReady = hasReadyFocusPhotoVisual(image, photos[previousIndex]);
+    const holdImage = imageToggle.querySelector(".focus-switch-hold-image");
+    const heldVisualReady = Boolean(holdImage?.complete && holdImage.naturalWidth > 0);
     const canAnimate = document.body.classList.contains("has-loaded")
       && !options.instant
-      && image.getAttribute("src")
       && imageNeedsCommit
+      && (previousVisualReady || heldVisualReady)
       && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const isNotesClosing = shell.classList.contains("is-notes-transitioning")
       && !shell.classList.contains("is-notes");
@@ -8506,19 +9410,18 @@ function renderFocus() {
 
     if (useHeldSwitch) {
       shell.classList.remove("is-switching-image");
-      const preloadRequest = shouldAvoidPhotoPreloads()
-        ? Promise.resolve(false)
-        : preloadFocusImageWithin(photoSource, window.innerWidth <= 768 ? 420 : 620);
-      preloadRequest.then((ready) => {
+      preloadFocusImageWithin(photoSource, window.innerWidth <= 768 ? 520 : 720).catch(() => false);
+      window.setTimeout(() => {
         if (switchRunId !== focusSwitchSequence) return;
-        if (!ready) {
-          clearFocusSwitchHandoff();
-          commitFocusPhoto(photo, index);
-          return;
-        }
         commitFocusPhoto(photo, index);
-        finishFocusSwitchHandoff(switchRunId);
-      });
+        waitForFocusMainVisual(index, 9000).then((ready) => {
+          if (switchRunId !== focusSwitchSequence) return;
+          if (!ready) {
+            schedulePhotoRecoverySweep(0);
+          }
+          finishFocusSwitchHandoff(switchRunId);
+        });
+      }, isNotesClosing ? 120 : 80);
       return;
     }
 
@@ -8629,7 +9532,7 @@ function renderFocus() {
   function glideFocusRailAfterThumbClick(index) {
     const thumb = focusThumbButtons[index];
     if (!thumb) return;
-    wakeMobileFocusRail({ delay: 1900 });
+    wakeMobileFocusRail({ delay: 1200 });
     setFocusManualSelection(index, 1700);
     thumbs.dataset.glideIndex = String(index + 1);
     scrollToFocusIndex(index, true);
@@ -8637,7 +9540,7 @@ function renderFocus() {
   }
 
   function lockFocusRailAfterMainSwipe(targetIndex) {
-    wakeMobileFocusRail({ delay: 1900 });
+    wakeMobileFocusRail({ delay: 1200 });
     window.clearTimeout(focusSwipeSyncTimer);
     cancelFocusRailScroll();
     setFocusManualSelection(targetIndex, 520);
@@ -8665,7 +9568,7 @@ function renderFocus() {
     focusRailPendingSelection = null;
     focusRailSelectionLastAt = 0;
     focusInitialLockUntil = 0;
-    wakeMobileFocusRail({ delay: 2200 });
+    wakeMobileFocusRail({ delay: 1350 });
     const alignReturnedRail = () => {
       if (focusIndexState.phase !== "idle"
         || focusIndexState.mode === "index"
@@ -8768,6 +9671,7 @@ function renderFocus() {
 
   function canSleepMobileFocusRail() {
     return window.innerWidth <= 768
+      && mobileFocusRailEntryReady
       && focusIndexState.phase === "idle"
       && focusIndexState.mode === "rel"
       && !shell.classList.contains("is-notes")
@@ -8786,17 +9690,43 @@ function renderFocus() {
     window.clearTimeout(mobileFocusRailSleepTimer);
     mobileFocusRailSleepTimer = 0;
     if (mobileFocusRailTouchActive || !canSleepMobileFocusRail()) return;
+    const protectedDelay = Math.max(0, mobileFocusRailFirstSleepAt - performance.now());
     mobileFocusRailSleepTimer = window.setTimeout(() => {
       mobileFocusRailSleepTimer = 0;
       if (mobileFocusRailTouchActive || !canSleepMobileFocusRail()) return;
+      mobileFocusRailFirstSleepAt = 0;
       shell.classList.add("is-focus-rail-sleeping");
-    }, Math.max(0, delay));
+    }, Math.max(0, delay, protectedDelay));
   }
 
   function wakeMobileFocusRail(options = {}) {
     clearMobileFocusRailSleep();
     if (options.hold || !canSleepMobileFocusRail()) return;
     scheduleMobileFocusRailSleep(Number.isFinite(options.delay) ? options.delay : mobileFocusRailSleepDelay);
+  }
+
+  function wakeMobileFocusRailAfterOpeningReady(delay) {
+    clearMobileFocusRailSleep();
+    mobileFocusRailEntryObserver?.disconnect();
+    mobileFocusRailEntryObserver = null;
+    const openingImageReady = document.body.classList.contains("has-focus-opening-image-ready");
+    if (mobileFocusRailEntryReady
+      || (openingImageReady && !document.body.classList.contains("is-page-entering"))) {
+      mobileFocusRailEntryReady = true;
+      mobileFocusRailFirstSleepAt = performance.now() + Math.max(0, delay);
+      wakeMobileFocusRail({ delay });
+      return;
+    }
+    mobileFocusRailEntryObserver = new MutationObserver(() => {
+      if (!document.body.classList.contains("has-focus-opening-image-ready")
+        || document.body.classList.contains("is-page-entering")) return;
+      mobileFocusRailEntryObserver?.disconnect();
+      mobileFocusRailEntryObserver = null;
+      mobileFocusRailEntryReady = true;
+      mobileFocusRailFirstSleepAt = performance.now() + Math.max(0, delay);
+      wakeMobileFocusRail({ delay });
+    });
+    mobileFocusRailEntryObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
   }
 
   function isMobileFocusRailReady(allThumbs) {

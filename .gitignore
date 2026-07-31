@@ -12,7 +12,7 @@ workbench/work-layout.json
 workbench/photopea/sources/*
 workbench/photopea/exports/*
 workbench/photopea/runtime/
-workbench/photopea/manifest.json
+workbench/photopea/manifest*.json
 !workbench/photopea/sources/.gitkeep
 !workbench/photopea/exports/.gitkeep
 .env
