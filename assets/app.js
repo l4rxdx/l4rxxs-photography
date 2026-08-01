@@ -120,6 +120,32 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.5.7"],
+    date: "2026-08-01",
+    categories: {
+      optimizations: {
+        cn: [
+          "移动端改用浏览器原生页面滚动，让 iPhone Safari 地址栏可随向上滚动自然收起。",
+          "从 INDEX 选择照片后先解码清晰图，再保持同一画面放大至 REL 或随记。"
+        ],
+        en: [
+          "Mobile pages now use native browser scrolling so the iPhone Safari address bar can collapse naturally while scrolling upward.",
+          "Selecting a photo in INDEX now decodes the sharp image first, then enlarges that same visual into REL or notes."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复换图后再次进入 INDEX 时，主图落位会闪现一帧纯色加载态的问题。",
+          "修复随记页面向上滚动被图片拖动逻辑拦截的问题。"
+        ],
+        en: [
+          "Fixed a solid-color loading frame flashing when entering INDEX again after switching photos.",
+          "Fixed upward scrolling in notes being intercepted by the photo drag interaction."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.5.6"],
     date: "2026-08-01",
     categories: {
@@ -826,16 +852,31 @@ function isCurrentPhotoHost(host, image, options = {}) {
   return image.complete && image.naturalWidth > 0;
 }
 
-function applyPhotoPlaceholder(host, photo, useThumb = false) {
+function applyPhotoPlaceholder(host, photo, useThumb = false, options = {}) {
   if (!host) return;
   const image = host.querySelector("img[data-focus-image], img[data-photo-key], img");
   const photoKey = getPhotoRecordKey(photo);
+  const currentSource = image?.currentSrc || image?.getAttribute("src") || "";
+  const preserveVisual = Boolean(
+    options.preserveVisual
+    && image?.complete
+    && image.naturalWidth > 0
+    && isPhotoSourceForRecord(currentSource, photoKey)
+  );
   if (image) setPhotoImageKey(image, photoKey);
   if (photoKey) host.dataset.photoKey = photoKey;
   host.dataset.photoLoadClaim = String(++photoHostStateSequence);
-  host.removeAttribute("data-photo-loaded-source");
-  host.classList.add("photo-placeholder", "is-photo-loading");
-  host.classList.remove("is-photo-ready");
+  host.classList.add("photo-placeholder");
+  if (preserveVisual) {
+    image.dataset.photoLoadState = "ready";
+    host.classList.remove("is-photo-loading");
+    host.classList.add("is-photo-ready");
+    host.dataset.photoLoadedSource = getPhotoSourceIdentity(currentSource);
+  } else {
+    host.removeAttribute("data-photo-loaded-source");
+    host.classList.add("is-photo-loading");
+    host.classList.remove("is-photo-ready");
+  }
   host.style.setProperty("--photo-placeholder-color", normalizePhotoPlaceholderColor(photo?.placeholderColor));
   host.style.setProperty("--photo-placeholder-ratio", getPhotoAspectRatio(photo, useThumb).toFixed(6));
 }
@@ -6188,7 +6229,8 @@ function renderFocus() {
         host: placeholder,
         priority: prioritize ? "critical" : "visible",
         maxAttempts: 3,
-        timeout: 12000
+        timeout: 12000,
+        preserveVisual: hasReadyVisual
       }).then((ready) => {
         if (ready) {
           node.style.removeProperty("background-image");
@@ -7170,8 +7212,9 @@ function renderFocus() {
     media.appendChild(image);
     image.setAttribute("data-focus-image", "");
     prepareFocusIndexImage(image, index);
-    applyPhotoPlaceholder(media, photos[index]);
-    if (hasReadyFocusPhotoVisual(image, photos[index])) {
+    const preserveVisual = hasReadyFocusPhotoVisual(image, photos[index]);
+    applyPhotoPlaceholder(media, photos[index], false, { preserveVisual });
+    if (preserveVisual) {
       revealPhotoImage(image, media, {
         photoKey: getPhotoRecordKey(photos[index]),
         source: image.currentSrc || image.getAttribute("src")
@@ -7189,8 +7232,9 @@ function renderFocus() {
     image.setAttribute("data-focus-image", "");
     const photo = photos[index];
     if (photo) {
-      applyPhotoPlaceholder(imageToggle, photo);
-      if (hasReadyFocusPhotoVisual(image, photo)) {
+      const preserveVisual = hasReadyFocusPhotoVisual(image, photo);
+      applyPhotoPlaceholder(imageToggle, photo, false, { preserveVisual });
+      if (preserveVisual) {
         revealPhotoImage(image, imageToggle, {
           photoKey: getPhotoRecordKey(photo),
           source: image.currentSrc || image.getAttribute("src")
@@ -7226,14 +7270,19 @@ function renderFocus() {
     };
 
     const hasReadyVisual = hasReadyFocusPhotoVisual(image, photo);
-    if (hasReadyVisual) return Promise.resolve(finish(true));
-    return requestPhotoImage(image, photo.thumb || source, {
-      host: image.closest(".photo-placeholder"),
-      priority: "critical",
-      maxAttempts: 3,
-      timeout: 9000
-    }).then((ready) => {
-      return finish(ready);
+    const visibleSource = image.currentSrc || image.getAttribute("src") || photo.thumb;
+    if (hasReadyVisual && visibleSource) {
+      image.style.backgroundImage = `url("${visibleSource}")`;
+    }
+    if (isPhotoReadyForSource(image, source)) return Promise.resolve(finish(true));
+    return requestFocusIndexFullImage(image, index, true).then((ready) => {
+      const qualityReady = finish(ready);
+      if (!qualityReady) return false;
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          resolve(focusIndexState.runId === runId && focusIndexState.phase === "closing");
+        });
+      });
     });
   }
 
@@ -9987,7 +10036,7 @@ function renderFocus() {
       if (Math.max(absX, absY) > 8) {
         if (absX > absY * 1.18) focusMainTouchMode = "horizontal";
         else if (absY > absX * 1.18) {
-          if (shell.classList.contains("is-notes")) {
+          if (shell.classList.contains("is-notes") && deltaY > 0) {
             focusMainTouchMode = "vertical";
             beginFocusNotesDrag();
           } else {

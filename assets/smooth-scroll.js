@@ -1,5 +1,6 @@
 (() => {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const nativeTouchScroll = window.matchMedia("(max-width: 768px), (hover: none) and (pointer: coarse)");
   const linearScrollOptions = {
     autoRaf: true,
     lerp: 0.045,
@@ -50,7 +51,7 @@
   };
 
   const createNestedInstance = (handle) => {
-    if (handle.instance || reducedMotion.matches || typeof window.Lenis !== "function") return;
+    if (handle.instance || reducedMotion.matches || nativeTouchScroll.matches || typeof window.Lenis !== "function") return;
     handle.instance = new window.Lenis({
       ...linearScrollOptions,
       wrapper: handle.wrapper,
@@ -160,7 +161,7 @@
   };
 
   const create = () => {
-    if (lenis || reducedMotion.matches || typeof window.Lenis !== "function") return;
+    if (lenis || reducedMotion.matches || nativeTouchScroll.matches || typeof window.Lenis !== "function") return;
     lenis = new window.Lenis({
       ...linearScrollOptions,
       stopInertiaOnNavigate: true,
@@ -177,6 +178,11 @@
   create();
 
   reducedMotion.addEventListener?.("change", (event) => {
+    if (event.matches) destroy();
+    else create();
+  });
+
+  nativeTouchScroll.addEventListener?.("change", (event) => {
     if (event.matches) destroy();
     else create();
   });
