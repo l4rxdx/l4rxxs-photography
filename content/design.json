@@ -1,0 +1,101 @@
+{
+  "version": "design-psd2",
+  "canvas": {
+    "width": 1920,
+    "height": 4478
+  },
+  "source": {
+    "artboardLayerCount": 7,
+    "renderedLayerCount": 6,
+    "hiddenLayers": [
+      "wwwwww"
+    ],
+    "themeBackgroundLayer": "颜色填充 1"
+  },
+  "layers": [
+    {
+      "id": "p1",
+      "src": "images/design/psd/p1.webp",
+      "x": 101,
+      "y": 198,
+      "width": 899,
+      "height": 600,
+      "sourceWidth": 2400,
+      "sourceHeight": 1600,
+      "z": 10,
+      "interactive": true,
+      "color": "#091536",
+      "altCn": "夜景人物发光图像设计",
+      "altEn": "Glowing figure image study"
+    },
+    {
+      "id": "triangle",
+      "src": "images/design/psd/triangle.webp",
+      "x": 551,
+      "y": 694,
+      "width": 1303,
+      "height": 1210,
+      "sourceWidth": 1303,
+      "sourceHeight": 1210,
+      "z": 20,
+      "interactive": false
+    },
+    {
+      "id": "p2",
+      "src": "images/design/psd/p2.webp",
+      "x": 1071,
+      "y": 697,
+      "width": 736,
+      "height": 975,
+      "sourceWidth": 736,
+      "sourceHeight": 975,
+      "z": 30,
+      "interactive": true,
+      "color": "#315d88",
+      "altCn": "蓝色海报平面设计",
+      "altEn": "Blue graphic poster"
+    },
+    {
+      "id": "p3",
+      "src": "images/design/psd/p3.webp",
+      "x": 101,
+      "y": 1528,
+      "width": 859,
+      "height": 1144,
+      "sourceWidth": 1800,
+      "sourceHeight": 2400,
+      "z": 40,
+      "interactive": true,
+      "color": "#d9dce5",
+      "altCn": "蓝色歌单拼贴设计",
+      "altEn": "Blue playlist collage"
+    },
+    {
+      "id": "p4",
+      "src": "images/design/psd/p4.webp",
+      "x": 1097,
+      "y": 2561,
+      "width": 740,
+      "height": 739,
+      "sourceWidth": 2400,
+      "sourceHeight": 2400,
+      "z": 50,
+      "interactive": true,
+      "color": "#24466d",
+      "altCn": "蓝黑色音乐海报设计",
+      "altEn": "Blue and black music poster"
+    },
+    {
+      "id": "a1",
+      "src": "images/design/psd/a1.webp",
+      "x": 4,
+      "y": 3247,
+      "width": 1945,
+      "height": 1094,
+      "sourceWidth": 1920,
+      "sourceHeight": 1080,
+      "z": 60,
+      "interactive": false
+    }
+  ]
+}

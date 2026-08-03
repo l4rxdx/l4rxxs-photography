@@ -13,5 +13,11 @@
 /images/thumbs/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
+/images/design/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
 /content/photos.json
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+/content/design.json
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400

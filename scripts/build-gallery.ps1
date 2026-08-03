@@ -80,7 +80,9 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "station-crossing.png"; title = "CROSSING 54"; category = "TRANSIT"; caption = "Still feet and blurred crossings share the station floor." },
     @{ original = "park-bench-canopy.jpg"; title = "PAUSE 55"; category = "PARK"; caption = "A seated pause beneath a dense green canopy." },
     @{ original = "fallen-leaf-shadow.jpg"; title = "LEAF 56"; category = "DETAIL"; caption = "One changing leaf held between light and shadow." },
-    @{ original = "sunlit-pavilion.jpg"; title = "LIGHT 57"; category = "ARCHITECTURE"; caption = "Late light reaches through the dark pavilion." }
+    @{ original = "sunlit-pavilion.jpg"; title = "LIGHT 57"; category = "ARCHITECTURE"; caption = "Late light reaches through the dark pavilion." },
+    @{ original = "rainbow-umbrella-road.png"; title = "RAINBOW 58"; category = "STREET"; caption = "A single field of color crosses a rain-darkened road." },
+    @{ original = "blue-horizon-ship.png"; title = "HORIZON 59"; category = "SEA"; caption = "A distant ship divides two quiet fields of blue." }
 )
 
 function Convert-ToSlug {

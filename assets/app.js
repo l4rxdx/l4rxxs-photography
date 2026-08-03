@@ -85,6 +85,7 @@ const languageCopy = {
     "social.douyin": "TIKTOK",
     "social.instagram": "INS",
     "focus.back": "BACK",
+    "focus.notes": "NOTES",
     "focus.index": "INDEX",
     "focus.menuAbout": "I tried to stop obsessing over settings and return to the record itself.",
     rights: "\u00a9 2026 - all rights reserved"
@@ -105,6 +106,7 @@ const languageCopy = {
     "social.douyin": "\u6296\u97f3",
     "social.instagram": "INS",
     "focus.back": "\u8fd4\u56de",
+    "focus.notes": "\u968f\u8bb0",
     "focus.index": "\u7d22\u5f15",
     "focus.menuAbout": "\u6211\u8bd5\u7740\u4e0d\u518d\u7ea0\u7ed3\u53c2\u6570\uff0c\u56de\u5f52\u8bb0\u5f55\u672c\u8eab",
     rights: "\u00a9 2026 - \u4fdd\u7559\u6240\u6709\u6743\u5229"
@@ -119,6 +121,42 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.6.0"],
+    date: "2026-08-03",
+    categories: {
+      optimizations: {
+        cn: [
+          "桌面端 REL 现在按照片比例连续计算主图尺寸，在保持完整画面的同时减少不协调的留白。",
+          "DESIGN 作品使用 PSD 图层坐标响应式还原，并加入滚动裁剪揭示与整图悬浮反馈。"
+        ],
+        en: [
+          "Desktop REL now sizes the main image continuously from each photo's aspect ratio, keeping the full frame while reducing unbalanced whitespace.",
+          "DESIGN artwork now responsively follows the PSD layer geometry with scroll reveals and whole-image hover feedback."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复桌面端打开菜单或 DESIGN 预览时滚动条消失导致页面宽度跳动的问题。"
+        ],
+        en: [
+          "Fixed desktop page width shifting when the scrollbar disappeared while opening the menu or DESIGN preview."
+        ]
+      },
+      additions: {
+        cn: [
+          "正式上线 DESIGN 页面及页面内无裁剪作品预览。",
+          "在 Focus 底部 Dock 的返回与索引之间新增随记入口。",
+          "新增 2 张照片，图库现有 58 张照片。"
+        ],
+        en: [
+          "Published the DESIGN page with an uncropped, same-page artwork preview.",
+          "Added a NOTES entry between BACK and INDEX in the Focus dock.",
+          "Added 2 photos, bringing the gallery to 58 photos."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.5.7"],
     date: "2026-08-01",
@@ -5146,6 +5184,7 @@ function renderFocus() {
   const notesBackground = document.querySelector("[data-focus-notes-background]");
   const imageToggle = document.querySelector("[data-focus-image-toggle]");
   const focusMain = document.querySelector("[data-focus-main]");
+  const notesAction = document.querySelector("[data-focus-notes-action]");
   const indexToggle = document.querySelector("[data-focus-index]");
   const focusActions = document.querySelector(".focus-actions");
   const navToggle = document.querySelector(".js-nav-toggle");
@@ -5154,18 +5193,43 @@ function renderFocus() {
   const getFocusPhotoSource = (photo) => isMobilePhotoClient()
     ? photo?.medium || photo?.full || photo?.thumb || ""
     : photo?.full || photo?.medium || photo?.thumb || "";
-  const getFocusMainFrame = (photo) => {
+  const FOCUS_DESKTOP_TARGET_AREA_RATIO = 0.46;
+  const FOCUS_DESKTOP_MAX_WIDTH_RATIO = 0.78;
+  const FOCUS_DESKTOP_MAX_HEIGHT_RATIO = 0.78;
+  const FOCUS_DESKTOP_MAX_WIDTH_PX = 1888;
+  const getFocusDesktopMainSize = (photo) => {
+    if (window.innerWidth <= 768) return null;
     const ratio = getPhotoAspectRatio(photo);
-    if (!(ratio > 0)) return "default";
-    if (ratio > 1.8) return "panorama";
-    if (ratio >= 1.2) return "landscape";
-    if (ratio < .92) return "portrait";
-    return "default";
+    if (!(ratio > 0)) return null;
+    const viewportWidth = window.visualViewport?.width || window.innerWidth;
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const targetArea = viewportWidth * viewportHeight * FOCUS_DESKTOP_TARGET_AREA_RATIO;
+    const maxWidth = Math.min(viewportWidth * FOCUS_DESKTOP_MAX_WIDTH_RATIO, FOCUS_DESKTOP_MAX_WIDTH_PX);
+    const maxHeight = viewportHeight * FOCUS_DESKTOP_MAX_HEIGHT_RATIO;
+    const targetWidth = Math.sqrt(targetArea * ratio);
+    const targetHeight = targetWidth / ratio;
+    const fitScale = Math.min(1, maxWidth / targetWidth, maxHeight / targetHeight);
+    return {
+      width: targetWidth * fitScale,
+      height: targetHeight * fitScale
+    };
   };
   const updateFocusMainFrame = (photo) => {
-    const nextFrame = getFocusMainFrame(photo);
-    if (shell.dataset.focusFrame === nextFrame) return;
-    shell.dataset.focusFrame = nextFrame;
+    const nextSize = getFocusDesktopMainSize(photo);
+    const currentWidth = shell.style.getPropertyValue("--focus-main-width");
+    const currentHeight = shell.style.getPropertyValue("--focus-main-height");
+    if (!nextSize) {
+      if (!currentWidth && !currentHeight) return;
+      shell.style.removeProperty("--focus-main-width");
+      shell.style.removeProperty("--focus-main-height");
+      invalidateFocusLayoutMeasurements();
+      return;
+    }
+    const nextWidth = `${nextSize.width.toFixed(2)}px`;
+    const nextHeight = `${nextSize.height.toFixed(2)}px`;
+    if (currentWidth === nextWidth && currentHeight === nextHeight) return;
+    shell.style.setProperty("--focus-main-width", nextWidth);
+    shell.style.setProperty("--focus-main-height", nextHeight);
     invalidateFocusLayoutMeasurements();
   };
   const updateFocusMainPlaceholderGeometry = (photo = photos[Number(shell.dataset.activeIndex || 0)]) => {
@@ -5493,6 +5557,10 @@ function renderFocus() {
     releaseFocusIndexReturnSettleForInteraction();
     setNotesOpen(!shell.classList.contains("is-notes"));
   });
+  notesAction?.addEventListener("click", () => {
+    releaseFocusIndexReturnSettleForInteraction();
+    setNotesOpen(!shell.classList.contains("is-notes"));
+  });
   navToggle?.addEventListener("click", (event) => {
     if (!shell.classList.contains("is-notes")) return;
     event.preventDefault();
@@ -5608,6 +5676,7 @@ function renderFocus() {
     invalidateFocusLayoutMeasurements();
     updateFocusRailMetrics();
     updateMobileFocusRail();
+    updateFocusMainFrame(photos[Number(shell.dataset.activeIndex || initial)] || photos[initial]);
     updateFocusMainPlaceholderGeometry();
     scheduleFocusRailSync(420);
     scheduleNotesLayoutUpdate();
@@ -8533,6 +8602,7 @@ function renderFocus() {
     document.body.classList.toggle("focus-notes-open", isOpen || preservePalette);
     imageToggle.setAttribute("aria-expanded", String(isOpen));
     imageToggle.setAttribute("aria-label", isOpen ? "Close notes" : "Open notes");
+    notesAction?.setAttribute("aria-pressed", String(isOpen));
     if (navToggle) {
       navToggle.setAttribute("aria-label", isOpen ? "Close notes" : document.body.classList.contains("nav-open") ? "Close navigation" : "Open navigation");
     }

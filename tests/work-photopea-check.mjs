@@ -111,8 +111,9 @@ assert.match(previewScript, /max-width: 768px/);
 assert.match(previewScript, /BroadcastChannel/);
 assert.match(previewScript, /previewMode === "mobile"/);
 assert.match(previewScript, /documentElement\.dataset\.previewMode/);
-assert.match(workPage, /host === "127\.0\.0\.1"/);
-assert.match(workPage, /tools\/work-photopea\/site-preview\.js\?v=work-preview3/);
+assert.doesNotMatch(workPage, /tools\/work-photopea\/site-preview\.js/);
+assert.match(workPage, /data-design-overview/);
+assert.match(workPage, /assets\/design-gallery\.js\?v=v160-design-gallery1/);
 assert.doesNotMatch(workPage, /script\.type = "module"/);
 assert.match(sitePreviewScript, /bridgeOrigin\.port = "8780"/);
 assert.match(sitePreviewScript, /is-local-photopea-preview/);
@@ -128,7 +129,7 @@ assert.match(sitePreviewScript, /setTimeout\(render, document\.hidden \? 5000 : 
 assert.doesNotMatch(buildScript, /tools\/work-photopea|workbench\/photopea/);
 assert.match(
   workPage,
-  /<main class="work-page">\s*<p class="design-placeholder">xdx\u8fd8\u6ca1\u8bbe\u8ba1\u5b8c<\/p>\s*<\/main>/
+  /data-design-canvas[\s\S]*data-design-lightbox/
 );
 
 assert.equal(manifest.version, 1);

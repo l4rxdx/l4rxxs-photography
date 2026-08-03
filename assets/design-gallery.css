@@ -1,0 +1,295 @@
+body.work {
+  min-height: 100svh;
+  background: #fff;
+}
+
+body.work[data-theme="dark"] {
+  background: #000;
+}
+
+.design-page {
+  width: 100%;
+  overflow: clip;
+  background: #fff;
+  transition: background-color .46s var(--ease-soft);
+}
+
+body[data-theme="dark"] .design-page {
+  background: #000;
+}
+
+.design-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1920 / 4478;
+  overflow: hidden;
+  isolation: isolate;
+  background: #fff;
+  transition: background-color .46s var(--ease-soft);
+}
+
+body[data-theme="dark"] .design-canvas {
+  background: #000;
+}
+
+.design-layer {
+  position: absolute;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 0;
+}
+
+.design-layer--artwork {
+  cursor: zoom-in;
+  touch-action: manipulation;
+}
+
+.design-layer--decor {
+  pointer-events: none;
+  user-select: none;
+}
+
+.design-layer__reveal {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  clip-path: inset(100% 0 0 0);
+  transform: translate3d(0, 2.2rem, 0);
+  transform-origin: 50% 100%;
+  transition:
+    clip-path 1.18s cubic-bezier(.19, 1, .22, 1),
+    transform 1.18s cubic-bezier(.19, 1, .22, 1);
+  will-change: clip-path, transform;
+}
+
+.design-layer.is-revealed .design-layer__reveal {
+  clip-path: inset(0 0 0 0);
+  transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+.design-layer.is-reveal-complete .design-layer__reveal {
+  clip-path: none;
+}
+
+.design-layer__media {
+  --design-placeholder: #d6d6d6;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--design-placeholder);
+  transform: translateZ(0) scale(1);
+  transform-origin: 50% 50%;
+  transition:
+    transform .56s var(--ease-soft),
+    box-shadow .56s var(--ease-soft),
+    background-color .3s var(--ease-ui-out);
+  backface-visibility: hidden;
+}
+
+.design-layer__media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--design-placeholder);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity .32s var(--ease-ui-out), visibility 0s linear;
+}
+
+.design-layer.is-ready .design-layer__media::after {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .32s var(--ease-ui-out), visibility 0s linear .32s;
+}
+
+.design-layer img {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.design-layer.is-ready img {
+  opacity: 1;
+}
+
+.design-layer--decor img {
+  opacity: 1;
+}
+
+.design-layer--decor .design-layer__media {
+  background: transparent;
+}
+
+.design-layer--triangle .design-layer__media {
+  transition: filter .46s var(--ease-soft);
+}
+
+body:not([data-theme="dark"]) .design-layer--triangle .design-layer__media {
+  filter: brightness(0);
+}
+
+body[data-theme="dark"] .design-layer img,
+body[data-theme="dark"] .design-lightbox__image {
+  filter: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .design-layer--artwork:hover .design-layer__media,
+  .design-layer--artwork:focus-visible .design-layer__media {
+    transform: translateZ(0) scale(1.04);
+    box-shadow: 0 1.1rem 2.8rem rgba(0, 0, 0, .24);
+  }
+}
+
+.design-layer--artwork:focus-visible {
+  outline: .16rem solid currentColor;
+  outline-offset: .5rem;
+}
+
+.design-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  box-sizing: border-box;
+  width: 100dvw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .985);
+  color: #0c0c0c;
+  opacity: 0;
+  transition: opacity .36s var(--ease-soft), display .36s allow-discrete, overlay .36s allow-discrete;
+}
+
+.design-lightbox[open] {
+  display: grid;
+  place-items: center;
+  opacity: 1;
+}
+
+.design-lightbox[open].is-closing {
+  opacity: 0;
+}
+
+@starting-style {
+  .design-lightbox[open] {
+    opacity: 0;
+  }
+}
+
+body[data-theme="dark"] .design-lightbox {
+  background: rgba(0, 0, 0, .985);
+  color: #f5f3f0;
+}
+
+.design-lightbox::backdrop {
+  background: transparent;
+}
+
+.design-lightbox__stage {
+  --design-lightbox-pad-inline: clamp(5.8rem, 8vw, 9.6rem);
+  --design-lightbox-pad-top: clamp(5.8rem, 8vw, 9.6rem);
+  --design-lightbox-pad-bottom: clamp(5.8rem, 8vw, 9.6rem);
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 100dvw;
+  height: 100dvh;
+  padding: var(--design-lightbox-pad-top) var(--design-lightbox-pad-inline) var(--design-lightbox-pad-bottom);
+  cursor: zoom-out;
+}
+
+.design-lightbox__image {
+  display: block;
+  width: auto;
+  max-width: calc(100dvw - 2 * var(--design-lightbox-pad-inline));
+  height: auto;
+  max-height: calc(100dvh - var(--design-lightbox-pad-top) - var(--design-lightbox-pad-bottom));
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(.975);
+  transition: opacity .32s var(--ease-ui-out), transform .58s var(--ease-notes);
+  cursor: default;
+}
+
+.design-lightbox.is-ready .design-lightbox__image {
+  opacity: 1;
+  transform: scale(1);
+}
+
+body.design-lightbox-open {
+  overscroll-behavior: none;
+}
+
+body.design-lightbox-open .site-header,
+body.design-lightbox-open .language-switch,
+body.design-lightbox-open .theme-toggle {
+  z-index: 1400;
+}
+
+body.design-lightbox-open .nav-toggle span:first-child {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+body.design-lightbox-open .nav-toggle span:last-child {
+  transform: translate(-50%, -50%) rotate(135deg);
+}
+
+body.has-design-error .design-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: .04;
+}
+
+@media (max-width: 768px) {
+  .design-page {
+    padding-top: 3.6rem;
+  }
+
+  .design-layer__reveal {
+    transform: translate3d(0, 1.2rem, 0);
+  }
+
+  .design-lightbox__stage {
+    --design-lightbox-pad-inline: 1.8rem;
+    --design-lightbox-pad-top: 7.2rem;
+    --design-lightbox-pad-bottom: 2.4rem;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .design-layer__reveal {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+
+  .design-layer__media,
+  .design-lightbox,
+  .design-lightbox__image {
+    transition-duration: .01ms !important;
+  }
+}

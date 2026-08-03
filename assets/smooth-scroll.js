@@ -17,6 +17,50 @@
   let lockDepth = 0;
   let lockedScrollY = 0;
   let savedHtmlOverflow = "";
+  let lockedScrollFrame = 0;
+
+  const isInsideLockedScrollRegion = (event) => {
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    return Boolean(target?.closest("[data-lenis-prevent]"));
+  };
+
+  const preventLockedViewportWheel = (event) => {
+    if (lockDepth <= 0 || nativeTouchScroll.matches || isInsideLockedScrollRegion(event)) return;
+    event.preventDefault();
+  };
+
+  const restoreLockedDesktopScroll = () => {
+    if (lockDepth <= 0 || nativeTouchScroll.matches) return;
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    if (Math.abs(currentScrollY - lockedScrollY) < .5 || lockedScrollFrame) return;
+    lockedScrollFrame = requestAnimationFrame(() => {
+      lockedScrollFrame = 0;
+      window.scrollTo({ top: lockedScrollY, left: 0, behavior: "auto" });
+      lenis?.scrollTo(lockedScrollY, { immediate: true, force: true });
+    });
+  };
+
+  const applyDocumentScrollLock = () => {
+    window.removeEventListener("scroll", restoreLockedDesktopScroll);
+    window.removeEventListener("wheel", preventLockedViewportWheel);
+    document.documentElement.classList.toggle("l4rxx-scrollbar-lock", !nativeTouchScroll.matches);
+    if (nativeTouchScroll.matches) {
+      document.documentElement.style.overflow = "hidden";
+      return;
+    }
+    document.documentElement.style.overflow = savedHtmlOverflow;
+    window.addEventListener("scroll", restoreLockedDesktopScroll, { passive: true });
+    window.addEventListener("wheel", preventLockedViewportWheel, { passive: false });
+  };
+
+  const releaseDocumentScrollLock = () => {
+    cancelAnimationFrame(lockedScrollFrame);
+    lockedScrollFrame = 0;
+    window.removeEventListener("scroll", restoreLockedDesktopScroll);
+    window.removeEventListener("wheel", preventLockedViewportWheel);
+    document.documentElement.classList.remove("l4rxx-scrollbar-lock");
+    document.documentElement.style.overflow = savedHtmlOverflow;
+  };
 
   const getNativeTargetTop = (target) => {
     if (typeof target === "number") return target;
@@ -129,13 +173,13 @@
       if (lockDepth > 1) return;
       lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
       savedHtmlOverflow = document.documentElement.style.overflow;
-      document.documentElement.style.overflow = "hidden";
+      applyDocumentScrollLock();
       lenis?.stop();
     },
     unlock(top = lockedScrollY) {
       lockDepth = Math.max(0, lockDepth - 1);
       if (lockDepth > 0) return;
-      document.documentElement.style.overflow = savedHtmlOverflow;
+      releaseDocumentScrollLock();
       lenis?.start();
       const targetTop = Number.isFinite(top) ? top : lockedScrollY;
       if (lenis) {
@@ -183,6 +227,7 @@
   });
 
   nativeTouchScroll.addEventListener?.("change", (event) => {
+    if (lockDepth > 0) applyDocumentScrollLock();
     if (event.matches) destroy();
     else create();
   });

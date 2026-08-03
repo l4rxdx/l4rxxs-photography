@@ -32,10 +32,16 @@
 
 html {
   min-height: 100%;
+  scrollbar-gutter: stable;
   background-color: var(--color-light);
   color: var(--color-dark);
   font-family: var(--font-display);
   font-size: 62.5%;
+}
+
+html.lenis.lenis-stopped.l4rxx-scrollbar-lock {
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
 }
 
 body {
@@ -171,7 +177,8 @@ body[data-theme="dark"] .brand-fall-figure {
 body[data-theme="dark"] .brand-letter,
 body[data-theme="dark"] .nav-screen__nav a,
 body[data-theme="dark"] .nav-screen__log-link,
-body[data-theme="dark"] .focus-actions a {
+body[data-theme="dark"] .focus-actions a,
+body[data-theme="dark"] .focus-actions button {
   text-shadow: 0 0 .72rem rgba(235, 231, 223, .2), 0 0 1.8rem rgba(235, 231, 223, .08);
 }
 
@@ -1980,21 +1987,8 @@ body:not(.has-loaded) .focus-rail,
     --focus-main-anchor-y: -50%;
     top: 50svh;
     left: 50vw;
-    width: min(60vw, 72rem);
-    height: min(75svh, calc(100svh - 12rem));
-  }
-
-  .focus-shell[data-focus-frame="landscape"] .focus-main {
-    width: min(71vw, 104rem);
-  }
-
-  .focus-shell[data-focus-frame="panorama"] .focus-main {
-    width: min(77vw, 118rem);
-  }
-
-  .focus-shell[data-focus-frame="portrait"] .focus-main {
-    width: min(60vw, 80rem);
-    height: min(78svh, calc(100svh - 9rem));
+    width: var(--focus-main-width, min(60vw, 72rem));
+    height: var(--focus-main-height, min(75svh, calc(100svh - 12rem)));
   }
 }
 
@@ -2216,6 +2210,10 @@ body.is-returning-from-rel .c-element-overviewgrid .overview-item.is-visible .fs
   transform: translateX(-50%);
   white-space: nowrap;
   transition: opacity .48s cubic-bezier(.24, .64, .34, 1), transform .58s cubic-bezier(.24, .64, .34, 1);
+}
+
+.focus-actions [data-focus-notes-action][aria-pressed="true"] {
+  border-bottom-color: currentColor;
 }
 
 .focus-shell.is-index .focus-actions {

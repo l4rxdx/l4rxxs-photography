@@ -39,7 +39,7 @@ py -m http.server 8778 --bind 0.0.0.0
 - 手机与电脑必须处于同一局域网；不要把某次获取的局域网 IP 写死到文档或代码。
 - 如果端口已占用，先确认旧服务是否仍有效，再改用其他端口。
 
-本地 WORK 使用 Photopea 作为唯一正式排版工具，并通过独立服务保存草稿：
+旧 Photopea WORK 工具只作为迁移备份，通过独立服务查看草稿：
 
 ```powershell
 npm run work:photopea
@@ -51,13 +51,34 @@ npm run work:photopea
 - PSD 源文件：`workbench/photopea/sources/`
 - WORK 图片：`workbench/photopea/exports/`
 - 草稿清单：`workbench/photopea/manifest.json`
-- “导出到 WORK”只更新完整平面图，不上传 PSD，也不自动解析或重构图层。
+- “导出到 WORK”只更新旧完整平面图，不再作为正式 Design 页面来源。
 - `PHOTO__NN`、`PERSON__NN` 等交互图层由 Codex 在用户提出需求后单独处理；本地 Python
   运行依赖保存在被 Git 忽略的 `workbench/photopea/runtime/`。
 - Photopea 桥接、草稿和素材均不进入 Cloudflare Pages 正式构建。
-- `work.html` 只在 localhost 或私有局域网地址加载 Photopea 草稿；生产域名必须保持空白。
+- `work.html` 的正式内容来自 Design PSD；Photopea 草稿不得覆盖正式页面。
 - 旧 `tools/work-editor/`、`workbench/work-layout.json` 和 `workbench/assets/` 仅作为迁移备份，
   在用户确认迁移完成前不得删除。
+
+## Design PSD 工作流
+
+- Design 页面唯一排版源是用户提供的 PSD，当前画布规格为 `1920 × 4478`。
+- PSD 内名称匹配 `p1`、`p2` 等 `p` 加数字的可见图层是交互作品：需要滚动裁剪揭示、
+  桌面整图悬浮放大与阴影，以及页面内无裁剪放大。
+- 其他可见图层是不可交互装饰；PSD 中自上而下的图层迭代顺序按网页从底到顶的
+  `z-index` 保存，悬浮时禁止改变层级。
+- PSD 隐藏图层不得擅自显示；导出清单必须记录画板图层总数、隐藏层和主题背景来源，
+  以便区分“隐藏”与“漏导出”。
+- 运行导出：
+
+```powershell
+$env:PYTHONPATH = "$PWD\workbench\photopea\runtime"
+py scripts\build-design-from-psd.py "<PSD 路径>"
+```
+
+- 导出结果写入 `images/design/psd/` 与 `content/design.json`；网页坐标按 PSD 画布百分比
+  响应式缩放，图片始终 `object-fit: contain`，不得裁剪。
+- Design 放大使用 `work.html` 内位于网站 Dock 下方的 lightbox；中央加号复用原动画变为
+  关闭叉号，不再创建独立 `design-focus.html`、Design REL、INFO 或 INDEX 页面。
 
 ## 图库工作流
 
@@ -89,8 +110,8 @@ npm run work:photopea
 - 随记字体使用苹方系统字体栈，地点和正文保持粗体。
 - 不恢复 REL 返回主页的照片飞行动画；沿用页面遮罩过渡。
 - INDEX 动画涉及真实图片节点换位，必须处理动画中断、快速切图和节点归还。
-- `work.html` 未经用户明确确认不得重新发布内容或媒体。
-- WORK 后续排版只使用 Photopea；本地桥接代码不得混入正式站点资源。
+- `work.html` 未经用户明确确认不得上线新内容或媒体。
+- Design 后续排版只使用 PSD 工作流；本地 Photopea 桥接代码不得混入正式站点资源。
 - `workbench/photopea/` 与旧 `workbench/assets/` 中的草稿默认不提交；确认发布后再生成正式
   WORK 资源。
 

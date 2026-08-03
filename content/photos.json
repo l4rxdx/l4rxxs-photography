@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-07-31T10:44:37Z",
+    "generatedAt":  "2026-08-02T15:15:12Z",
     "source":  "scripts/build-gallery.ps1",
     "webMax":  1920,
     "thumbMax":  480,
@@ -1182,6 +1182,46 @@
                       "mediumWidth":  1280,
                       "mediumHeight":  960,
                       "placeholderColor":  "#897350"
+                  },
+                  {
+                      "id":  57,
+                      "title":  "RAINBOW 58",
+                      "category":  "STREET",
+                      "caption":  "A single field of color crosses a rain-darkened road.",
+                      "alt":  "l4rxx photo 57 - RAINBOW 58",
+                      "original":  "images/originals/rainbow-umbrella-road.png",
+                      "full":  "images/web/057-rainbow-umbrella-road.jpg",
+                      "thumb":  "images/thumbs/057-rainbow-umbrella-road.jpg",
+                      "date":  "2026-08-02",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  1272,
+                      "thumbWidth":  480,
+                      "thumbHeight":  318,
+                      "medium":  "images/medium/057-rainbow-umbrella-road.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  848,
+                      "placeholderColor":  "#B79E7F"
+                  },
+                  {
+                      "id":  58,
+                      "title":  "HORIZON 59",
+                      "category":  "SEA",
+                      "caption":  "A distant ship divides two quiet fields of blue.",
+                      "alt":  "l4rxx photo 58 - HORIZON 59",
+                      "original":  "images/originals/blue-horizon-ship.png",
+                      "full":  "images/web/058-blue-horizon-ship.jpg",
+                      "thumb":  "images/thumbs/058-blue-horizon-ship.jpg",
+                      "date":  "2026-08-02",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  1920,
+                      "thumbWidth":  480,
+                      "thumbHeight":  480,
+                      "medium":  "images/medium/058-blue-horizon-ship.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  1280,
+                      "placeholderColor":  "#073369"
                   }
               ],
     "mediumMax":  1280

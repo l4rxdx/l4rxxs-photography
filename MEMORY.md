@@ -94,14 +94,29 @@
 - 新增照片的对外日志只记录数量，不描述画面内容。
 - 公开联系邮箱是 `2664395883@qq.com`，主页支持点击复制。
 
-## WORK / Photopea
+## DESIGN / PSD
+
+- `work.html` 的正式 Design 排版以用户 PSD 为唯一视觉源，当前画布是 `1920 × 4478`。
+- 可见图层按 PSD 的实际底到顶顺序映射到固定 `z-index`；当前顺序是
+  `p1 → triangle → p2 → p3 → p4 → a1`，悬浮时不能提高层级。
+- 只有名称为 `p` 加数字的图层可交互：滚动时播放一次 Clip-path Scroll Reveal；揭示完成后
+  必须解除 clip-path，桌面悬浮以 `scale(1.04)` 整图放大并增加阴影，不能困在原矩形内，
+  也不能改变 PSD 层级。
+- 三角形与 `a1` 是装饰图层，不响应点击；黑夜主题使用纯黑页面背景。
+- 当前 PSD 画板共有 7 层，其中 6 层可见并已导出，`wwwwww` 是隐藏且无可见像素的文字层；
+  画板外的 `颜色填充 1` 映射为网页主题背景。清单保留这些来源信息，不能把隐藏层误判为漏层。
+- 点击作品在同页 lightbox 无裁剪放大；lightbox 位于共享 Dock 下方，语言、主题和中央按钮
+  始终可见，中央加号沿原曲线变为关闭叉号。
+- Design 不再使用独立 REL、INFO 或 INDEX；`design-focus.html` 和旧 Design 图库资源已淘汰。
+- PSD 导出脚本是 `scripts/build-design-from-psd.py`，产物位于 `images/design/psd/` 和
+  `content/design.json`。
+
+## 旧 WORK / Photopea
 
 - 本地启动命令是 `npm run work:photopea`。
 - Photopea 入口是 `http://127.0.0.1:8780/tools/work-photopea/`；本地 WORK 预览是
   `http://127.0.0.1:8780/work.html`。
-- 启动常规 `8778` 网站预览后，`http://127.0.0.1:8778/work.html` 会仅在本机或私有
-  局域网中读取 `8780` 的 Photopea 草稿，并在真实网站菜单、主题和页面环境中预览。
-  生产域名不会启用该脚本，正式 `work.html` 主体仍为空。
+- Photopea 草稿和桥接保留为迁移备份，不再覆盖 `work.html` 的正式 Design PSD 页面。
 - 站内预览每两秒检查一次清单更新，Photopea 重新导出后无需手动搬运文件。
 - Photopea 顶部“导出到 WORK”只发布完整平面图，不解析 PSD 图层；照片点击、悬浮和人物拖动
   等交互分层由 Codex 单独处理，不能在导出接口中自动重构。
@@ -115,8 +130,7 @@
 - WORK 完整预览保存为
   `workbench/photopea/exports/work-XX-{desktop|mobile}.webp`。
 - `workbench/photopea/manifest.json` 是本地预览的数据源；手机稿缺失时回退到电脑稿。
-- Photopea 桥接、PSD、导出图和清单都不进入正式构建。正式 `work.html` 仍保持空白，
-  只有用户明确确认作品与发布方案后才迁移为生产资源。
+- Photopea 桥接、旧 PSD、导出图和清单都不进入正式构建。
 - 旧本地编辑器和旧草稿保留为迁移备份，不再作为后续编辑入口。
 
 ## 发布记忆
