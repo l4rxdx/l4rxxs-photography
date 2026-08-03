@@ -10,6 +10,23 @@
 - `PATCH`：线上修复、文案调整、部署配置修正或低风险细节优化。
 - 每个正式上线版本必须记录版本号、上线日期、对应提交、上线分支和缓存标识。
 
+## v1.6.1 - Douyin Profile Link Fix / 抖音主页入口修复版
+
+- 上线日期：2026-08-03
+- 对比基准：`v1.6.0 - Design Gallery And Adaptive Focus`
+- Git commit：本次发布提交，推送后以 GitHub `main` 历史和 Cloudflare Pages 部署记录为准。
+- 上线分支：`main`
+- 缓存标识：`v161-douyin-profile1`
+- 发布策略：仅修复全站菜单中的抖音主页入口并更新缓存标识；摄影图库、DESIGN 内容与动画表现保持不变。
+
+### 修复
+
+- 将首页、REL、日志与 DESIGN 菜单中访问者相关的 `/user/self` 地址替换为 l4rxx 的固定公开抖音主页，避免打开访问者自己的账号或无法到达目标主页。
+
+### 部署边界
+
+- 本次不新增或替换照片、Design 图层及媒体资源，不包含摄影原图、PSD 或本地 Photopea 草稿。
+
 ## v1.6.0 - Design Gallery And Adaptive Focus / 设计画廊与自适应大图版
 
 - 上线日期：2026-08-03

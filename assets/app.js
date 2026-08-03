@@ -122,6 +122,20 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.6.1"],
+    date: "2026-08-03",
+    categories: {
+      fixes: {
+        cn: [
+          "修复菜单中的抖音入口可能打开访问者自己的账号或无法到达主页的问题；现在统一跳转到 l4rxx 的固定公开主页。"
+        ],
+        en: [
+          "Fixed the Douyin menu link sometimes opening the visitor's own account or failing to reach the profile; it now points to l4rxx's fixed public profile."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.6.0"],
     date: "2026-08-03",
     categories: {
