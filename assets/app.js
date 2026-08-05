@@ -30,6 +30,7 @@ const PHOTO_LOAD_RETRY_DELAYS = [600, 1800, 4000];
 const PHOTO_LOAD_PRIORITY = Object.freeze({ critical: 0, visible: 1, background: 2 });
 const photoPlaceholderCleanups = new WeakMap();
 const photoLoadJobs = new WeakMap();
+const activePhotoLoadJobs = new Set();
 const failedPhotoImages = new Set();
 const photoRecoveryAttempts = new WeakMap();
 const photoLoadQueue = [];
@@ -40,6 +41,9 @@ let photoRetrySequence = 0;
 let photoRecoveryTimer = 0;
 let photoRecoveryDueAt = 0;
 let photoRecoveryFrame = 0;
+let photoPageHiddenAt = 0;
+let photoResumeRecoveryFrame = 0;
+let photoResumeRecoveryTimer = 0;
 let activePhotoLoads = 0;
 let activeCriticalPhotoLoads = 0;
 let navTransitionTimer = 0;
@@ -121,6 +125,28 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.6.2"],
+    date: "2026-08-05",
+    categories: {
+      fixes: {
+        cn: [
+          "修复网站从后台恢复后，照片可能停留在加载态、切图失效或动画中断的问题。"
+        ],
+        en: [
+          "Fixed photos remaining in loading states, photo switching stopping, or animations being interrupted after returning from a background tab."
+        ]
+      },
+      additions: {
+        cn: [
+          "新增 2 张照片，图库现有 60 张照片。"
+        ],
+        en: [
+          "Added 2 photos, bringing the gallery to 60 photos."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.6.1"],
     date: "2026-08-03",
@@ -1060,6 +1086,7 @@ function claimPhotoLoadJobHost(job, preferredHost = null, preserveVisual = job?.
 function settlePhotoLoadJob(job, ready) {
   if (job.settled) return;
   job.settled = true;
+  activePhotoLoadJobs.delete(job);
   window.clearTimeout(job.retryTimer);
   job.cleanup?.();
   if (job.active) {
@@ -1142,6 +1169,37 @@ function retryPhotoLoadJob(job) {
   pumpPhotoLoadQueue();
 }
 
+function removePhotoLoadJobFromQueue(job) {
+  for (let index = photoLoadQueue.length - 1; index >= 0; index -= 1) {
+    if (photoLoadQueue[index] === job) photoLoadQueue.splice(index, 1);
+  }
+}
+
+function restartPhotoLoadJobAfterResume(job) {
+  if (!isPhotoLoadJobCurrent(job)) return false;
+  window.clearTimeout(job.retryTimer);
+  job.retryTimer = 0;
+  job.cleanup?.();
+  job.cleanup = null;
+  job.attemptRun += 1;
+  if (job.active) {
+    job.active = false;
+    activePhotoLoads = Math.max(0, activePhotoLoads - 1);
+    if (job.countedCritical) {
+      job.countedCritical = false;
+      activeCriticalPhotoLoads = Math.max(0, activeCriticalPhotoLoads - 1);
+    }
+  }
+  removePhotoLoadJobFromQueue(job);
+  job.queued = false;
+  job.startedAt = 0;
+  job.sequence = ++photoLoadSequence;
+  job.cacheBust = true;
+  job.image.dataset.photoLoadState = "queued";
+  queuePhotoLoadJob(job);
+  return true;
+}
+
 function startPhotoLoadJob(job) {
   if (!isPhotoLoadJobCurrent(job)) {
     cancelPhotoLoadJob(job);
@@ -1154,6 +1212,7 @@ function startPhotoLoadJob(job) {
   activePhotoLoads += 1;
   if (job.countedCritical) activeCriticalPhotoLoads += 1;
   const { image } = job;
+  const attemptRun = ++job.attemptRun;
   const requestSource = getPhotoRetrySource(
     job.source,
     job.attempt,
@@ -1175,7 +1234,7 @@ function startPhotoLoadJob(job) {
     image.removeEventListener("error", handleError);
   };
   const finishReady = () => {
-    if (attemptFinished) return;
+    if (attemptFinished || job.attemptRun !== attemptRun) return;
     if (!isPhotoLoadJobCurrent(job)) {
       cancelPhotoLoadJob(job);
       return;
@@ -1185,6 +1244,7 @@ function startPhotoLoadJob(job) {
     settlePhotoLoadJob(job, true);
   };
   const handleLoad = () => {
+    if (job.attemptRun !== attemptRun) return;
     if (getPhotoSourceIdentity(image.currentSrc || image.getAttribute("src")) !== job.sourceIdentity
       || image.naturalWidth <= 0) return;
     if (typeof image.decode === "function") {
@@ -1194,9 +1254,18 @@ function startPhotoLoadJob(job) {
     else finishReady();
   };
   const handleError = () => {
-    if (attemptFinished) return;
+    if (attemptFinished || job.attemptRun !== attemptRun) return;
     if (!isPhotoLoadJobCurrent(job)) {
       cancelPhotoLoadJob(job);
+      return;
+    }
+    if (isPhotoReadyForSource(image, job.source)) {
+      handleLoad();
+      return;
+    }
+    if (document.hidden) {
+      window.clearTimeout(job.timeoutTimer);
+      job.timeoutTimer = window.setTimeout(handleError, job.timeout);
       return;
     }
     attemptFinished = true;
@@ -1303,11 +1372,13 @@ function requestPhotoImage(image, source, options = {}) {
     retryTimer: 0,
     timeoutTimer: 0,
     startedAt: 0,
+    attemptRun: 0,
     cleanup: null,
     promise,
     resolve: resolveJob
   };
   photoLoadJobs.set(image, job);
+  activePhotoLoadJobs.add(job);
   failedPhotoImages.delete(image);
   image.dataset.photoCanonicalSource = normalizedSource;
   claimPhotoLoadJobHost(job, host, job.preserveVisual);
@@ -1533,19 +1604,100 @@ function retryRecoverablePhotoImages() {
       maxAttempts: 3,
       timeout: priority === "critical" ? 9000 : 12000,
       preserveVisual: hasReadyVisual,
-      cacheBust: photoRecoveryAttempts.has(image)
+      cacheBust: photoRecoveryAttempts.has(image),
+      restartIfStalled: true,
+      stallThreshold: priority === "critical" ? 4200 : 8000
     }).catch(() => {});
   });
 }
 
+function reconcilePageChromeAfterResume() {
+  const body = document.body;
+  if (!body) return;
+  if (body.classList.contains("nav-opening")) {
+    window.clearTimeout(navTransitionTimer);
+    navTransitionTimer = 0;
+    body.classList.remove("nav-opening", "is-nav-transitioning");
+  } else if (body.classList.contains("nav-closing")) {
+    window.clearTimeout(navTransitionTimer);
+    navTransitionTimer = 0;
+    body.classList.remove("nav-open", "nav-closing", "is-nav-transitioning");
+    unlockSiteScroll();
+  }
+  if (body.classList.contains("is-page-entering")
+    && (body.classList.contains("has-focus-opening-image-ready")
+      || body.classList.contains("has-opening-images-ready")
+      || body.classList.contains("has-finished"))) {
+    finishIncomingPageTransition();
+  }
+}
+
+function recoverPhotoLoadJobsAfterResume(hiddenFor = 0, force = false) {
+  if (document.hidden) return;
+  const shouldRestartPending = force || hiddenFor >= 700;
+  activePhotoLoadJobs.forEach((job) => {
+    if (!job.image?.isConnected) {
+      cancelPhotoLoadJob(job);
+      return;
+    }
+    if (isPhotoReadyForSource(job.image, job.source)) {
+      settlePhotoLoadJob(job, true);
+      return;
+    }
+    if (shouldRestartPending && (job.active || job.retryTimer)) {
+      restartPhotoLoadJobAfterResume(job);
+    }
+  });
+  pumpPhotoLoadQueue();
+  retryRecoverablePhotoImages();
+  reconcilePageChromeAfterResume();
+  window.clearTimeout(photoResumeRecoveryTimer);
+  photoResumeRecoveryTimer = window.setTimeout(() => {
+    photoResumeRecoveryTimer = 0;
+    retryRecoverablePhotoImages();
+    pumpPhotoLoadQueue();
+  }, 320);
+}
+
+function schedulePhotoResumeRecovery(hiddenFor = 0, force = false) {
+  if (document.hidden) return;
+  if (photoResumeRecoveryFrame) cancelAnimationFrame(photoResumeRecoveryFrame);
+  photoResumeRecoveryFrame = requestAnimationFrame(() => {
+    photoResumeRecoveryFrame = requestAnimationFrame(() => {
+      photoResumeRecoveryFrame = 0;
+      recoverPhotoLoadJobsAfterResume(hiddenFor, force);
+    });
+  });
+}
+
+function handlePhotoPageResume(force = false) {
+  if (document.hidden) return;
+  const hiddenFor = photoPageHiddenAt ? Math.max(0, Date.now() - photoPageHiddenAt) : 0;
+  photoPageHiddenAt = 0;
+  schedulePhotoResumeRecovery(hiddenFor, force);
+}
+
 window.addEventListener("online", retryRecoverablePhotoImages);
-window.addEventListener("pageshow", retryRecoverablePhotoImages);
-window.addEventListener("focus", retryRecoverablePhotoImages);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) handlePhotoPageResume(true);
+  else retryRecoverablePhotoImages();
+});
+window.addEventListener("focus", () => {
+  if (photoPageHiddenAt) handlePhotoPageResume();
+  else retryRecoverablePhotoImages();
+});
+window.addEventListener("pagehide", () => {
+  photoPageHiddenAt = Date.now();
+});
 window.addEventListener("scroll", schedulePhotoRecoveryFromViewport, { passive: true });
 window.addEventListener("resize", schedulePhotoRecoveryFromViewport, { passive: true });
 window.addEventListener("resize", pumpPhotoLoadQueue, { passive: true });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) retryRecoverablePhotoImages();
+  if (document.hidden) {
+    photoPageHiddenAt = Date.now();
+    return;
+  }
+  handlePhotoPageResume();
 });
 document.addEventListener("pointerdown", (event) => {
   const target = event.target instanceof Element ? event.target : null;
@@ -5378,6 +5530,9 @@ function renderFocus() {
   let focusMainPhotoLoadRun = 0;
   let focusMainQualityRequest = null;
   let focusMainQualityRetryTimer = 0;
+  let focusPageHiddenAt = 0;
+  let focusResumeRecoveryFrame = 0;
+  let focusResumeRecoveryTimer = 0;
   const focusMainQualityRetryDelays = [2500, 8000, 20000];
   const focusPhotoRatios = new Map();
   const focusImagePreloadCache = new Map();
@@ -5703,6 +5858,13 @@ function renderFocus() {
       scrollToFocusIndex(activeIndex, false);
       scheduleFocusIndexMotionWarmup(activeIndex);
     }
+  });
+  document.addEventListener("visibilitychange", handleFocusPageVisibilityChange);
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) scheduleFocusResumeRecovery(true);
+  });
+  window.addEventListener("focus", () => {
+    if (focusPageHiddenAt) scheduleFocusResumeRecovery();
   });
   window.addEventListener("l4rxx:languagechange", () => {
     const active = Number(shell.dataset.activeIndex || initial);
@@ -10059,6 +10221,153 @@ function renderFocus() {
     focusMainTouchBaseOffset = 0;
     focusMainTouchContinuationDirection = 0;
     focusMainTouchGestureDirection = 0;
+  }
+
+  function clearFocusTransientMotionAfterResume() {
+    resetFocusMainTouch();
+    clearFocusQueuedSwipe();
+    clearFocusMainSwipe();
+    cancelFocusNotesGestureAnimation();
+    focusNotesGesture.active = false;
+    focusNotesGesture.animating = false;
+    focusNotesGesture.progress = shell.classList.contains("is-notes") ? 1 : 0;
+    focusNotesGesture.velocity = 0;
+    clearFocusNotesGestureStyles();
+    window.clearTimeout(focusNotesTransitionTimer);
+    focusNotesTransitionTimer = 0;
+    shell.classList.remove("is-notes-transitioning");
+    focusInitialLockUntil = 0;
+    focusMainSwipeLockUntil = 0;
+    focusSyncHoldUntil = 0;
+    focusIndexInteractionLockUntil = 0;
+  }
+
+  function finishInterruptedFocusIndexTransition() {
+    if (focusIndexState.phase !== "opening" && focusIndexState.phase !== "closing") return false;
+    const runId = focusIndexState.runId;
+    const index = focusIndexState.activeIndex;
+    const phase = focusIndexState.phase;
+    const currentRect = cancelFocusIndexImageAnimation(true) || getFocusRect(image);
+    cancelFocusIndexCardAnimations(true);
+    focusIndexState.returnImagePreparing = false;
+    if (phase === "opening") {
+      const finalRect = positionFocusIndexGalleryOnActive(index)
+        || getFocusIndexCardRect(getFocusIndexCardByIndex(index))
+        || currentRect;
+      finishFocusIndexOpen(index, finalRect, runId);
+      return true;
+    }
+    finishFocusIndexClose(
+      index,
+      { restoreNotes: focusIndexState.returnMode === "notes" },
+      runId,
+      currentRect
+    );
+    return true;
+  }
+
+  function recoverFocusAfterResume() {
+    focusResumeRecoveryFrame = 0;
+    if (document.hidden || !document.body.contains(shell)) return;
+    clearFocusTransientMotionAfterResume();
+
+    if (finishInterruptedFocusIndexTransition()) {
+      schedulePhotoRecoverySweep(0);
+      return;
+    }
+
+    window.clearTimeout(focusIndexTransitionTimer);
+    focusIndexTransitionTimer = 0;
+    window.clearTimeout(focusIndexReturnSettleTimer);
+    focusIndexReturnSettleTimer = 0;
+    releaseFocusIndexTransitionInput(focusIndexInputLockRunId);
+    document.documentElement.classList.remove("focus-index-input-lock");
+    document.body.classList.remove("focus-index-input-lock");
+    shell.classList.remove(
+      "is-index-input-locked",
+      "is-index-opening",
+      "is-index-closing",
+      "is-index-exiting",
+      "is-index-opening-active",
+      "is-index-transitioning",
+      "is-index-reparenting",
+      "is-index-return-settling"
+    );
+    shell.removeAttribute("aria-busy");
+    shell.inert = false;
+    clearFocusRailIndexExit();
+
+    if (focusIndexState.mode === "index") {
+      const index = getBoundedFocusIndex(focusIndexState.activeIndex);
+      shell.classList.add("is-index");
+      setFocusIndexActionsAvailable(false);
+      indexGallery?.setAttribute("aria-hidden", "false");
+      lockFocusIndexPageScroll();
+      const activeMedia = getFocusIndexCardByIndex(index)?.querySelector(".focus-index-card__media");
+      if (activeMedia && image.parentElement !== activeMedia) dockFocusIndexImage(index, null);
+      restoreMissingFocusIndexCardImages();
+      positionFocusIndexGalleryOnActive(index);
+      scheduleFocusIndexImageWindow();
+      requestFocusIndexFullImage(image, index, true);
+      schedulePhotoRecoverySweep(0);
+      return;
+    }
+
+    cancelFocusImageSwitch({ restoreVisualSelection: true });
+    const index = getBoundedFocusIndex(Number(shell.dataset.activeIndex || focusIndexState.activeIndex || 0));
+    const photo = photos[index];
+    focusIndexState.activeIndex = index;
+    focusIndexState.mode = shell.classList.contains("is-notes") ? "notes" : "rel";
+    focusIndexState.returnMode = focusIndexState.mode;
+    shell.classList.remove("is-index");
+    setFocusIndexActionsAvailable(true);
+    indexGallery?.setAttribute("aria-hidden", "true");
+    unlockFocusIndexPageScroll();
+    if (image.parentElement !== imageToggle) restoreFocusIndexImageToMain(null, index);
+    if (photo) {
+      updateFocusMainFrame(photo);
+      updateFocusMainPlaceholderGeometry(photo);
+      startFocusMainProgressiveLoad(photo, index);
+      hydrateFocusThumbRange(index, 2);
+    }
+    releaseFocusRailUserControl();
+    clearFocusManualSelection();
+    updateFocusRailMetrics();
+    updateMobileFocusRail();
+    scrollToFocusIndex(index, false, getFocusRailAlignmentCenter());
+    scheduleFocusRailSync(520);
+    scheduleNotesLayoutUpdate();
+    wakeMobileFocusRail({ delay: 1500 });
+    if (!shell.classList.contains("is-notes")) scheduleFocusIndexMotionWarmup(index);
+    schedulePhotoRecoverySweep(0);
+  }
+
+  function scheduleFocusResumeRecovery(force = false) {
+    if (document.hidden) return;
+    const hiddenFor = focusPageHiddenAt ? Math.max(0, Date.now() - focusPageHiddenAt) : 0;
+    focusPageHiddenAt = 0;
+    if (!force && hiddenFor < 250) return;
+    if (focusResumeRecoveryFrame) cancelAnimationFrame(focusResumeRecoveryFrame);
+    window.clearTimeout(focusResumeRecoveryTimer);
+    focusResumeRecoveryFrame = requestAnimationFrame(() => {
+      focusResumeRecoveryFrame = requestAnimationFrame(recoverFocusAfterResume);
+    });
+    focusResumeRecoveryTimer = window.setTimeout(() => {
+      focusResumeRecoveryTimer = 0;
+      if (!document.hidden && focusResumeRecoveryFrame) {
+        cancelAnimationFrame(focusResumeRecoveryFrame);
+        recoverFocusAfterResume();
+      }
+    }, 420);
+  }
+
+  function handleFocusPageVisibilityChange() {
+    if (document.hidden) {
+      focusPageHiddenAt = Date.now();
+      resetFocusMainTouch();
+      return;
+    }
+    scheduleFocusResumeRecovery();
   }
 
   function updateFocusMainTouchVelocity(clientX, clientY, eventTime) {
