@@ -46,8 +46,26 @@ let photoResumeRecoveryFrame = 0;
 let photoResumeRecoveryTimer = 0;
 let activePhotoLoads = 0;
 let activeCriticalPhotoLoads = 0;
+let photoLoadCriticalGate = null;
 let navTransitionTimer = 0;
 let pageTransitionTimer = 0;
+
+function setPhotoLoadCriticalGate(token, stage = "thumbnail") {
+  photoLoadCriticalGate = { token: String(token), stage };
+  pumpPhotoLoadQueue();
+}
+
+function updatePhotoLoadCriticalGate(token, stage) {
+  if (!photoLoadCriticalGate || photoLoadCriticalGate.token !== String(token)) return;
+  photoLoadCriticalGate.stage = stage;
+  pumpPhotoLoadQueue();
+}
+
+function clearPhotoLoadCriticalGate(token = null) {
+  if (token !== null && photoLoadCriticalGate?.token !== String(token)) return;
+  photoLoadCriticalGate = null;
+  pumpPhotoLoadQueue();
+}
 
 function getSiteSmoothScroll() {
   return window.l4rxxSmoothScroll || null;
@@ -125,6 +143,28 @@ const releaseLogCategories = [
 ];
 
 const releaseLogEntries = [
+  {
+    versions: ["v1.6.3"],
+    date: "2026-08-08",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化 REL 主图加载顺序：先完成缩略图解码并显示，再请求高清图，并为当前主图保留优先加载通道。"
+        ],
+        en: [
+          "Refined REL loading so the thumbnail is decoded and shown before the high-resolution image request begins, with a reserved priority lane for the active main photo."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复高清图提前请求与轨道缩略图竞争造成的主图加载慢和切换不稳定。"
+        ],
+        en: [
+          "Fixed premature quality requests competing with the thumbnail rail and making the REL main image slow or unreliable."
+        ]
+      }
+    }
+  },
   {
     versions: ["v1.6.2"],
     date: "2026-08-05",
@@ -1284,15 +1324,27 @@ function pumpPhotoLoadQueue() {
   const limit = getPhotoLoadConcurrency();
   const normalLimit = Math.max(1, limit - 1);
   while (photoLoadQueue.length) {
-    const job = photoLoadQueue.shift();
-    if (!job || job.cancelled || job.settled || !job.queued || photoLoadJobs.get(job.image) !== job) continue;
-    const canStart = job.priority === "critical"
-      ? activePhotoLoads < limit + 1
-      : activePhotoLoads < normalLimit;
-    if (!canStart) {
-      photoLoadQueue.unshift(job);
-      break;
+    for (let index = photoLoadQueue.length - 1; index >= 0; index -= 1) {
+      const queuedJob = photoLoadQueue[index];
+      if (!queuedJob || queuedJob.cancelled || queuedJob.settled || !queuedJob.queued
+        || photoLoadJobs.get(queuedJob.image) !== queuedJob) {
+        photoLoadQueue.splice(index, 1);
+      }
     }
+    if (!photoLoadQueue.length) break;
+    const gate = photoLoadCriticalGate;
+    const nextIndex = photoLoadQueue.findIndex((job) => {
+      if (gate) {
+        return job.gateToken === gate.token
+          && job.priority === "critical"
+          && activePhotoLoads < limit + 1;
+      }
+      return job.priority === "critical"
+        ? activePhotoLoads < limit + 1
+        : activePhotoLoads < normalLimit;
+    });
+    if (nextIndex < 0) break;
+    const [job] = photoLoadQueue.splice(nextIndex, 1);
     startPhotoLoadJob(job);
   }
 }
@@ -1328,6 +1380,7 @@ function requestPhotoImage(image, source, options = {}) {
     } else {
       claimPhotoLoadJobHost(existing, host, options.preserveVisual || existing.preserveVisual);
       if (options.preserveVisual) existing.preserveVisual = true;
+      if (options.gateToken != null) existing.gateToken = String(options.gateToken);
       if (PHOTO_LOAD_PRIORITY[priority] < PHOTO_LOAD_PRIORITY[existing.priority]) {
         existing.priority = priority;
         image.fetchPriority = priority === "critical" ? "high" : "low";
@@ -1363,6 +1416,7 @@ function requestPhotoImage(image, source, options = {}) {
     maxAttempts: Math.max(0, Number(options.maxAttempts ?? 3)),
     timeout: Math.max(3000, Number(options.timeout || 12000)),
     preserveVisual: Boolean(options.preserveVisual),
+    gateToken: options.gateToken == null ? "" : String(options.gateToken),
     cacheBust: Boolean(options.cacheBust || failedPhotoImages.has(image)),
     active: false,
     countedCritical: false,
@@ -7774,6 +7828,8 @@ function renderFocus() {
     const restoredNotesLayout = setNotesOpen(restoreNotes);
     unlockFocusIndexPageScroll();
     shell.offsetHeight;
+    prepareFocusRailForIndexReturn(index);
+    shell.offsetHeight;
     const settledNotesRect = restoreNotes
       ? getFocusImageContentRectForPhoto(photos[index], index, {
         notes: true,
@@ -7814,7 +7870,7 @@ function renderFocus() {
     focusIndexState.pendingSelection = null;
     focusIndexState.returnImagePreparing = false;
     holdFocusIndexInteraction();
-    releaseFocusRailAfterIndexReturn(index);
+    releaseFocusRailAfterIndexReturn(index, true);
     startFocusMainProgressiveLoad(photos[index], index);
     releaseFocusIndexNodeHandoff(runId, restoreNotes ? 1460 : 560);
     releaseFocusIndexTransitionInput(runId);
@@ -9449,6 +9505,7 @@ function renderFocus() {
   function cancelFocusMainQualityRequest() {
     window.clearTimeout(focusMainQualityRetryTimer);
     focusMainQualityRetryTimer = 0;
+    clearPhotoLoadCriticalGate();
     if (!focusMainQualityRequest) return;
     window.clearTimeout(focusMainQualityRequest.timer);
     window.clearTimeout(focusMainQualityRequest.decodeTimer);
@@ -9467,17 +9524,26 @@ function renderFocus() {
   function finishFocusMainQualityUpgrade(runId, index, source, previewSource, requestSource = source) {
     if (!isCurrentFocusMainLoad(runId, index, source)) return Promise.resolve(false);
     if (previewSource) image.style.backgroundImage = `url("${previewSource}")`;
+    updatePhotoLoadCriticalGate(runId, "quality");
     return requestPhotoImage(image, requestSource, {
       host: imageToggle,
       priority: "critical",
       maxAttempts: 0,
       timeout: 4500,
+      gateToken: runId,
       preserveVisual: true
     }).then((ready) => {
-      if (!isCurrentFocusMainLoad(runId, index, source)) return false;
-      if (!ready) return false;
+      if (!isCurrentFocusMainLoad(runId, index, source)) {
+        clearPhotoLoadCriticalGate(runId);
+        return false;
+      }
+      if (!ready) {
+        clearPhotoLoadCriticalGate(runId);
+        return false;
+      }
       image.dataset.focusVisualSource = source;
       imageToggle.dataset.photoVisual = "quality";
+      imageToggle.dataset.photoProgressiveStage = "quality-visible";
       imageToggle.classList.remove("is-photo-loading");
       imageToggle.classList.add("is-photo-ready");
       imageToggle.removeAttribute("aria-busy");
@@ -9488,6 +9554,7 @@ function renderFocus() {
         }
       }, 260);
       scheduleFocusNeighborPreload(index);
+      clearPhotoLoadCriticalGate(runId);
       return true;
     });
   }
@@ -9495,6 +9562,7 @@ function renderFocus() {
   function queueFocusMainQualityRetry(photo, index, runId, attempt) {
     if (attempt >= focusMainQualityRetryDelays.length
       || !isCurrentFocusMainLoad(runId, index, getFocusPhotoSource(photo))) return;
+    clearPhotoLoadCriticalGate(runId);
     window.clearTimeout(focusMainQualityRetryTimer);
     focusMainQualityRetryTimer = window.setTimeout(() => {
       focusMainQualityRetryTimer = 0;
@@ -9506,7 +9574,12 @@ function renderFocus() {
     const source = getFocusPhotoSource(photo);
     const previewSource = photo?.thumb || source;
     const requestSource = getPhotoRetrySource(source, attempt, attempt > 0 ? `${runId}-${attempt}` : "");
-    if (!source || source === previewSource || !isCurrentFocusMainLoad(runId, index, source)) return;
+    if (!source || source === previewSource || !isCurrentFocusMainLoad(runId, index, source)) {
+      clearPhotoLoadCriticalGate(runId);
+      return;
+    }
+    setPhotoLoadCriticalGate(runId, "quality");
+    imageToggle.dataset.photoProgressiveStage = "quality-requesting";
     if (focusMainQualityRequest) {
       window.clearTimeout(focusMainQualityRequest.timer);
       window.clearTimeout(focusMainQualityRequest.decodeTimer);
@@ -9534,7 +9607,10 @@ function renderFocus() {
       loader.onload = null;
       loader.onerror = null;
       focusMainQualityRequest = null;
-      if (!isCurrentFocusMainLoad(runId, index, source)) return;
+      if (!isCurrentFocusMainLoad(runId, index, source)) {
+        clearPhotoLoadCriticalGate(runId);
+        return;
+      }
       if (!ready) {
         queueFocusMainQualityRetry(photo, index, runId, attempt);
         return;
@@ -9564,6 +9640,7 @@ function renderFocus() {
     const previewSource = photo?.thumb || source;
     const runId = ++focusMainPhotoLoadRun;
     cancelFocusMainQualityRequest();
+    setPhotoLoadCriticalGate(runId, "thumbnail");
     applyPhotoPlaceholder(imageToggle, photo);
     setPhotoImageKey(image, getPhotoRecordKey(photo));
     image.style.removeProperty("background-image");
@@ -9578,18 +9655,21 @@ function renderFocus() {
     if (currentIsReady && currentSource === qualitySource) {
       image.dataset.focusVisualSource = source;
       imageToggle.dataset.photoVisual = "quality";
+      imageToggle.dataset.photoProgressiveStage = "quality-visible";
       revealPhotoImage(image, imageToggle, {
         photoKey: getPhotoRecordKey(photo),
         source
       });
       imageToggle.removeAttribute("aria-busy");
       image.style.removeProperty("background-color");
+      clearPhotoLoadCriticalGate(runId);
       scheduleFocusNeighborPreload(index);
       scheduleFocusIndexThumbWarmupNow(index);
       return Promise.resolve(true);
     }
     if (currentIsReady && currentSource === getFocusImageAbsoluteUrl(previewSource)) {
       imageToggle.dataset.photoVisual = previewSource === source ? "quality" : "preview";
+      imageToggle.dataset.photoProgressiveStage = previewSource === source ? "quality-visible" : "thumbnail-visible";
       revealPhotoImage(image, imageToggle, {
         photoKey: getPhotoRecordKey(photo),
         source: previewSource
@@ -9597,44 +9677,48 @@ function renderFocus() {
       imageToggle.removeAttribute("aria-busy");
       scheduleFocusIndexThumbWarmupNow(index);
       if (previewSource !== source) startFocusMainQualityUpgrade(photo, index, runId);
-      else scheduleFocusNeighborPreload(index);
+      else {
+        clearPhotoLoadCriticalGate(runId);
+        scheduleFocusNeighborPreload(index);
+      }
       return Promise.resolve(true);
     }
 
     const previewRequest = requestPhotoImage(image, previewSource, {
       host: imageToggle,
       priority: "critical",
+      gateToken: runId,
       maxAttempts: 1,
       timeout: 4000,
       photoKey: getPhotoRecordKey(photo)
     }).then((ready) => {
       if (!isCurrentFocusMainLoad(runId, index, source)) return false;
-      if (!ready) return false;
+      if (!ready) {
+        clearPhotoLoadCriticalGate(runId);
+        return false;
+      }
       image.dataset.focusVisualSource = previewSource;
       imageToggle.dataset.photoVisual = previewSource === source ? "quality" : "preview";
+      imageToggle.dataset.photoProgressiveStage = previewSource === source ? "quality-visible" : "thumbnail-visible";
       imageToggle.classList.remove("is-photo-loading");
       imageToggle.classList.add("is-photo-ready");
       imageToggle.removeAttribute("aria-busy");
       scheduleFocusIndexThumbWarmupNow(index);
-      if (previewSource === source) scheduleFocusNeighborPreload(index);
+      if (previewSource === source) {
+        clearPhotoLoadCriticalGate(runId);
+        scheduleFocusNeighborPreload(index);
+      }
       return true;
     });
 
     if (previewSource !== source) {
-      if (shouldAvoidPhotoPreloads()) {
-        previewRequest.finally(() => {
-          if (isCurrentFocusMainLoad(runId, index, source)) {
-            startFocusMainQualityUpgrade(photo, index, runId);
-          }
-        });
-      } else {
-        focusMainQualityRetryTimer = window.setTimeout(() => {
-          focusMainQualityRetryTimer = 0;
-          if (isCurrentFocusMainLoad(runId, index, source)) {
-            startFocusMainQualityUpgrade(photo, index, runId);
-          }
-        }, 180);
-      }
+      previewRequest.then((ready) => {
+        if (ready && isCurrentFocusMainLoad(runId, index, source)) {
+          startFocusMainQualityUpgrade(photo, index, runId);
+        } else if (!ready) {
+          clearPhotoLoadCriticalGate(runId);
+        }
+      });
     }
     return previewRequest;
   }
@@ -9857,13 +9941,25 @@ function renderFocus() {
     focusSyncHoldUntil = 0;
   }
 
-  function releaseFocusRailAfterIndexReturn(index) {
+  function prepareFocusRailForIndexReturn(index) {
     clearFocusManualSelection();
     releaseFocusRailUserControl();
     focusRailPendingSelection = null;
     focusRailSelectionLastAt = 0;
     focusInitialLockUntil = 0;
     wakeMobileFocusRail({ delay: 1350 });
+    updateFocusRailMetrics();
+    updateMobileFocusRail();
+    if (window.innerWidth > 768) getSiteSmoothScroll()?.resize();
+    scrollToFocusIndex(index, false, getFocusRailAlignmentCenter());
+    settleFocusRailShifts();
+    setFocusManualSelection(index, 760);
+    focusSyncHoldUntil = Date.now() + 760;
+  }
+
+  function releaseFocusRailAfterIndexReturn(index, alreadyAligned = false) {
+    if (!alreadyAligned) prepareFocusRailForIndexReturn(index);
+    if (window.innerWidth > 768) return;
     const alignReturnedRail = () => {
       if (focusIndexState.phase !== "idle"
         || focusIndexState.mode === "index"
@@ -9873,9 +9969,6 @@ function renderFocus() {
       if (window.innerWidth > 768) getSiteSmoothScroll()?.resize();
       scrollToFocusIndex(index, false, getFocusRailAlignmentCenter());
     };
-    setFocusManualSelection(index, 760);
-    focusSyncHoldUntil = Date.now() + 760;
-    alignReturnedRail();
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         alignReturnedRail();
@@ -10532,6 +10625,36 @@ function renderFocus() {
     focusRailSyncFrame = requestAnimationFrame(syncFocusFromScroll);
   }
 
+  function getFocusRailShiftTarget(thumb, index, isMobile) {
+    const metric = focusRailThumbMetrics[index];
+    const rect = metric ? null : thumb.getBoundingClientRect();
+    const center = metric
+      ? isMobile
+        ? metric.left - thumbs.scrollLeft + metric.width / 2
+        : metric.top - (window.scrollY || document.documentElement.scrollTop || 0) + metric.height / 2
+      : isMobile
+        ? rect.left + rect.width / 2
+        : rect.top + rect.height / 2;
+    const viewportCenter = isMobile ? window.innerWidth / 2 : window.innerHeight / 2;
+    const range = isMobile ? 220 : 280;
+    const maxShift = isMobile ? 24 : 64;
+    const distance = Math.abs(center - viewportCenter);
+    const strength = distance < range ? 1 - distance / range : 0;
+    return {
+      distance,
+      shift: strength * strength * maxShift
+    };
+  }
+
+  function settleFocusRailShifts() {
+    const isMobile = window.innerWidth <= 768;
+    focusThumbButtons.forEach((thumb, index) => {
+      const { shift } = getFocusRailShiftTarget(thumb, index, isMobile);
+      focusShiftPositions.set(thumb, shift);
+      thumb.style.setProperty("--focus-shift", `${shift.toFixed(2)}px`);
+    });
+  }
+
   function syncFocusFromScroll() {
     focusRailSyncFrame = 0;
     if (!document.body.contains(shell)) return;
@@ -10541,9 +10664,6 @@ function renderFocus() {
     const canSyncRail = !isIndex && (!isNotes || isMobile);
     if (canSyncRail) {
       const allThumbs = focusThumbButtons;
-      const viewportCenter = isMobile ? window.innerWidth / 2 : window.innerHeight / 2;
-      const range = isMobile ? 220 : 280;
-      const maxShift = isMobile ? 24 : 64;
       let activeIndex = Number(shell.dataset.activeIndex || 0);
       let nearestDistance = Infinity;
       let needsAnotherFrame = false;
@@ -10551,18 +10671,7 @@ function renderFocus() {
       const syncPaused = isFocusMainSwipeBusy() || manualSelected || Date.now() < focusSyncHoldUntil || Date.now() < focusMainSwipeLockUntil || Date.now() < focusInitialLockUntil || (isMobile && !isMobileFocusRailReady(allThumbs));
 
       allThumbs.forEach((thumb, index) => {
-        const metric = focusRailThumbMetrics[index];
-        const rect = metric ? null : thumb.getBoundingClientRect();
-        const center = metric
-          ? isMobile
-            ? metric.left - thumbs.scrollLeft + metric.width / 2
-            : metric.top - (window.scrollY || document.documentElement.scrollTop || 0) + metric.height / 2
-          : isMobile
-            ? rect.left + rect.width / 2
-            : rect.top + rect.height / 2;
-        const distance = Math.abs(center - viewportCenter);
-        const strength = distance < range ? 1 - distance / range : 0;
-        const targetShift = strength * strength * maxShift;
+        const { distance, shift: targetShift } = getFocusRailShiftTarget(thumb, index, isMobile);
         const currentShift = focusShiftPositions.get(thumb) || 0;
         const delta = targetShift - currentShift;
         const shift = Math.abs(delta) <= .04 ? targetShift : currentShift + delta * focusFollowRate;
