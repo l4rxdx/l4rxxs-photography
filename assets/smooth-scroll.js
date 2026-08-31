@@ -18,6 +18,15 @@
   let lockedScrollY = 0;
   let savedHtmlOverflow = "";
   let lockedScrollFrame = 0;
+  let lockedMobileChromeSurface = null;
+  let lockedMobileChromeScrollTop = 0;
+  let savedMobileChromeOverflowY = "";
+
+  const getMobileChromeScrollSurface = () => {
+    if (!document.documentElement.classList.contains("mobile-browser-chrome-latched")) return null;
+    const surface = document.querySelector("[data-mobile-chrome-scroll]");
+    return surface instanceof HTMLElement ? surface : null;
+  };
 
   const isInsideLockedScrollRegion = (event) => {
     const target = event.target instanceof Element ? event.target : event.target?.parentElement;
@@ -46,6 +55,7 @@
     document.documentElement.classList.toggle("l4rxx-scrollbar-lock", !nativeTouchScroll.matches);
     if (nativeTouchScroll.matches) {
       document.documentElement.style.overflow = "hidden";
+      if (lockedMobileChromeSurface) lockedMobileChromeSurface.style.overflowY = "hidden";
       return;
     }
     document.documentElement.style.overflow = savedHtmlOverflow;
@@ -60,6 +70,10 @@
     window.removeEventListener("wheel", preventLockedViewportWheel);
     document.documentElement.classList.remove("l4rxx-scrollbar-lock");
     document.documentElement.style.overflow = savedHtmlOverflow;
+    if (lockedMobileChromeSurface) {
+      lockedMobileChromeSurface.style.overflowY = savedMobileChromeOverflowY;
+      lockedMobileChromeSurface.scrollTop = lockedMobileChromeScrollTop;
+    }
   };
 
   const getNativeTargetTop = (target) => {
@@ -173,20 +187,27 @@
       if (lockDepth > 1) return;
       lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
       savedHtmlOverflow = document.documentElement.style.overflow;
+      lockedMobileChromeSurface = getMobileChromeScrollSurface();
+      lockedMobileChromeScrollTop = lockedMobileChromeSurface?.scrollTop || 0;
+      savedMobileChromeOverflowY = lockedMobileChromeSurface?.style.overflowY || "";
       applyDocumentScrollLock();
       lenis?.stop();
     },
     unlock(top = lockedScrollY) {
       lockDepth = Math.max(0, lockDepth - 1);
       if (lockDepth > 0) return;
+      const hadMobileChromeSurface = Boolean(lockedMobileChromeSurface);
       releaseDocumentScrollLock();
+      lockedMobileChromeSurface = null;
+      lockedMobileChromeScrollTop = 0;
+      savedMobileChromeOverflowY = "";
       lenis?.start();
       const targetTop = Number.isFinite(top) ? top : lockedScrollY;
       if (lenis) {
         lenis.resize();
         lenis.scrollTo(targetTop, { immediate: true, force: true });
       }
-      else window.scrollTo({ top: targetTop, left: 0, behavior: "auto" });
+      else if (!hadMobileChromeSurface) window.scrollTo({ top: targetTop, left: 0, behavior: "auto" });
     }
   };
 

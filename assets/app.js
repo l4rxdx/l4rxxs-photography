@@ -144,6 +144,32 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.6.4"],
+    date: "2026-08-31",
+    categories: {
+      optimizations: {
+        cn: [
+          "优化桌面首页头像与照片的互动：头像会移动到悬浮照片附近，并在页面滚动时继续跟随目标照片；照片悬浮反馈同步增强。",
+          "优化移动端 REL 与 DESIGN 的 Safari 浏览：浏览器栏自然收起后稳定交接页面滚动，减少反向滚动造成的界面宽高变化。"
+        ],
+        en: [
+          "Refined the desktop home interaction so the avatar docks beside the hovered photo and stays with it while the page scrolls, with a slightly stronger photo hover response.",
+          "Refined mobile Safari browsing in REL and DESIGN by stabilizing page scrolling after the browser chrome naturally collapses, reducing layout changes during reverse scrolling."
+        ]
+      },
+      fixes: {
+        cn: [
+          "修复部分未登录浏览器无法稳定打开 l4rxx 抖音主页的问题；全站菜单改用公开分享入口。",
+          "同步修正两条随记的中英文地点与正文内容。"
+        ],
+        en: [
+          "Fixed the l4rxx Douyin profile failing to open reliably in some signed-out browsers by using the public share handoff across the site.",
+          "Synchronized the Chinese and English location and note content for two entries."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.6.3"],
     date: "2026-08-08",
     categories: {
@@ -789,6 +815,7 @@ const languageLabels = {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const hasIncomingTransition = beginIncomingPageTransition();
+  initMobileBrowserChromeLatch();
   initChrome();
   initLanguageSwitch();
   initEmailCopy();
@@ -1947,6 +1974,152 @@ function initChrome() {
     if (targetUrl.origin !== window.location.origin || targetUrl.href === window.location.href) return;
     event.preventDefault();
     navigateWithPageTransition(targetUrl.href);
+  });
+}
+
+function initMobileBrowserChromeLatch() {
+  const page = document.body.dataset.page;
+  if (page !== "focus" && page !== "work") return;
+
+  const userAgent = navigator.userAgent || "";
+  const isIPadDesktopMode = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  const isIOS = /iP(?:hone|ad|od)/.test(userAgent) || isIPadDesktopMode;
+  const isWebKitSafari = /WebKit/.test(userAgent) && !/(?:CriOS|FxiOS|EdgiOS|OPiOS)/.test(userAgent);
+  const isTouchViewport = window.matchMedia("(max-width: 768px), (hover: none) and (pointer: coarse)");
+  if (!isIOS || !isWebKitSafari || !isTouchViewport.matches) return;
+
+  const root = document.documentElement;
+  const scrollSurface = document.querySelector("[data-mobile-chrome-scroll]");
+  const visualViewport = window.visualViewport;
+  let baselineViewportHeight = visualViewport?.height || window.innerHeight;
+  let collapseIntentAt = 0;
+  let latchTimer = 0;
+  let orientationTimer = 0;
+  let touchOrigin = null;
+  let touchTarget = null;
+
+  const getViewportHeight = () => visualViewport?.height || window.innerHeight;
+  const getRootScrollY = () => window.scrollY || root.scrollTop || 0;
+  const getRootScrollRange = () => Math.max(0, root.scrollHeight - getViewportHeight());
+
+  const getScrollableAncestor = (target) => {
+    let element = target instanceof Element ? target : target?.parentElement;
+    while (element && element !== document.body && element !== root) {
+      const style = window.getComputedStyle(element);
+      const canScroll = /(auto|scroll)/.test(style.overflowY)
+        && element.scrollHeight > element.clientHeight + 1;
+      if (canScroll) return element;
+      element = element.parentElement;
+    }
+    return null;
+  };
+
+  const clampScrollSurface = () => {
+    if (!(scrollSurface instanceof HTMLElement)) return;
+    const maximum = Math.max(0, scrollSurface.scrollHeight - scrollSurface.clientHeight);
+    scrollSurface.scrollTop = Math.min(Math.max(0, scrollSurface.scrollTop), maximum);
+  };
+
+  const latchBrowserChrome = () => {
+    if (root.classList.contains("mobile-browser-chrome-latched")) return;
+    const rootScrollY = getRootScrollY();
+    root.classList.add("mobile-browser-chrome-latched");
+    document.body.classList.add("is-mobile-browser-chrome-latched");
+    if (scrollSurface instanceof HTMLElement) {
+      scrollSurface.scrollTop = rootScrollY;
+      requestAnimationFrame(() => {
+        scrollSurface.scrollTop = rootScrollY;
+        clampScrollSurface();
+      });
+    }
+    window.dispatchEvent(new CustomEvent("l4rxx:mobilechromelatched", {
+      detail: { page, rootScrollY }
+    }));
+  };
+
+  const canLatchBrowserChrome = () => {
+    if (!collapseIntentAt || root.classList.contains("mobile-browser-chrome-latched")) return false;
+    const viewportGain = getViewportHeight() - baselineViewportHeight;
+    if (viewportGain >= 20) return true;
+    const range = getRootScrollRange();
+    const fallbackThreshold = range <= 4 ? .5 : Math.min(48, Math.max(20, range * .04));
+    return performance.now() - collapseIntentAt >= 220 && getRootScrollY() >= fallbackThreshold;
+  };
+
+  const evaluateBrowserChrome = () => {
+    if (canLatchBrowserChrome()) latchBrowserChrome();
+  };
+
+  const scheduleBrowserChromeLatch = (delay = 240) => {
+    window.clearTimeout(latchTimer);
+    latchTimer = window.setTimeout(evaluateBrowserChrome, delay);
+  };
+
+  const handleTouchStart = (event) => {
+    if (event.touches.length !== 1) {
+      touchOrigin = null;
+      touchTarget = null;
+      return;
+    }
+    const touch = event.touches[0];
+    touchOrigin = { x: touch.clientX, y: touch.clientY };
+    touchTarget = event.target;
+  };
+
+  const handleTouchMove = (event) => {
+    if (!touchOrigin || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - touchOrigin.x;
+    const deltaY = touch.clientY - touchOrigin.y;
+    const isVertical = Math.abs(deltaY) > Math.abs(deltaX) * 1.08;
+
+    if (!root.classList.contains("mobile-browser-chrome-latched")) {
+      if (isVertical && deltaY < -8) {
+        if (!collapseIntentAt) collapseIntentAt = performance.now();
+        evaluateBrowserChrome();
+        scheduleBrowserChromeLatch();
+      }
+      return;
+    }
+
+    if (!isVertical || deltaY <= 6) return;
+    const scroller = getScrollableAncestor(touchTarget);
+    if (scroller && scroller.scrollTop > 1) return;
+    if (event.cancelable) event.preventDefault();
+  };
+
+  const handleTouchEnd = () => {
+    if (collapseIntentAt) scheduleBrowserChromeLatch(260);
+    touchOrigin = null;
+    touchTarget = null;
+  };
+
+  const resetViewportBaseline = () => {
+    if (root.classList.contains("mobile-browser-chrome-latched")) {
+      clampScrollSurface();
+      return;
+    }
+    collapseIntentAt = 0;
+    baselineViewportHeight = getViewportHeight();
+  };
+
+  document.addEventListener("touchstart", handleTouchStart, { passive: true });
+  document.addEventListener("touchmove", handleTouchMove, { passive: false });
+  document.addEventListener("touchend", handleTouchEnd, { passive: true });
+  document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+  window.addEventListener("scroll", evaluateBrowserChrome, { passive: true });
+  visualViewport?.addEventListener("resize", evaluateBrowserChrome, { passive: true });
+  window.addEventListener("orientationchange", () => {
+    window.clearTimeout(orientationTimer);
+    orientationTimer = window.setTimeout(resetViewportBaseline, 280);
+  }, { passive: true });
+  window.addEventListener("pageshow", () => {
+    if (!root.classList.contains("mobile-browser-chrome-latched")) resetViewportBaseline();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !root.classList.contains("mobile-browser-chrome-latched")) {
+      baselineViewportHeight = getViewportHeight();
+    }
   });
 }
 
@@ -4560,6 +4733,8 @@ function initializeOverviewObserverInteraction(grid) {
   let hoveredItem = null;
   let focusedItem = null;
   let hasLatchedDirectItem = false;
+  let latchedRel = "";
+  let preferredDockAnchor = "";
   let observer = null;
   let readyTimer = 0;
   let waitTimer = 0;
@@ -4573,6 +4748,8 @@ function initializeOverviewObserverInteraction(grid) {
   let mobilePendingItem = null;
   let suppressCoarseFocusUntil = 0;
   let frame = 0;
+  let desktopScrollFrame = 0;
+  let lastOverviewScrollY = window.scrollY || document.documentElement.scrollTop || 0;
   let motionFrame = 0;
   let motionLastTime = 0;
   let motionStableFrames = 0;
@@ -4622,11 +4799,19 @@ function initializeOverviewObserverInteraction(grid) {
   const refreshMetrics = (items = null) => {
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
     getPhotoItems(items).forEach((item) => {
-      const rect = item.getBoundingClientRect();
+      const imageRect = item.querySelector(".fs-media img")?.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      const rect = imageRect && imageRect.width > 0 && imageRect.height > 0 ? imageRect : itemRect;
       if (rect.width < 1 || rect.height < 1) return;
       metrics.set(item, {
         centerX: rect.left + rect.width / 2,
-        centerY: scrollY + rect.top + rect.height / 2
+        centerY: scrollY + rect.top + rect.height / 2,
+        left: rect.left,
+        right: rect.right,
+        top: scrollY + rect.top,
+        bottom: scrollY + rect.bottom,
+        width: rect.width,
+        height: rect.height
       });
     });
   };
@@ -4945,7 +5130,7 @@ function initializeOverviewObserverInteraction(grid) {
     body.classList.remove("is-observer-moving");
   };
 
-  const getFigureTarget = (item) => {
+  const getOrbitFigureTarget = (item) => {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const titleRect = title.getBoundingClientRect();
@@ -5002,6 +5187,197 @@ function initializeOverviewObserverInteraction(grid) {
     };
   };
 
+  const expandRect = (rect, amount) => ({
+    left: rect.left - amount,
+    right: rect.right + amount,
+    top: rect.top - amount,
+    bottom: rect.bottom + amount
+  });
+
+  const getMetricViewportRect = (item, scrollY = window.scrollY || document.documentElement.scrollTop || 0) => {
+    const metric = item ? metrics.get(item) : null;
+    if (!metric) return null;
+    return {
+      left: metric.left,
+      right: metric.right,
+      top: metric.top - scrollY,
+      bottom: metric.bottom - scrollY
+    };
+  };
+
+  const isViewportPhotoVisible = (rect, margin = 0) => Boolean(rect
+    && rect.right > -margin
+    && rect.left < window.innerWidth + margin
+    && rect.bottom > -margin
+    && rect.top < window.innerHeight + margin);
+
+  const getViewportPhotoRects = (targetItem, scrollY) => {
+    const candidates = new Set([...visibleItems, targetItem].filter(Boolean));
+    return [...candidates].flatMap((candidate) => {
+      const metric = metrics.get(candidate);
+      if (!candidate.isConnected || !metric) return [];
+      const rect = getMetricViewportRect(candidate, scrollY);
+      if (!rect) return [];
+      if (
+        rect.right < -24
+        || rect.left > window.innerWidth + 24
+        || rect.bottom < -24
+        || rect.top > window.innerHeight + 24
+      ) return [];
+      return [{ item: candidate, rect }];
+    });
+  };
+
+  const getObserverControlRects = () => {
+    return [...document.querySelectorAll(".control-language, .control-theme, .control-menu")].flatMap((control) => {
+      const rect = control.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return [];
+      return [expandRect(rect, 6)];
+    });
+  };
+
+  const getRouteObstructionCount = (candidate, photoRects) => {
+    const blockedItems = new Set();
+    const startX = figureMotion.x;
+    const startY = figureMotion.y;
+    for (let step = 1; step < 9; step++) {
+      const ratio = step / 9;
+      const x = startX + (candidate.x - startX) * ratio;
+      const y = startY + (candidate.y - startY) * ratio;
+      const ellipse = getFigureEllipse(x, y, 1);
+      photoRects.forEach(({ item, rect }) => {
+        if (ellipseOverlapsRect(ellipse, expandRect(rect, 2))) blockedItems.add(item);
+      });
+    }
+    return blockedItems.size;
+  };
+
+  const getPhotoDockTarget = (item) => {
+    const metric = metrics.get(item);
+    if (!metric || !(metric.width > 0 && metric.height > 0)) return getOrbitFigureTarget(item);
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const figureWidth = figure.offsetWidth || 44;
+    const figureHeight = figure.offsetHeight || figureWidth * 1.25;
+    const centerOffsetX = figureWidth * figureCollider.centerX;
+    const centerOffsetY = figureHeight * figureCollider.centerY;
+    const radiusX = figureWidth * figureCollider.radiusX;
+    const radiusY = figureHeight * figureCollider.radiusY;
+    const safeInset = 16;
+    const photoRect = getMetricViewportRect(item, scrollY);
+    if (!photoRect) return getOrbitFigureTarget(item);
+    if (!isViewportPhotoVisible(photoRect, 8)) {
+      const edge = photoRect.bottom <= -8 ? "top" : photoRect.top >= height + 8 ? "bottom" : "side";
+      return {
+        x: clamp(figureMotion.x, safeInset, Math.max(safeInset, width - figureWidth - safeInset)),
+        y: clamp(figureMotion.y, safeInset, Math.max(safeInset, height - figureHeight - safeInset)),
+        angle: figureMotion.angle,
+        anchor: `photo-edge-${edge}`,
+        sector: Number.parseInt(body.dataset.observerAngle || "0", 10) || 0
+      };
+    }
+    const photoWidth = photoRect.right - photoRect.left;
+    const photoHeight = photoRect.bottom - photoRect.top;
+    const currentCenterX = figureMotion.x + centerOffsetX;
+    const currentCenterY = figureMotion.y + centerOffsetY;
+    const photoRects = getViewportPhotoRects(item, scrollY);
+    const controlRects = getObserverControlRects();
+    const photoDockGaps = [14, 30, 48];
+    const candidates = [];
+    const addCandidate = (anchor, centerX, centerY, priority, gapIndex) => {
+      const x = centerX - centerOffsetX;
+      const y = centerY - centerOffsetY;
+      const ellipse = getFigureEllipse(x, y, 2);
+      const outside = Math.max(0, safeInset - x)
+        + Math.max(0, safeInset - y)
+        + Math.max(0, x + figureWidth - (width - safeInset))
+        + Math.max(0, y + figureHeight - (height - safeInset));
+      const photoOverlaps = photoRects.reduce((count, entry) => {
+        return count + (ellipseOverlapsRect(ellipse, expandRect(entry.rect, 4)) ? 1 : 0);
+      }, 0);
+      const controlOverlaps = controlRects.reduce((count, rect) => {
+        return count + (ellipseOverlapsRect(ellipse, rect) ? 1 : 0);
+      }, 0);
+      const travel = Math.hypot(centerX - currentCenterX, centerY - currentCenterY);
+      const routeObstructions = getRouteObstructionCount({ x, y }, photoRects);
+      const score = travel
+        + priority
+        + gapIndex * 24
+        - (anchor === preferredDockAnchor ? 32 : 0)
+        + routeObstructions * Math.max(width, height) * 1.25
+        + photoOverlaps * Math.max(width, height) * 4
+        + controlOverlaps * Math.max(width, height) * 4
+        + outside * 40;
+      candidates.push({
+        anchor,
+        x,
+        y,
+        centerX,
+        centerY,
+        score,
+        clean: outside === 0 && photoOverlaps === 0 && controlOverlaps === 0
+      });
+    };
+
+    photoDockGaps.forEach((gap, gapIndex) => {
+      const leftCenterX = photoRect.left - gap - radiusX;
+      const rightCenterX = photoRect.right + gap + radiusX;
+      [
+        { name: "center", ratio: .5, priority: 0 },
+        { name: "upper", ratio: .28, priority: 14 },
+        { name: "lower", ratio: .72, priority: 14 }
+      ].forEach(({ name, ratio, priority }) => {
+        const centerY = photoRect.top + photoHeight * ratio;
+        addCandidate(`left-${name}`, leftCenterX, centerY, priority, gapIndex);
+        addCandidate(`right-${name}`, rightCenterX, centerY, priority, gapIndex);
+      });
+
+      const topCenterY = photoRect.top - gap - radiusY;
+      const bottomCenterY = photoRect.bottom + gap + radiusY;
+      [
+        { name: "center", ratio: .5, priority: 44 },
+        { name: "left", ratio: .28, priority: 56 },
+        { name: "right", ratio: .72, priority: 56 }
+      ].forEach(({ name, ratio, priority }) => {
+        const centerX = photoRect.left + photoWidth * ratio;
+        addCandidate(`top-${name}`, centerX, topCenterY, priority, gapIndex);
+        addCandidate(`bottom-${name}`, centerX, bottomCenterY, priority, gapIndex);
+      });
+    });
+
+    const cleanCandidates = candidates.filter((candidate) => candidate.clean);
+    const pool = cleanCandidates.length ? cleanCandidates : candidates;
+    const best = pool.reduce((current, candidate) => {
+      return candidate.score < current.score ? candidate : current;
+    }, pool[0]);
+    if (!best) return getOrbitFigureTarget(item);
+    if (best.clean) preferredDockAnchor = best.anchor;
+
+    const titleRect = title.getBoundingClientRect();
+    const titleCenterX = titleRect.left + titleRect.width / 2;
+    const titleCenterY = titleRect.top + titleRect.height / 2;
+    const directionX = best.centerX - titleCenterX;
+    const directionY = best.centerY - titleCenterY;
+    const directionLength = Math.hypot(directionX, directionY) || 1;
+    const orbitAngle = Math.atan2(directionY, directionX);
+    const normalizedAngle = (orbitAngle + Math.PI * 2) % (Math.PI * 2);
+    const sector = Math.round(normalizedAngle / (Math.PI / 6)) % 12;
+    return {
+      x: clamp(best.x, safeInset, Math.max(safeInset, width - figureWidth - safeInset)),
+      y: clamp(best.y, safeInset, Math.max(safeInset, height - figureHeight - safeInset)),
+      angle: clamp((directionX / directionLength) * 5.2 + (directionY / directionLength) * 3.4, -9, 9),
+      anchor: `photo-${best.anchor}`,
+      sector
+    };
+  };
+
+  const getFigureTarget = (item) => {
+    if (!finePointer?.matches || !item) return getOrbitFigureTarget(item);
+    return getPhotoDockTarget(item);
+  };
+
   const applyTarget = (item, options = {}) => {
     const target = getFigureTarget(item);
     title.style.setProperty("--brand-shift-x", "0px");
@@ -5042,9 +5418,14 @@ function initializeOverviewObserverInteraction(grid) {
       applyTarget(activeItem);
       return;
     }
-    activeItem?.classList.remove("is-observer-active");
+    const previousItem = activeItem;
+    const previousRel = previousItem?.dataset.rel || latchedRel;
+    const nextRel = next?.dataset.rel || "";
+    if (nextRel && nextRel !== previousRel) preferredDockAnchor = "";
+    previousItem?.classList.remove("is-observer-active");
     activeItem = next;
     activeItem?.classList.add("is-observer-active");
+    refreshMetrics([...visibleItems, previousItem, activeItem].filter(Boolean));
     body.dataset.observerRel = activeItem?.dataset.rel || "";
     applyTarget(activeItem);
   };
@@ -5055,10 +5436,22 @@ function initializeOverviewObserverInteraction(grid) {
     const directTarget = finePointer?.matches ? (focusedItem || hoveredItem) : focusedItem;
     if (directTarget) {
       hasLatchedDirectItem = true;
+      latchedRel = directTarget.dataset.rel || "";
       setActiveItem(directTarget);
       return;
     }
-    if (finePointer?.matches && hasLatchedDirectItem && activeItem?.isConnected) return;
+    if (finePointer?.matches && hasLatchedDirectItem) {
+      if (activeItem?.isConnected) return;
+      if (latchedRel) {
+        const replacement = getPhotoItems().find((item) => (
+          item.isConnected
+          && item.dataset.rel === latchedRel
+          && isViewportPhotoVisible(getMetricViewportRect(item), 24)
+        ));
+        if (replacement) setActiveItem(replacement);
+      }
+      return;
+    }
     setActiveItem(getCenteredItem());
   };
 
@@ -5079,6 +5472,7 @@ function initializeOverviewObserverInteraction(grid) {
     body.classList.remove("is-observer-touch-scrolling");
     focusedItem = null;
     hasLatchedDirectItem = false;
+    latchedRel = "";
     setActiveItem(mobilePendingItem);
     mobilePendingItem = null;
   };
@@ -5110,24 +5504,6 @@ function initializeOverviewObserverInteraction(grid) {
     const photoItems = getPhotoItems(items);
     refreshMetrics(photoItems);
     photoItems.forEach((item) => observer?.observe(item));
-  };
-
-  const handlePointerOver = (event) => {
-    if (!finePointer?.matches) return;
-    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
-    if (!item || !grid.contains(item) || hoveredItem === item) return;
-    hoveredItem = item;
-    updateActiveItem();
-  };
-
-  const handlePointerOut = (event) => {
-    if (!hoveredItem) return;
-    const related = event.relatedTarget instanceof Element ? event.relatedTarget : null;
-    if (related && hoveredItem.contains(related)) return;
-    const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
-    if (item !== hoveredItem) return;
-    hoveredItem = null;
-    scheduleActiveUpdate();
   };
 
   const handleFocusIn = (event) => {
@@ -5175,6 +5551,14 @@ function initializeOverviewObserverInteraction(grid) {
   };
 
   const handlePointerMove = (event) => {
+    if (finePointer?.matches) {
+      const item = event.target instanceof Element ? event.target.closest(".overview-item[href]") : null;
+      if (item && grid.contains(item) && hoveredItem !== item) {
+        hoveredItem = item;
+        updateActiveItem();
+      }
+      return;
+    }
     if (!usesScrollSettledInteraction() || mobilePointerId !== event.pointerId) return;
     const dx = event.clientX - mobilePointerStartX;
     const dy = event.clientY - mobilePointerStartY;
@@ -5200,10 +5584,41 @@ function initializeOverviewObserverInteraction(grid) {
 
   const handleOverviewScroll = () => {
     if (usesScrollSettledInteraction()) {
+      lastOverviewScrollY = window.scrollY || document.documentElement.scrollTop || 0;
       beginMobileScrollInteraction();
       return;
     }
-    scheduleActiveUpdate();
+    if (desktopScrollFrame) return;
+    desktopScrollFrame = requestAnimationFrame(() => {
+      desktopScrollFrame = 0;
+      const nextScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const scrollDelta = nextScrollY - lastOverviewScrollY;
+      lastOverviewScrollY = nextScrollY;
+      if (
+        finePointer?.matches
+        && hasLatchedDirectItem
+        && activeItem?.isConnected
+        && figureMotion.initialized
+      ) {
+        const figureHeight = figure.offsetHeight || (figure.offsetWidth || 44) * 1.25;
+        const safeInset = 16;
+        const shiftedY = clamp(
+          figureMotion.y - scrollDelta,
+          safeInset,
+          Math.max(safeInset, window.innerHeight - figureHeight - safeInset)
+        );
+        figureMotion.y = shiftedY;
+        figureMotion.targetY = clamp(
+          figureMotion.targetY - scrollDelta,
+          safeInset,
+          Math.max(safeInset, window.innerHeight - figureHeight - safeInset)
+        );
+        renderObserverMotion();
+        applyTarget(activeItem);
+        return;
+      }
+      scheduleActiveUpdate();
+    });
   };
 
   const handleBatchAppend = (event) => {
@@ -5217,8 +5632,7 @@ function initializeOverviewObserverInteraction(grid) {
     mobilePendingItem = mobilePendingItem?.isConnected ? mobilePendingItem : null;
     if (activeItem && !activeItem.isConnected) {
       activeItem = null;
-      hasLatchedDirectItem = false;
-      body.dataset.observerRel = "";
+      if (!hasLatchedDirectItem) body.dataset.observerRel = "";
     }
     requestAnimationFrame(() => {
       refreshMetrics();
@@ -5231,6 +5645,7 @@ function initializeOverviewObserverInteraction(grid) {
     resizeFrame = requestAnimationFrame(() => {
       resizeFrame = requestAnimationFrame(() => {
         resizeFrame = 0;
+        lastOverviewScrollY = window.scrollY || document.documentElement.scrollTop || 0;
         refreshMetrics();
         refreshLetterGeometry();
         applyTarget(activeItem);
@@ -5251,6 +5666,7 @@ function initializeOverviewObserverInteraction(grid) {
       body.classList.remove("is-observer-touch-scrolling");
       return;
     }
+    lastOverviewScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     refreshLetterGeometry();
     applyTarget(activeItem);
   };
@@ -5259,6 +5675,7 @@ function initializeOverviewObserverInteraction(grid) {
     if (interactionReady) return;
     interactionReady = true;
     body.classList.add("is-observer-ready");
+    lastOverviewScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     refreshMetrics();
     refreshLetterGeometry();
     if (reducedMotion) {
@@ -5300,8 +5717,6 @@ function initializeOverviewObserverInteraction(grid) {
     threshold: 0
   });
   observeItems();
-  grid.addEventListener("pointerover", handlePointerOver, { passive: true });
-  grid.addEventListener("pointerout", handlePointerOut, { passive: true });
   grid.addEventListener("focusin", handleFocusIn);
   grid.addEventListener("focusout", handleFocusOut);
   grid.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
@@ -5319,6 +5734,7 @@ function initializeOverviewObserverInteraction(grid) {
 
   overviewInteractionCleanup = () => {
     if (frame) cancelAnimationFrame(frame);
+    if (desktopScrollFrame) cancelAnimationFrame(desktopScrollFrame);
     if (motionFrame) cancelAnimationFrame(motionFrame);
     if (resizeFrame) cancelAnimationFrame(resizeFrame);
     window.clearTimeout(readyTimer);
@@ -5326,8 +5742,6 @@ function initializeOverviewObserverInteraction(grid) {
     window.clearTimeout(navigationTimer);
     window.clearTimeout(mobileScrollTimer);
     observer?.disconnect();
-    grid.removeEventListener("pointerover", handlePointerOver);
-    grid.removeEventListener("pointerout", handlePointerOut);
     grid.removeEventListener("focusin", handleFocusIn);
     grid.removeEventListener("focusout", handleFocusOut);
     grid.removeEventListener("pointerdown", handlePointerDown, true);
