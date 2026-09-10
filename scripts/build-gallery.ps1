@@ -84,7 +84,13 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "rainbow-umbrella-road.png"; title = "RAINBOW 58"; category = "STREET"; caption = "A single field of color crosses a rain-darkened road." },
     @{ original = "blue-horizon-ship.png"; title = "HORIZON 59"; category = "SEA"; caption = "A distant ship divides two quiet fields of blue." },
     @{ original = "market-basket.jpg"; title = "BASKET 60"; category = "DAILY"; caption = "A warm frame from an ordinary shopping trip." },
-    @{ original = "misty-mountain-selfie.jpg"; title = "SUMMIT 61"; category = "TRAVEL"; caption = "A self-portrait held against a misty mountain path." }
+    @{ original = "misty-mountain-selfie.jpg"; title = "SUMMIT 61"; category = "TRAVEL"; caption = "A self-portrait held against a misty mountain path." },
+    @{ original = "_R011951.jpg"; title = "CAGE 62"; category = "CAT"; caption = "Two cats meet the camera through a blue wire cage."; date = "2026-08-26" },
+    @{ original = "_R012006-2.jpg"; title = "SHORE 63"; category = "TRAVEL"; caption = "A figure and a long shadow cross the glittering lakeside."; date = "2026-09-01" },
+    @{ original = "_R011622.jpg"; title = "AISLE 64"; category = "FLIGHT"; caption = "Low cabin light gathers around passengers between rows."; date = "2026-08-19" },
+    @{ original = "_R011630.jpg"; title = "WINDOW 65"; category = "TRANSIT"; caption = "Passengers and a bright landscape share the carriage frame."; date = "2026-08-19" },
+    @{ original = "_R011782.JPG"; title = "MARKET 66"; category = "MARKET"; caption = "A crowded fruit stall fills the frame from edge to edge."; date = "2026-08-21" },
+    @{ original = "_R011843.JPG"; title = "TRAIL 67"; category = "TRAVEL"; caption = "A family walks a wet trail beneath the forest canopy."; date = "2026-08-21" }
 )
 
 function Convert-ToSlug {
@@ -310,7 +316,7 @@ foreach ($File in $OrderedFiles) {
     $Category = if ($Existing -and $Existing.category) { $Existing.category } elseif ($Seed) { $Seed.category } else { "NEW" }
     $Caption = if ($Existing -and $Existing.caption) { $Existing.caption } elseif ($Seed) { $Seed.caption } else { "A new frame from the local archive." }
     $Alt = if ($Existing -and $Existing.alt) { $Existing.alt } else { "l4rxx photo {0:D2} - $Title" -f $Id }
-    $Date = if ($Existing -and $Existing.date) { $Existing.date } else { $File.LastWriteTime.ToString("yyyy-MM-dd") }
+    $Date = if ($Existing -and $Existing.date) { $Existing.date } elseif ($Seed -and $Seed.date) { $Seed.date } else { $File.LastWriteTime.ToString("yyyy-MM-dd") }
     $Note = if ($Existing -and $Existing.note) { $Existing.note } elseif ($Seed -and $Seed.noteCn) { $Seed.noteCn } else { "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个" }
     $NoteCn = if ($Existing -and $Existing.noteCn) { $Existing.noteCn } elseif ($Seed -and $Seed.noteCn) { $Seed.noteCn } else { $null }
     $NoteEn = if ($Existing -and $Existing.noteEn) { $Existing.noteEn } elseif ($Seed -and $Seed.noteEn) { $Seed.noteEn } else { $null }

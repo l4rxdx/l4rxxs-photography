@@ -10,6 +10,24 @@
 - `PATCH`：线上修复、文案调整、部署配置修正或低风险细节优化。
 - 每个正式上线版本必须记录版本号、上线日期、对应提交、上线分支和缓存标识。
 
+## v1.6.5 - Gallery 66 / 图库 66 张版
+
+- 上线日期：2026-09-10
+- 对比基准：`v1.6.4 - Mobile Safari And Home Observer`
+- Git commit：本次发布提交，推送后以 GitHub `main` 历史和 Cloudflare Pages 部署记录为准。
+- 上线分支：`main`
+- 缓存标识：`v165-gallery66`
+- 发布策略：新增 6 张照片并同步三档响应式图片资源；不改变 DESIGN 内容、页面结构和现有交互。
+
+### 增加
+
+- 新增 6 张照片，图库由 60 张增至 66 张。
+- 为新增照片生成 Web、Medium 与 Thumbnail 三档资源，并补齐拍摄日期、尺寸和取色占位数据。
+
+### 部署边界
+
+- 正式构建包含 66 张摄影作品的 Web、Medium 与 Thumbnail 资源；不包含摄影原图、PSD、Photopea 草稿、编辑器运行数据或本地文件路径。
+
 ## v1.6.4 - Mobile Safari And Home Observer / 移动 Safari 与首页互动版
 
 - 上线日期：2026-08-31

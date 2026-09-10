@@ -144,6 +144,20 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.6.5"],
+    date: "2026-09-10",
+    categories: {
+      additions: {
+        cn: [
+          "新增 6 张照片，图库现有 66 张照片。"
+        ],
+        en: [
+          "Added 6 photos, bringing the gallery to 66 photos."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.6.4"],
     date: "2026-08-31",
     categories: {
