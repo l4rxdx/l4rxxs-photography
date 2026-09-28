@@ -144,6 +144,28 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.6.6"],
+    date: "2026-09-28",
+    categories: {
+      optimizations: {
+        cn: [
+          "完善一张照片的随记与地点信息。"
+        ],
+        en: [
+          "Refined the note and location information for one photo."
+        ]
+      },
+      additions: {
+        cn: [
+          "新增 2 张照片，图库现有 68 张照片。"
+        ],
+        en: [
+          "Added 2 photos, bringing the gallery to 68 photos."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.6.5"],
     date: "2026-09-10",
     categories: {

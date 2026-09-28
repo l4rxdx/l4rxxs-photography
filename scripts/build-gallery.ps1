@@ -90,7 +90,9 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "_R011622.jpg"; title = "AISLE 64"; category = "FLIGHT"; caption = "Low cabin light gathers around passengers between rows."; date = "2026-08-19" },
     @{ original = "_R011630.jpg"; title = "WINDOW 65"; category = "TRANSIT"; caption = "Passengers and a bright landscape share the carriage frame."; date = "2026-08-19" },
     @{ original = "_R011782.JPG"; title = "MARKET 66"; category = "MARKET"; caption = "A crowded fruit stall fills the frame from edge to edge."; date = "2026-08-21" },
-    @{ original = "_R011843.JPG"; title = "TRAIL 67"; category = "TRAVEL"; caption = "A family walks a wet trail beneath the forest canopy."; date = "2026-08-21" }
+    @{ original = "_R011843.JPG"; title = "TRAIL 67"; category = "TRAVEL"; caption = "A family walks a wet trail beneath the forest canopy."; date = "2026-08-21"; noteCn = "很像《步履不停》的宣传海报"; noteEn = "It looks like a promotional poster for Still Walking."; locationCn = "大理 苍山"; locationEn = "Dali Cangshan Mountain" },
+    @{ original = "airport-gates.png"; title = "GATE 68"; category = "AIRPORT"; caption = "A quiet gate hall opens beneath a dark ceiling."; date = "2026-09-16" },
+    @{ original = "_R011886.jpg"; title = "COUNTER 69"; category = "CAFE"; caption = "Warm light settles across an empty café counter."; date = "2026-09-15" }
 )
 
 function Convert-ToSlug {
