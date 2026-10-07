@@ -92,7 +92,8 @@ $SeedPhotos = @(    @{ original = "DSC00049.jpg"; title = "FIELD 02"; category =
     @{ original = "_R011782.JPG"; title = "MARKET 66"; category = "MARKET"; caption = "A crowded fruit stall fills the frame from edge to edge."; date = "2026-08-21" },
     @{ original = "_R011843.JPG"; title = "TRAIL 67"; category = "TRAVEL"; caption = "A family walks a wet trail beneath the forest canopy."; date = "2026-08-21"; noteCn = "很像《步履不停》的宣传海报"; noteEn = "It looks like a promotional poster for Still Walking."; locationCn = "大理 苍山"; locationEn = "Dali Cangshan Mountain" },
     @{ original = "airport-gates.png"; title = "GATE 68"; category = "AIRPORT"; caption = "A quiet gate hall opens beneath a dark ceiling."; date = "2026-09-16" },
-    @{ original = "_R011886.jpg"; title = "COUNTER 69"; category = "CAFE"; caption = "Warm light settles across an empty café counter."; date = "2026-09-15" }
+    @{ original = "_R011886.jpg"; title = "COUNTER 69"; category = "CAFE"; caption = "Warm light settles across an empty café counter."; date = "2026-09-15" },
+    @{ original = "tree-shadow-grass.jpeg"; title = "SHADOW 70"; category = "PARK"; caption = "A long tree shadow crosses a field of bright green grass."; date = "2026-10-05"; noteCn = "才二十三"; noteEn = "Only twenty-three." }
 )
 
 function Convert-ToSlug {

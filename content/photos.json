@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-09-18T12:45:21Z",
+    "generatedAt":  "2026-10-05T10:53:59Z",
     "source":  "scripts/build-gallery.ps1",
     "webMax":  1920,
     "thumbMax":  480,
@@ -1430,6 +1430,28 @@
                       "mediumWidth":  1280,
                       "mediumHeight":  853,
                       "placeholderColor":  "#130A0A"
+                  },
+                  {
+                      "id":  69,
+                      "title":  "SHADOW 70",
+                      "category":  "PARK",
+                      "caption":  "A long tree shadow crosses a field of bright green grass.",
+                      "alt":  "l4rxx photo 69 - SHADOW 70",
+                      "original":  "images/originals/tree-shadow-grass.jpeg",
+                      "full":  "images/web/069-tree-shadow-grass.jpg",
+                      "thumb":  "images/thumbs/069-tree-shadow-grass.jpg",
+                      "date":  "2026-10-05",
+                      "note":  "才二十三",
+                      "noteCn":  "才二十三",
+                      "noteEn":  "Only twenty-three.",
+                      "width":  720,
+                      "height":  540,
+                      "thumbWidth":  480,
+                      "thumbHeight":  360,
+                      "medium":  "images/medium/069-tree-shadow-grass.jpg",
+                      "mediumWidth":  720,
+                      "mediumHeight":  540,
+                      "placeholderColor":  "#0F310A"
                   }
               ],
     "mediumMax":  1280
