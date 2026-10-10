@@ -2089,6 +2089,7 @@ body:not(.has-loaded) .focus-rail,
 }
 
 .focus-main img[data-focus-image] {
+  pointer-events: auto;
   background-position: center;
   background-repeat: no-repeat;
   background-size: contain;

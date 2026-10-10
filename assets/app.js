@@ -144,6 +144,20 @@ const releaseLogCategories = [
 
 const releaseLogEntries = [
   {
+    versions: ["v1.6.9"],
+    date: "2026-10-11",
+    categories: {
+      fixes: {
+        cn: [
+          "修复大图页面右键无法另存图片的问题。"
+        ],
+        en: [
+          "Fixed saving photos from the image context menu on the focus page."
+        ]
+      }
+    }
+  },
+  {
     versions: ["v1.6.8"],
     date: "2026-10-10",
     categories: {
