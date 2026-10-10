@@ -1,5 +1,5 @@
 {
-    "generatedAt":  "2026-10-05T10:53:59Z",
+    "generatedAt":  "2026-10-10T10:12:48Z",
     "source":  "scripts/build-gallery.ps1",
     "webMax":  1920,
     "thumbMax":  480,
@@ -1452,6 +1452,26 @@
                       "mediumWidth":  720,
                       "mediumHeight":  540,
                       "placeholderColor":  "#0F310A"
+                  },
+                  {
+                      "id":  70,
+                      "title":  "PLAY 71",
+                      "category":  "PARK",
+                      "caption":  "Children play across a sunlit park lawn.",
+                      "alt":  "l4rxx photo 70 - PLAY 71",
+                      "original":  "images/originals/R0011412.jpg",
+                      "full":  "images/web/070-r0011412.jpg",
+                      "thumb":  "images/thumbs/070-r0011412.jpg",
+                      "date":  "2026-02-08",
+                      "note":  "这地方本来是给每个照片写点随记的，但是叉滴叉有点懒没写几个",
+                      "width":  1920,
+                      "height":  1371,
+                      "thumbWidth":  480,
+                      "thumbHeight":  343,
+                      "medium":  "images/medium/070-r0011412.jpg",
+                      "mediumWidth":  1280,
+                      "mediumHeight":  914,
+                      "placeholderColor":  "#B6A952"
                   }
               ],
     "mediumMax":  1280
